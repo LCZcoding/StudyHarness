@@ -2,20 +2,18 @@ package com.lcz.yuaiagent.controller;
 
 
 import com.lcz.yuaiagent.agent.ConversationStore;
-import com.lcz.yuaiagent.agent.YuManus;
+import com.lcz.yuaiagent.agent.LiManus;
+//import com.lcz.yuaiagent.agent.YuManus;
 import com.lcz.yuaiagent.app.LoveApp;
 import jakarta.annotation.Resource;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.http.MediaType;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 
@@ -29,7 +27,7 @@ public class AiController {
     private ToolCallback[] allTools;
 
     @Resource
-    private ChatModel dashScopeChatModel;
+    private ChatModel deepSeekChatModel;
 
     @Resource
     private ConversationStore conversationStore;
@@ -93,13 +91,13 @@ public class AiController {
      */
     @GetMapping("/manus/chat")
     public SseEmitter doChatWithManus(String message, String chatId) {
-        YuManus yuManus = new YuManus(allTools, dashScopeChatModel);// 每次对话都要创建一个新的实例,记忆等的影响
+        LiManus liManus = new LiManus(allTools, deepSeekChatModel);// 每次对话都要创建一个新的实例,记忆等的影响
         // 注入会话记忆能力
-        yuManus.setConversationId(chatId);
-        yuManus.setConversationStore(conversationStore);
+        liManus.setConversationId(chatId);
+        liManus.setConversationStore(conversationStore);
         // 加载该会话的历史消息，实现多轮记忆
-        yuManus.setMessageList(conversationStore.load(chatId));
-        return yuManus.runStream(message);
+        liManus.setMessageList(conversationStore.load(chatId));
+        return liManus.runStream(message);
     }
 
 

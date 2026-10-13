@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.lcz</groupId>
-    <artifactId>yu-ai-agent-changed</artifactId>
+    <artifactId>my-ai-agent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>yu-ai-agent</name>
     <description>yu-ai-agent</description>
@@ -141,6 +141,11 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-pgvector-store</artifactId>
+        </dependency>
+        <!-- deepseek大模型 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-deepseek</artifactId>
         </dependency>
 
 

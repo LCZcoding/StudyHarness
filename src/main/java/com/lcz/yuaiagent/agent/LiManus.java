@@ -7,13 +7,13 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 
 @Component
-public class YuManus extends ToolCallAgent {  
+public class LiManus extends ToolCallAgent {
   
-    public YuManus(ToolCallback[] allTools, ChatModel dashScopeChatModel) {
+    public LiManus(ToolCallback[] allTools, ChatModel deepSeekChatModel) {
         super(allTools);  
-        this.setName("yuManus");  
+        this.setName("LiManus");
         String SYSTEM_PROMPT = """  
-                You are YuManus, an all-capable AI assistant, aimed at solving any task presented by the user.  
+                You are LiManus, an all-capable AI assistant, aimed at solving any task presented by the user.  
                 You have various tools at your disposal that you can call upon to efficiently complete complex requests.  
                 """;  
         this.setSystemPrompt(SYSTEM_PROMPT);  
@@ -26,7 +26,7 @@ public class YuManus extends ToolCallAgent {
         this.setNextStepPrompt(NEXT_STEP_PROMPT);  
         this.setMaxSteps(20);  
         // 初始化客户端  
-        ChatClient chatClient = ChatClient.builder(dashScopeChatModel)
+        ChatClient chatClient = ChatClient.builder(deepSeekChatModel)
                 .defaultAdvisors(new MyLoggerAdvisor())
                 .build();  
         this.setChatClient(chatClient);  
