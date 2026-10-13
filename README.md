@@ -1,6 +1,6 @@
 # yu-ai-agent
 
-基于 Spring AI 的 AI 智能体全栈项目，包含「AI 恋爱大师」和「AI 超级智能体（类 Manus）」两个应用。
+基于 Spring AI 的 AI 智能体全栈项目，包含「AI 问题引导解决助手」和「AI 超级智能体（类 Manus）」两个应用。
 
 > 本项目是学习 [程序员鱼皮](https://yuyuanweb.com/) 的 [编程导航](https://www.code-nav.cn/) 课程中 AI 智能体相关内容的练手项目。
 > 原课程基于较早版本的 Spring AI，本项目在此基础上做了一些**更改与适配**：
@@ -8,15 +8,16 @@
 > - 实现了自主可控的 ReAct 工具调用循环（`ToolCallAgent`），并修复了模型直接回答与最终文本总结的问题；
 > - 新增基于 `chatId` 的多轮会话记忆（`ConversationStore`）；
 > - 新增 Vue 3 前端，支持 SSE 流式对话；
-> - 扩展了工具集（PDF 生成支持图片嵌入、MCP 图片搜索等）。
+> - 扩展了工具集（PDF 生成支持图片嵌入、MCP 图片搜索等）；
+> - 将「AI 恋爱大师」重构为「AI 问题引导解决助手」，默认对话模型切换为 DeepSeek（`deepseek-flash`）。
 
 ---
 
 ## 系统架构图
 
-下图展示了项目的整体架构：前端 → 后端控制器 → 两大应用（恋爱大师 / 超级智能体）→ 工具系统、记忆存储与外部 AI/数据服务。
+项目的整体架构：前端 → 后端控制器 → 两大应用（问题引导助手 / 超级智能体）→ 工具系统、记忆存储与外部 AI/数据服务。
 
-![yu-ai-agent 系统架构图](./.archify/architecture-yu-ai-agent-20261007/architecture.png)
+
 
 > 👉 **交互式架构图**（支持深色/浅色主题切换、节点聚焦、缩放与 PNG/SVG 导出）：
 > [在线预览](https://htmlpreview.github.io/?https://raw.githubusercontent.com/LCZcoding/yu-ai-agent-changed/master/.archify/architecture-yu-ai-agent-20261007/architecture.html) · [源文件](./.archify/architecture-yu-ai-agent-20261007/architecture.html)
@@ -28,6 +29,7 @@
 ### 后端
 - **Spring Boot 3.4.4** + **Java 21**
 - **Spring AI 1.1.0**（BOM 统一管理）
+- **DeepSeek**（`spring-ai-starter-model-deepseek`，当前默认对话模型 `deepseek-flash`）
 - **Spring AI Alibaba 1.1.0.0-RC2**（通义千问 DashScope 接入 + Agent Framework）
 - **Ollama**（本地模型支持）
 - **MCP**（Model Context Protocol，客户端接入远程工具）
@@ -58,14 +60,15 @@ yu-ai-agent/
 │   │   ├── BaseAgent.java        # 抽象基类：状态管理、事件循环、记忆
 │   │   ├── ReActAgent.java       # ReAct 模式：think → act
 │   │   ├── ToolCallAgent.java    # 工具调用实现
-│   │   ├── YuManus.java          # 超级智能体
+│   │   ├── LiManus.java          # 超级智能体
 │   │   └── ConversationStore.java# 多轮会话记忆
-│   ├── app/LoveApp.java # AI 恋爱大师应用（ChatClient + 记忆 + RAG）
+│   ├── app/LoveApp.java # 问题引导解决助手应用（ChatClient + 记忆 + RAG，类名沿用）
 │   ├── chatmemory/FileBasedChatMemory.java  # 基于文件的对话记忆
 │   ├── config/CorsConfig.java
 │   ├── controller/      # 接口层
 │   │   ├── AiController.java
 │   │   └── HealthController.java
+│   ├── demo/            # 大模型调用示例（Ollama / DashScope）
 │   ├── rag/             # RAG 向量存储配置
 │   ├── tools/           # 工具集（@Tool 注解）
 │   │   ├── ToolRegistration.java # 工具注册（工厂 + 适配器 + MCP 合并）
@@ -76,36 +79,44 @@ yu-ai-agent/
 │   └── YuAiAgentApplication.java
 ├── src/main/resources/
 │   ├── application.yml
-│   ├── application-local.yml          # 本地配置（含密钥，不提交）
+│   ├── application-local.yml          # 本地配置（含密钥，已在 .gitignore 中忽略）
 │   ├── application-local.example      # 配置模板
-│   ├── mcp-servers.json               # MCP 服务配置
-│   └── wiki/                          # 恋爱知识库（RAG 文档）
+│   ├── mcp-servers.json               # MCP 服务配置（已忽略提交）
+│   └── wiki/                          # 知识库文档（RAG，已忽略提交）
 ├── images-search-mcp-server/          # MCP 图片搜索服务（独立 Spring Boot）
-└── yu-ai-agent-frontend/              # Vue3 前端
+└── ai-agent-frontend/                 # Vue3 前端
+    └── src/
+        ├── api/         # request.js（Axios 实例）/ chat.js（同步接口）/ sse.js（EventSource 封装）
+        ├── components/ChatRoom.vue  # 通用聊天室（props 配置化：theme / ssePath / streamMode）
+        ├── router/index.js
+        ├── utils/chatId.js
+        └── views/       # HomeView / GuideChatView / ManusChatView
 ```
 
 ---
 
 ## 三、核心功能
 
-### 1. AI 恋爱大师
+### 1. AI 问题引导解决助手
 
-一个面向恋爱心理咨询的对话应用：
+一个"教练型"的学习与答疑对话应用（不直接给答案，引导用户自己找到答案）：
 
-- **系统提示词**：扮演恋爱心理专家，按单身 / 恋爱 / 已婚三种状态引导用户倾诉；
+- **系统提示词**：基础概念多角度讲解（定义 / 原理 / 用途 / 例子 / 误区）并给出学习路径与检索关键词；工程、报错、代码、配置类问题默认不直接给修复答案，而是引导用户补信息、读报错、提假设、查官方文档、做最小验证，从而自己得出答案；
 - **会话记忆**：基于 `chatId` 使用 `MessageWindowChatMemory` + `FileBasedChatMemory`（Kryo 序列化到本地文件），保留最近 10 条消息；
-- **RAG 增强（可选）**：`resources/wiki/` 下的恋爱知识 Markdown 文档可加载到向量库，通过 `QuestionAnswerAdvisor` 检索增强；
-- **结构化输出**：`doChatWithReport` 支持将回答解析为 `LoveReport(title, suggestions)`；
-- **工具调用**：可挂载 `allTools` 让恋爱大师也能调用工具。
+- **RAG 增强（可选）**：`resources/wiki/` 下的知识 Markdown 文档可加载到向量库，通过 `QuestionAnswerAdvisor` 检索增强；
+- **结构化输出**：`doChatWithReport` 支持将回答解析为 `LoveReport(title, suggestions)`（类名沿用）；
+- **工具调用**：可挂载 `allTools` 让引导助手也能调用工具。
 
-### 2. AI 超级智能体（YuManus / 类 Manus）
+> 该应用由早期的「AI 恋爱大师」重构而来，后端类名 `LoveApp` 与接口路径 `love_app` 为兼容前端调用而保留。
+
+### 2. AI 超级智能体（LiManus / 类 Manus）
 
 一个自主规划、调用工具、多步执行的通用智能体：
 
 - **ReAct 循环**：`think()` 让模型决定调用哪些工具，`act()` 执行工具并把结果回灌上下文，循环直到模型调用 `doTerminate` 或达到最大步数；
 - **手动工具调用**：通过 `DashScopeChatOptions.internalToolExecutionEnabled(false)` 禁用 Spring AI 内置工具执行，自主维护消息上下文；
 - **最终文本总结**：工具循环结束后，额外做一次不带工具选项的 LLM 调用，让模型基于工具结果给出自然语言总结；
-- **多轮记忆**：每次请求新建 `YuManus` 实例，但通过 `ConversationStore`（内存 Map）按 `chatId` 加载/保存完整消息历史，实现跨请求记忆；
+- **多轮记忆**：每次请求新建 `LiManus` 实例，但通过 `ConversationStore`（内存 Map）按 `chatId` 加载/保存完整消息历史，实现跨请求记忆；
 - **卡死检测**：连续 3 条相同的助手回复视为卡死，自动注入"换策略"提示词。
 
 ---
@@ -160,9 +171,11 @@ BaseAgent（状态机 + 事件循环 + 记忆）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/ai/love_app/chat/sync?message=&chatId=` | 恋爱大师同步对话 |
-| GET | `/api/ai/love_app/chat/sse?message=&chatId=` | 恋爱大师 SSE 流式对话 |
+| GET | `/api/ai/love_app/chat/sync?message=&chatId=` | 问题引导助手 · 同步对话 |
+| GET | `/api/ai/love_app/chat/sse?message=&chatId=` | 问题引导助手 · SSE 流式对话 |
 | GET | `/api/ai/manus/chat?message=&chatId=` | 超级智能体 SSE 流式对话（含多轮记忆） |
+
+> `love_app` 为沿用自早期版本的路径命名，应用本身已重构为「问题引导解决助手」；为兼容前端调用未做改动。
 
 接口文档：启动后访问 `http://localhost:8123/api/doc.html`（Knife4j）。
 
@@ -170,16 +183,18 @@ BaseAgent（状态机 + 事件循环 + 记忆）
 
 ## 七、前端
 
-位于 `yu-ai-agent-frontend/`，Vue 3 + Vite。
+位于 `ai-agent-frontend/`，Vue 3 + Vite。
 
-- **主页** `/`：切换两个 AI 应用；
-- **恋爱大师** `/love`：进入自动生成 `chatId`，SSE 调用 `love_app/chat/sse`；
-- **超级智能体** `/manus`：SSE 调用 `manus/chat`，支持多轮记忆，Step 步骤与最终总结分区展示。
+- **主页** `/`：应用中心，切换两个 AI 应用；
+- **问题引导解决助手** `/guide`：进入即自动生成 `chatId`，SSE 调用 `love_app/chat/sse`，清新蓝青主题（`theme-guide`，accent `#0ea5e9`）；
+- **超级智能体** `/manus`：SSE 调用 `manus/chat`，支持多轮记忆，Step 步骤与最终总结分区展示（`theme-manus`，科技深色）；
+- 两个页面复用同一个 `ChatRoom.vue`：通过传入 `theme` / `ssePath` / `streamMode` 等 props 配置化，无需改动组件内部逻辑；
+- SSE 使用浏览器原生 `EventSource`（`api/sse.js` 中封装），并在正常结束时主动 `close()`，避免自动重连造成重复请求。
 
 开发环境通过 Vite 代理把 `/api` 转发到 `http://localhost:8123`。
 
 ```bash
-cd yu-ai-agent-frontend
+cd ai-agent-frontend
 npm install
 npm run dev      # http://localhost:5173
 ```
@@ -203,20 +218,30 @@ npm run dev      # http://localhost:5173
 cp src/main/resources/application-local.example src/main/resources/application-local.yml
 ```
 
-需要配置的项：
+需要配置的项（当前默认对话模型为 DeepSeek）：
 
 ```yaml
 spring:
   ai:
-    dashscope:
+    deepseek:            # 默认对话模型（AiController / LoveApp / LiManus 均使用）
+      api-key: 你的DeepSeekKey
+      chat:
+        model: deepseek-flash
+    dashscope:           # 通义千问，可选（Agent Framework / 示例演示用）
       api-key: 你的通义千问Key
       chat:
         options:
           model: qwen-plus
+    ollama:              # 本地模型，可选
+      base-url: http://localhost:11434
+      chat:
+        model: qwen3.5
 
 tavily:
   api-key: 你的TavilyKey   # WebSearchTool 需要
 ```
+
+> ⚠️ **安全提醒**：`application-local.yml` 与 `mcp-servers.json` 已在 `.gitignore` 中忽略，请勿提交真实密钥；若密钥曾被提交或外泄，建议及时轮换。
 
 ### 3. 启动后端
 
@@ -229,7 +254,7 @@ mvnw.cmd spring-boot:run
 ### 4. 启动前端
 
 ```bash
-cd yu-ai-agent-frontend
+cd ai-agent-frontend
 npm install
 npm run dev
 ```
@@ -247,7 +272,13 @@ npm run dev
 ```json
 "yu-image-search-mcp-server": {
   "command": "java",
-  "args": ["-jar", "images-search-mcp-server/target/images-search-mcp-server-0.0.1-SNAPSHOT.jar"]
+  "args": [
+    "-Dspring.ai.mcp.server.stdio=true",
+    "-Dspring.main.web-application-type=none",
+    "-Dlogging.pattern.console=",
+    "-jar",
+    "images-search-mcp-server/target/images-search-mcp-server-0.0.1-SNAPSHOT.jar"
+  ]
 }
 ```
 
@@ -260,9 +291,13 @@ npm run dev
 1. **Spring AI 升级到 1.1.0**：适配新的 API（如 `ToolCallbacks.from`、`SyncMcpToolCallbackProvider`、`QuestionAnswerAdvisor` 等），部分旧 starter 的自动注册已移除，需手动实现工具注册。
 2. **自主 ReAct 工具调用**：`ToolCallAgent` 手动实现 think/act 循环，禁用内置工具执行以获得完全可控的上下文。
 3. **真实文本回答 + 最终总结**：修复了模型直接回答时返回占位语、工具执行后不给文本总结的问题。
-4. **多轮记忆**：新增 `ConversationStore`，`YuManus` 支持跨请求多轮对话。
+4. **多轮记忆**：新增 `ConversationStore`，超级智能体支持跨请求多轮对话。
 5. **前端**：新增 Vue 3 前端，主页切换应用，SSE 实时对话，Step 分区展示。
 6. **工具扩展**：`PDFGenerationTool` 支持图片嵌入；合并 MCP 图片搜索工具；增加降级处理。
+7. **应用重构**：将「AI 恋爱大师」重构为「AI 问题引导解决助手」（`LoveApp` 的系统提示词改为引导型教练提示词；类名 `LoveApp` 与接口路径 `love_app` 为兼容而保留）。
+8. **模型切换**：默认对话模型由 DashScope 通义千问切换为 **DeepSeek**（`deepseek-flash`）。
+9. **类名调整**：超级智能体类 `YuManus` 更名为 `LiManus`（前端展示名仍为 `YuManus`）。
+10. **前端目录与主题**：前端目录由 `yu-ai-agent-frontend` 更名为 `ai-agent-frontend`；页面 `LoveChatView` 替换为 `GuideChatView`，主题由 `love`（玫瑰红）改为 `guide`（蓝青，accent `#0ea5e9`）。
 
 ---
 
