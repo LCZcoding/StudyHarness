@@ -91,8 +91,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { createSseChat } from '../api/sse.js'
 
 const props = defineProps({
-  // 主题：love（温暖浪漫）/ manus（科技深色）
-  theme: { type: String, default: 'love' },
+  // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色）
+  theme: { type: String, default: 'guide' },
   title: { type: String, default: '' },
   aiName: { type: String, default: 'AI' },
   userName: { type: String, default: '我' },
@@ -102,7 +102,7 @@ const props = defineProps({
   ssePath: { type: String, required: true },
   // 流式模式：token = 逐字追加；step = 按步骤换行追加
   streamMode: { type: String, default: 'token' },
-  // 聊天室 id（恋爱大师需要，Manus 接口不需要则不传）
+  // 聊天室 id（问题引导助手需要，Manus 接口不需要则不传）
   chatId: { type: String, default: '' },
   placeholder: { type: String, default: '输入你想说的话…' },
   idleText: { type: String, default: '在线' },
@@ -258,21 +258,28 @@ onBeforeUnmount(closeSource)
   height: 100%;
   display: flex;
   flex-direction: column;
-  --text: #3f2a31;
-  --muted: #b08a96;
-  --accent: #e0446d;
-  --panel: rgba(255, 250, 247, 0.82);
+  --text: #1f3442;
+  --muted: #7b93a5;
+  --accent: #0ea5e9;
+  --panel: rgba(246, 251, 255, 0.82);
   --ai-bubble: #ffffff;
-  --user-bubble: linear-gradient(135deg, #f0577c, #ff8fa3);
-  --border: rgba(224, 68, 109, 0.16);
+  --user-bubble: linear-gradient(135deg, #2f80ed, #12b5c9);
+  --border: rgba(15, 23, 42, 0.1);
 }
 
-/* ===== 恋爱大师：奶油 + 玫瑰暖色系 ===== */
-.theme-love {
+/* ===== 问题引导解决助手：清新蓝青 · 答疑辅导风 ===== */
+.theme-guide {
+  --text: #17384d;
+  --muted: #6c8ba3;
+  --accent: #0ea5e9;
+  --panel: rgba(238, 248, 255, 0.82);
+  --ai-bubble: #ffffff;
+  --user-bubble: linear-gradient(135deg, #2f80ed, #12b5c9);
+  --border: rgba(14, 165, 233, 0.18);
   background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(255, 173, 194, 0.45), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(255, 214, 200, 0.5), transparent 60%),
-    linear-gradient(180deg, #fff6f1 0%, #ffeef2 100%);
+    radial-gradient(1000px 520px at 88% -8%, rgba(14, 165, 233, 0.18), transparent 60%),
+    radial-gradient(880px 480px at -10% 108%, rgba(45, 212, 191, 0.2), transparent 60%),
+    linear-gradient(180deg, #f4fbff 0%, #ecf8f8 100%);
 }
 
 /* ===== 超级智能体：深色 + 电光青 ===== */
@@ -351,9 +358,6 @@ onBeforeUnmount(closeSource)
   font-weight: 700;
   color: var(--text);
 }
-.theme-love .title-box h1 {
-  font-family: 'Noto Serif SC', serif;
-}
 .theme-manus .title-box h1 {
   letter-spacing: 1px;
 }
@@ -378,9 +382,9 @@ onBeforeUnmount(closeSource)
   animation: pulse 1.2s infinite;
 }
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(224, 68, 109, 0.35); }
-  70% { box-shadow: 0 0 0 7px rgba(224, 68, 109, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(224, 68, 109, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.35); }
+  70% { box-shadow: 0 0 0 7px rgba(14, 165, 233, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
 }
 .theme-manus .dot.on {
   animation: pulse-cyan 1.2s infinite;
@@ -457,9 +461,6 @@ onBeforeUnmount(closeSource)
   font-size: 22px;
   color: var(--text);
 }
-.theme-love .empty h2 {
-  font-family: 'Noto Serif SC', serif;
-}
 .empty p {
   margin: 0 0 10px;
   color: var(--muted);
@@ -535,7 +536,7 @@ onBeforeUnmount(closeSource)
   background: var(--user-bubble);
   color: #fff;
   border-top-right-radius: 5px;
-  box-shadow: 0 10px 26px rgba(224, 68, 109, 0.28);
+  box-shadow: 0 10px 26px rgba(47, 128, 237, 0.24);
 }
 .theme-manus .bubble.user {
   box-shadow: 0 10px 26px rgba(8, 145, 178, 0.3);

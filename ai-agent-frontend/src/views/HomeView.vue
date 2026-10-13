@@ -6,19 +6,18 @@
     </header>
 
     <main class="grid">
-      <!-- 应用 1：AI 恋爱大师 -->
-      <RouterLink to="/love" class="card love">
+      <!-- 应用 1：AI 问题引导解决助手 -->
+      <RouterLink to="/guide" class="card guide">
         <div class="card-inner">
           <span class="num">01</span>
-          <span class="emoji">💌</span>
-          <h2>AI 恋爱大师</h2>
-          <p>你的专属情感顾问，倾听心事、答疑解惑，<br />陪伴你走过每一段心动与纠结。</p>
+          <span class="emoji">❓</span>
+          <h2>AI 问题引导解决助手</h2>
+          <p>你的专属答疑助手，引导你解决问题，<br />陪伴你一起解决每一个问题。</p>
           <ul class="feats">
-            <li>情感咨询</li>
-            <li>约会攻略</li>
-            <li>话术支招</li>
+            <li>问题解决</li>
+            <li>学习辅助</li>
           </ul>
-          <span class="enter">进入聊天室 <b>→</b></span>
+          <span class="enter">进入答疑区 <b>→</b></span>
         </div>
       </RouterLink>
 
@@ -120,20 +119,20 @@
   padding: 6vh 8%;
 }
 
-/* 左卡：浪漫暖调 */
-.card.love {
+/* 左卡：清新蓝青 · 答疑辅导 */
+.card.guide {
   background:
-    radial-gradient(700px 400px at 85% 0%, rgba(255, 160, 185, 0.5), transparent 60%),
-    linear-gradient(160deg, #fff2ee 0%, #ffe0e8 100%);
-  border: 1px solid rgba(224, 68, 109, 0.18);
+    radial-gradient(700px 400px at 85% 0%, rgba(14, 165, 233, 0.22), transparent 60%),
+    radial-gradient(600px 380px at 0% 100%, rgba(45, 212, 191, 0.22), transparent 60%),
+    linear-gradient(160deg, #f3fbff 0%, #e6f6f8 100%);
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
-.card.love h2 {
-  font-family: 'Noto Serif SC', serif;
-  color: #5a2a3a;
+.card.guide h2 {
+  color: #123a52;
 }
-.card.love p,
-.card.love .feats {
-  color: #9c6674;
+.card.guide p,
+.card.guide .feats {
+  color: #5c7f96;
 }
 
 /* 右卡：科技冷调 */
@@ -161,8 +160,8 @@
   letter-spacing: 3px;
   opacity: 0.7;
 }
-.card.love .num {
-  color: #c75a78;
+.card.guide .num {
+  color: #0ea5e9;
 }
 .card.manus .num {
   color: #22d3ee;
@@ -206,8 +205,8 @@ h2 {
   font-size: 14px;
   font-weight: 700;
 }
-.card.love .enter {
-  color: #e0446d;
+.card.guide .enter {
+  color: #0284c7;
 }
 .card.manus .enter {
   color: #22d3ee;
@@ -226,8 +225,8 @@ h2 {
 .card:hover {
   transform: translateY(-4px);
 }
-.card.love:hover {
-  box-shadow: 0 24px 60px rgba(224, 68, 109, 0.22);
+.card.guide:hover {
+  box-shadow: 0 24px 60px rgba(14, 165, 233, 0.2);
 }
 .card.manus:hover {
   box-shadow: 0 24px 60px rgba(34, 211, 238, 0.16);

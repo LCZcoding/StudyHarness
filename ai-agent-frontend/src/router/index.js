@@ -8,10 +8,10 @@ const routes = [
     component: HomeView
   },
   {
-    path: '/love',
-    name: 'love',
+    path: '/guide',
+    name: 'guide',
     // 进入页面即生成聊天室 id（组件 setup 阶段）
-    component: () => import('../views/LoveChatView.vue')
+    component: () => import('../views/GuideChatView.vue')
   },
   {
     path: '/manus',
