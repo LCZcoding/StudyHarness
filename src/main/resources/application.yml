@@ -1,6 +1,6 @@
 spring:
   application:
-    name: yu-ai-agent
+    name: ai-agent-study
   profiles:
     active: local
   ai:

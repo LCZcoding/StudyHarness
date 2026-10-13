@@ -2,13 +2,13 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "yu-ai-agent 系统架构图",
-    "subtitle": "基于程序员鱼皮编程导航课程 · Spring AI 1.1.0 适配版",
+    "title": "ai-agent-study 系统架构图",
+    "subtitle": "Spring AI 1.1.0 · 全栈架构总览",
     "locale": "zh-CN",
     "output": "architecture.html",
     "quality_profile": "showcase",
     "repository": {
-      "url": "https://github.com/LCZcoding/yu-ai-agent-changed.git",
+      "url": "https://github.com/LCZcoding/ai-agent-study.git",
       "provider": "github",
       "revision": "6d4bfbcf31a751c7b8b4005a810d79089dc517e1"
     }
@@ -27,12 +27,12 @@
       "id": "frontend",
       "type": "frontend",
       "label": "Vue3 前端",
-      "sublabel": "主页 / 恋爱大师 / 超级智能体",
+      "sublabel": "主页 / 问题引导助手 / 超级智能体",
       "tag": "Vite 5 · Axios · EventSource",
       "pos": [400, 120],
       "size": [340, 64],
       "sources": [
-        { "path": "yu-ai-agent-frontend/src/router/index.js", "label": "路由定义" }
+        { "path": "ai-agent-frontend/src/router/index.js", "label": "路由定义" }
       ]
     },
     {
@@ -50,7 +50,7 @@
     {
       "id": "loveapp",
       "type": "backend",
-      "label": "LoveApp 恋爱大师",
+      "label": "LoveApp 问题引导助手",
       "sublabel": "ChatClient + 系统提示词 + RAG",
       "pos": [90, 356],
       "size": [250, 72],
@@ -61,13 +61,13 @@
     {
       "id": "yumanus",
       "type": "backend",
-      "label": "YuManus 超级智能体",
+      "label": "LiManus 超级智能体",
       "sublabel": "ReAct: think → act 循环",
       "tag": "maxSteps=20",
       "pos": [680, 356],
       "size": [270, 72],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/agent/YuManus.java", "label": "超级智能体" },
+        { "path": "src/main/java/com/lcz/yuaiagent/agent/LiManus.java", "label": "超级智能体" },
         { "path": "src/main/java/com/lcz/yuaiagent/agent/ToolCallAgent.java", "label": "手动工具调用" }
       ]
     },
@@ -108,7 +108,7 @@
       "id": "pgvector",
       "type": "database",
       "label": "pgvector 向量库",
-      "sublabel": "恋爱大师 RAG 知识库",
+      "sublabel": "问题引导助手 RAG 知识库",
       "pos": [80, 600],
       "size": [270, 60],
       "sources": [
@@ -144,7 +144,7 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "前端 yu-ai-agent-frontend",
+      "label": "前端 ai-agent-frontend",
       "wraps": ["frontend"],
       "pad": 14
     },
@@ -260,14 +260,14 @@
       "title": "前端",
       "items": [
         "Vue 3.5 + Vite 5，原生 EventSource 消费 SSE",
-        "三个路由：主页 / 恋爱大师 / 超级智能体"
+        "三个路由：主页 / 问题引导助手 / 超级智能体"
       ]
     },
     {
       "dot": "emerald",
       "title": "智能体架构",
       "items": [
-        "BaseAgent → ReActAgent → ToolCallAgent → YuManus",
+        "BaseAgent → ReActAgent → ToolCallAgent → LiManus",
         "手动工具调用 internalToolExecutionEnabled(false)",
         "ReAct 循环结束后 produceFinalAnswer 生成总结",
         "ConversationStore 内存多轮记忆，按 chatId 隔离"
@@ -286,7 +286,7 @@
       "dot": "amber",
       "title": "记忆与 RAG",
       "items": [
-        "恋爱大师：FileBasedChatMemory + pgvector RAG",
+        "问题引导助手：FileBasedChatMemory + pgvector RAG",
         "超级智能体：ConversationStore 内存多轮记忆"
       ]
     }

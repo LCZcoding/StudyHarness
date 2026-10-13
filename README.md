@@ -1,26 +1,25 @@
-# yu-ai-agent
+# ai-agent-study
 
-基于 Spring AI 的 AI 智能体全栈项目，包含「AI 问题引导解决助手」和「AI 超级智能体（类 Manus）」两个应用。
-
-> 本项目是学习 [程序员鱼皮](https://yuyuanweb.com/) 的 [编程导航](https://www.code-nav.cn/) 课程中 AI 智能体相关内容的练手项目。
-> 原课程基于较早版本的 Spring AI，本项目在此基础上做了一些**更改与适配**：
-> - 升级到 **Spring AI 1.1.0**（Spring Boot 3.4.4 / Java 21），并适配 Spring AI Alibaba `1.1.0.0-RC2`；
-> - 实现了自主可控的 ReAct 工具调用循环（`ToolCallAgent`），并修复了模型直接回答与最终文本总结的问题；
-> - 新增基于 `chatId` 的多轮会话记忆（`ConversationStore`）；
-> - 新增 Vue 3 前端，支持 SSE 流式对话；
-> - 扩展了工具集（PDF 生成支持图片嵌入、MCP 图片搜索等）；
-> - 将「AI 恋爱大师」重构为「AI 问题引导解决助手」，默认对话模型切换为 DeepSeek（`deepseek-flash`）。
+基于 Spring AI 的 AI 智能体全栈项目，包含「AI 问题引导解决助手」与「AI 超级智能体（类 Manus）」两个应用，覆盖 ReAct 工具调用循环、多轮会话记忆、RAG 检索增强、MCP 工具接入与 SSE 流式对话。
 
 ---
 
-## 系统架构图
+## 系统架构
 
-项目的整体架构：前端 → 后端控制器 → 两大应用（问题引导助手 / 超级智能体）→ 工具系统、记忆存储与外部 AI/数据服务。
+整体链路：前端 → 后端控制器 → 两大应用（问题引导助手 / 超级智能体）→ 工具系统、记忆存储与外部 AI / 数据服务。
 
+| 分层 | 关键组成 | 职责 |
+|---|---|---|
+| 前端 | Vue 3 + Vite 5 | 应用中心 + 两个聊天页，原生 `EventSource` 消费 SSE |
+| 接口层 | `AiController` | 同步 / SSE 两类对话接口，端口 `8123`，context-path `/api` |
+| 应用层 | `LoveApp`、`LiManus` | 引导式问答应用 / 自主规划并调用工具的智能体 |
+| 智能体内核 | `BaseAgent` → `ReActAgent` → `ToolCallAgent` | 状态机 + think / act 事件循环 |
+| 工具层 | `ToolRegistration` + 8 个本地工具 + MCP | 工厂 + 适配器注册，合并远程 MCP 工具并支持降级 |
+| 记忆 | `FileBasedChatMemory`、`ConversationStore` | 文件记忆（Kryo）/ 内存多轮记忆，按 `chatId` 隔离 |
+| 模型 | DeepSeek（默认）、DashScope、Ollama | 统一由 `ChatClient` 抽象调用 |
 
-
-> 👉 **交互式架构图**（支持深色/浅色主题切换、节点聚焦、缩放与 PNG/SVG 导出）：
-> [在线预览](https://htmlpreview.github.io/?https://raw.githubusercontent.com/LCZcoding/yu-ai-agent-changed/master/.archify/architecture-yu-ai-agent-20261007/architecture.html) · [源文件](./.archify/architecture-yu-ai-agent-20261007/architecture.html)
+> 👉 **交互式架构图**（支持深 / 浅色主题切换、节点聚焦、缩放与 PNG/SVG 导出）：
+> [查看架构图](./.archify/architecture-ai-agent-study/architecture.html)
 
 ---
 
@@ -50,7 +49,7 @@
 ## 二、项目结构
 
 ```
-yu-ai-agent/
+ai-agent-study/
 ├── src/main/java/com/lcz/yuaiagent/
 │   ├── advisor/          # 增强器（日志、复读）
 │   │   ├── MyLoggerAdvisor.java
@@ -62,7 +61,7 @@ yu-ai-agent/
 │   │   ├── ToolCallAgent.java    # 工具调用实现
 │   │   ├── LiManus.java          # 超级智能体
 │   │   └── ConversationStore.java# 多轮会话记忆
-│   ├── app/LoveApp.java # 问题引导解决助手应用（ChatClient + 记忆 + RAG，类名沿用）
+│   ├── app/LoveApp.java # 问题引导解决助手应用（ChatClient + 记忆 + RAG，类名沿用旧版）
 │   ├── chatmemory/FileBasedChatMemory.java  # 基于文件的对话记忆
 │   ├── config/CorsConfig.java
 │   ├── controller/      # 接口层
@@ -99,15 +98,13 @@ yu-ai-agent/
 
 ### 1. AI 问题引导解决助手
 
-一个"教练型"的学习与答疑对话应用（不直接给答案，引导用户自己找到答案）：
+一个"教练型"的学习与答疑对话应用，不直接给答案，而是引导用户自己定位并解决问题：
 
-- **系统提示词**：基础概念多角度讲解（定义 / 原理 / 用途 / 例子 / 误区）并给出学习路径与检索关键词；工程、报错、代码、配置类问题默认不直接给修复答案，而是引导用户补信息、读报错、提假设、查官方文档、做最小验证，从而自己得出答案；
+- **系统提示词**：基础概念多角度讲解（定义 / 原理 / 用途 / 例子 / 误区）并给出学习路径与检索关键词；工程、报错、代码、配置类问题默认不直接给修复答案，而是引导用户补信息、读报错、提假设、查官方文档、做最小验证，从而自己得出结论；问题解决后强制复盘根因与验证方法；
 - **会话记忆**：基于 `chatId` 使用 `MessageWindowChatMemory` + `FileBasedChatMemory`（Kryo 序列化到本地文件），保留最近 10 条消息；
 - **RAG 增强（可选）**：`resources/wiki/` 下的知识 Markdown 文档可加载到向量库，通过 `QuestionAnswerAdvisor` 检索增强；
-- **结构化输出**：`doChatWithReport` 支持将回答解析为 `LoveReport(title, suggestions)`（类名沿用）；
+- **结构化输出**：`doChatWithReport` 支持将回答解析为 `LoveReport(title, suggestions)`；
 - **工具调用**：可挂载 `allTools` 让引导助手也能调用工具。
-
-> 该应用由早期的「AI 恋爱大师」重构而来，后端类名 `LoveApp` 与接口路径 `love_app` 为兼容前端调用而保留。
 
 ### 2. AI 超级智能体（LiManus / 类 Manus）
 
@@ -116,7 +113,7 @@ yu-ai-agent/
 - **ReAct 循环**：`think()` 让模型决定调用哪些工具，`act()` 执行工具并把结果回灌上下文，循环直到模型调用 `doTerminate` 或达到最大步数；
 - **手动工具调用**：通过 `DashScopeChatOptions.internalToolExecutionEnabled(false)` 禁用 Spring AI 内置工具执行，自主维护消息上下文；
 - **最终文本总结**：工具循环结束后，额外做一次不带工具选项的 LLM 调用，让模型基于工具结果给出自然语言总结；
-- **多轮记忆**：每次请求新建 `LiManus` 实例，但通过 `ConversationStore`（内存 Map）按 `chatId` 加载/保存完整消息历史，实现跨请求记忆；
+- **多轮记忆**：每次请求新建 `LiManus` 实例，但通过 `ConversationStore`（内存 Map）按 `chatId` 加载 / 保存完整消息历史，实现跨请求记忆；
 - **卡死检测**：连续 3 条相同的助手回复视为卡死，自动注入"换策略"提示词。
 
 ---
@@ -175,7 +172,7 @@ BaseAgent（状态机 + 事件循环 + 记忆）
 | GET | `/api/ai/love_app/chat/sse?message=&chatId=` | 问题引导助手 · SSE 流式对话 |
 | GET | `/api/ai/manus/chat?message=&chatId=` | 超级智能体 SSE 流式对话（含多轮记忆） |
 
-> `love_app` 为沿用自早期版本的路径命名，应用本身已重构为「问题引导解决助手」；为兼容前端调用未做改动。
+> `love_app` 为沿用自早期版本的路径命名（应用早期名为「AI 恋爱大师」），重构为「问题引导解决助手」后未改动路径，以兼容既有前端调用与记忆数据。
 
 接口文档：启动后访问 `http://localhost:8123/api/doc.html`（Knife4j）。
 
@@ -189,7 +186,7 @@ BaseAgent（状态机 + 事件循环 + 记忆）
 - **问题引导解决助手** `/guide`：进入即自动生成 `chatId`，SSE 调用 `love_app/chat/sse`，清新蓝青主题（`theme-guide`，accent `#0ea5e9`）；
 - **超级智能体** `/manus`：SSE 调用 `manus/chat`，支持多轮记忆，Step 步骤与最终总结分区展示（`theme-manus`，科技深色）；
 - 两个页面复用同一个 `ChatRoom.vue`：通过传入 `theme` / `ssePath` / `streamMode` 等 props 配置化，无需改动组件内部逻辑；
-- SSE 使用浏览器原生 `EventSource`（`api/sse.js` 中封装），并在正常结束时主动 `close()`，避免自动重连造成重复请求。
+- SSE 使用浏览器原生 `EventSource`（`api/sse.js` 中封装），并在流正常结束时主动 `close()`，避免自动重连造成重复请求。
 
 开发环境通过 Vite 代理把 `/api` 转发到 `http://localhost:8123`。
 
@@ -207,8 +204,8 @@ npm run dev      # http://localhost:5173
 - JDK 21
 - Maven 3.9+
 - Node.js 18+
-- 通义千问 DashScope API Key
-- （可选）Tavily API Key、Ollama、PostgreSQL + pgvector
+- DeepSeek API Key（默认对话模型）
+- （可选）DashScope API Key、Tavily API Key、Ollama、PostgreSQL + pgvector
 
 ### 2. 配置
 
@@ -286,18 +283,15 @@ npm run dev
 
 ---
 
-## 十、相对原课程项目的改动与适配
+## 十、设计要点
 
-1. **Spring AI 升级到 1.1.0**：适配新的 API（如 `ToolCallbacks.from`、`SyncMcpToolCallbackProvider`、`QuestionAnswerAdvisor` 等），部分旧 starter 的自动注册已移除，需手动实现工具注册。
-2. **自主 ReAct 工具调用**：`ToolCallAgent` 手动实现 think/act 循环，禁用内置工具执行以获得完全可控的上下文。
-3. **真实文本回答 + 最终总结**：修复了模型直接回答时返回占位语、工具执行后不给文本总结的问题。
-4. **多轮记忆**：新增 `ConversationStore`，超级智能体支持跨请求多轮对话。
-5. **前端**：新增 Vue 3 前端，主页切换应用，SSE 实时对话，Step 分区展示。
-6. **工具扩展**：`PDFGenerationTool` 支持图片嵌入；合并 MCP 图片搜索工具；增加降级处理。
-7. **应用重构**：将「AI 恋爱大师」重构为「AI 问题引导解决助手」（`LoveApp` 的系统提示词改为引导型教练提示词；类名 `LoveApp` 与接口路径 `love_app` 为兼容而保留）。
-8. **模型切换**：默认对话模型由 DashScope 通义千问切换为 **DeepSeek**（`deepseek-flash`）。
-9. **类名调整**：超级智能体类 `YuManus` 更名为 `LiManus`（前端展示名仍为 `YuManus`）。
-10. **前端目录与主题**：前端目录由 `yu-ai-agent-frontend` 更名为 `ai-agent-frontend`；页面 `LoveChatView` 替换为 `GuideChatView`，主题由 `love`（玫瑰红）改为 `guide`（蓝青，accent `#0ea5e9`）。
+1. **Spring AI 1.1.0 适配**：适配新 API（如 `ToolCallbacks.from`、`SyncMcpToolCallbackProvider`、`QuestionAnswerAdvisor` 等），早期 starter 的自动注册已移除，因此手写工具注册。
+2. **自主 ReAct 工具调用**：`ToolCallAgent` 手动实现 think / act 循环，禁用内置工具执行以获得完全可控的上下文。
+3. **真实文本回答 + 最终总结**：模型直接回答时返回其真实文本而非占位语；工具执行完毕后追加一次无工具的 LLM 调用生成总结。
+4. **多轮记忆**：`ConversationStore` 按 `chatId` 隔离会话，支持跨请求多轮对话。
+5. **前端组件复用**：`ChatRoom.vue` 通过 props 配置主题与接口，两个应用共用同一套聊天 UI。
+6. **工具扩展**：`PDFGenerationTool` 支持图片嵌入；合并 MCP 图片搜索工具；远程不可用时降级为本地工具。
+7. **模型切换**：对话模型由 DashScope 通义千问切换为 **DeepSeek**（`deepseek-flash`），降低调用成本。
 
 ---
 

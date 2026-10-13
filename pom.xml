@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.lcz</groupId>
-    <artifactId>my-ai-agent</artifactId>
+    <artifactId>ai-agent-study</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>yu-ai-agent</name>
-    <description>yu-ai-agent</description>
+    <name>ai-agent-study</name>
+    <description>ai-agent-study</description>
     <url/>
     <licenses>
         <license/>
