@@ -19,7 +19,7 @@
 | 模型 | DeepSeek（默认）、DashScope、Ollama | 统一由 `ChatClient` 抽象调用 |
 
 > 👉 **交互式架构图**（支持深 / 浅色主题切换、节点聚焦、缩放与 PNG/SVG 导出）：
-> [查看架构图](./.archify/architecture-ai-agent-study/architecture.html)
+> [查看架构图（下载项目后通过浏览器打开）](./.archify/architecture-ai-agent-study/architecture.html)
 
 ---
 
