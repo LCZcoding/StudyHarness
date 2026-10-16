@@ -28,17 +28,9 @@ public class PgVectorStoreConfig {
     @Resource
     private LoveAppDocumentLoader loveAppDocumentLoader;
 
-    /*
-     * TODO 恢复 PG 向量存储时需修复的 bug：（目前的操作是关闭pgvector存储）
-     *   1. batch insert 时报错（大概率是远程 PG 服务器不可达，非代码 bug）：
-     *        - 42.7.5: AssertionError — pgStatement.getConnection().getAutoCommit() should not throw
-     *        - 42.7.7+: PSQLException — This connection has been closed
-     *      排查方向：先确认 72.155.89.172:5432 通不通、PG 服务是否正常、防火墙是否放行
-     *   2. 每次启动重复插入文档（vectorStore.add 无去重逻辑，这个是代码问题）
-     *      修复方向：添加前先查 vector_store 表判断文档是否已存在
-     */
 
     @Bean
+    @ConditionalOnProperty (name = "app.pgvector.enabled",havingValue = "true") //当app.pgvector.enabled是true时，执行入库。避免重复入库
     public VectorStore pgVectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel dashscopeEmbeddingModel) {
         VectorStore vectorStore = PgVectorStore.builder(jdbcTemplate, dashscopeEmbeddingModel)
                 .dimensions(1024)                    // 不要盲目设置
@@ -55,7 +47,7 @@ public class PgVectorStoreConfig {
         // 分批添加
         int batchSize = 10;
         for(int i = 0; i < documents.size(); i += batchSize){
-            //添加文档到pg存储，todo每次启动重复添加
+            //添加文档到pg存储
             vectorStore.add(documents.subList(i, Math.min(i + batchSize, documents.size())));
         }
         return vectorStore;
