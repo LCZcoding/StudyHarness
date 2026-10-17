@@ -3,6 +3,15 @@
 > 规则：每条决策写明「选了什么 / 为什么 / 否决了什么 / 为什么否决」。
 > 未经拍板的写「待拍板」。这是「魔改」既有项目，不是推倒重写。
 
+**本文件只放「产品与范围决策」（基本冻结、很少改）。其余三份按读者和变更频率分出去：**
+
+| 文件 | 放什么 | 什么时候读 |
+| --- | --- | --- |
+| 本文件 `decision-log.md` | 业务定位、学习机制、最小闭环、业务交互定义、待拍板、否决记录、待办 | 讲产品 / 定范围时 |
+| [`data-design.md`](./data-design.md) | 表设计 v0（过程）/ v1（冻结）、建表验证 | 写 SQL / 讲数据库时 |
+| [`impl-log.md`](./impl-log.md) | 接口约定、纵切实施记录（逐格产出与踩坑） | 写代码时 |
+| [`resume-assets.md`](./resume-assets.md) | 亮点台账、风险预案 | 写简历时 |
+
 ***
 
 ## 2026-10-15 · 业务定位（已确认）
@@ -78,47 +87,6 @@
 
 ***
 
-## 亮点台账（每条 = 一个 bullet 草稿 + 面试官三层追问 + 一个数字）
-
-> 规则：**扛不住三层追问的，当场从简历砍掉。宁要 3 条立得住的，不要 8 条会塌的。**
-> 数字必须在做这一步时就顺手收集（压测、对比、复现用例），不要等写简历时编。
-
-| # | bullet 草稿（问题 → 方案 → 指标）                                                                                       | 三层追问（答案必须长在自己代码里）                | 数字从哪来                    | 状态        |
-| - | ------------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------ | --------- |
-| 1 | 修复会话记忆并发损坏：`saveAll` 无锁直接覆盖写 → 加锁 / 原子替换 → 并发压测下 0 丢失（原易损坏）                                                   | 原实现为什么坏？加锁粒度怎么选？为什么不用数据库行锁？      | 同一 conversationId 多线程写压测 | 素材已有，待压测  |
-| 2 | 修复路径穿越 + 不可信反序列化：`conversationId` 直接拼文件名、Kryo `setRegistrationRequired(false)` → 校验 + 白名单 / 换 JSON → 攻击用例复现失败 | 攻击怎么构造？为什么 Kryo 危险？改完性能损失多少？     | 一个复现用例 + 修复前后对比          | 素材已有，待验证  |
-| 3 | 两套记忆统一落库：Kryo 文件 + 内存 Map 各自为政 → 落 PostgreSQL（与 pgvector 同库同事务）→ 多实例共享、会话可检索                                  | 为什么不用 Redis？为什么不用 MySQL？表怎么设计？   | 重启后会话仍在 / 两实例共享会话        | 进行中（Day1） |
-| 4 | 从零设计学习系统数据库：user / conversation / message / knowledge\_item / test\_record / review\_schedule                 | 为什么这么拆？消息角色与工具调用怎么存？主键为什么用 UUID？ | 表设计文档 + 约束               | 待做        |
-| 5 | 复习调度：定时任务 + 幂等 + 固定 1/3/7 天 vs SM-2 取舍                                                                        | 幂等怎么保证？为什么不上 SM-2？任务重复执行会怎样？     | 同用户重复触发不产生重复复习           | 待做        |
-| 6 | 出题质量控制：小评测集验证「不给答案、只挑漏洞」的提示词                                                                                  | 怎么评估出题质量？失败案例是什么？                | N 道题的通过率                 | 待做        |
-
-**为什么不再靠技术拿亮点**：旧简历的「RAG 检索优化」实为 Spring AI 默认用法（已在下方否决记录中移除），正是它让项目二被一眼看穿。堆技术栈是把短板放大，不是补短板。
-
-***
-
-## 风险预案（应对「深入后出现预测外问题」）
-
-> **规则：每发现一个预测错误 → 当场记这里（现象 / 原因 / 解法）→ 自动进亮点台账当素材。**
-> 偏差不是计划失败，是面试素材的来源。全程顺利的项目反而没故事可讲。
-
-**已经发生过的三次偏差（先例，说明偏差没炸掉计划反而成了资产）**
-
-- 能力校准发现「讲不出 why」→ 催生亮点台账的「三层追问」规则
-- 读源码发现 `saveAll` 无锁覆盖写 → 成为台账第 1 条最硬的 bullet
-- 配数据源时 YAML 缩进错位（`datasource` 被顶格出现的 `tavily:` 吃掉，成了 `tavily` 的子键）→ Spring 从未读到 `spring.datasource.url`，连 `JdbcTemplate` bean 都没创建。教训：**YAML 的层级只由缩进决定，别用"看起来在一个块里"来判断**；且"配置没生效"这类问题别靠盯屏幕猜，要么让程序把值打出来，要么看 AutoConfiguration 的连锁反应
-
-**最可能炸的三个位置**
-
-| 位置           | 风险                                                            | 应对                                |
-| ------------ | ------------------------------------------------------------- | --------------------------------- |
-| 记忆统一落库       | `ChatMemory` 接口与 `MessageWindowChatMemory` 的窗口语义耦合，改造复杂度可能超预期 | 先跑通「最小落库」（存得进、读得出），再谈窗口策略         |
-| 出题 / 评判提示词质量 | 第一版大概率很烂                                                      | 台账第 6 条的小评测集就是为它准备的；烂是数据，不是失败     |
-| 范围蔓延         | 最大的风险不是技术，是讨论吞掉 Day1                                          | MVP 已砍到两条机制；每轮元讨论必须落到一个可验证交付物才算结束 |
-
-**惊吓预算**：12 月底 DDL 提前留 2-3 周缓冲。偏差算预算内支出，不算延期。
-
-***
-
 ## 业务交互定义（2026-10-15 定稿冻结）
 
 > 定稿后不再重开。发现偏差走**版本化修订**（在下方补一行说明，不覆盖原记录）。
@@ -166,193 +134,16 @@
 
 ***
 
-## 表设计 v0（过程记录，已由 v1 取代）
-
-> **由你本人填，允许写得丑、允许写错——错了才有得教。**
-> 当前唯一问题：`conversation` 表要记什么？（列 3-6 个字段）
-> 提示：会话列表页要显示「谁的 / 什么标题 / 什么时候」，还要能判断「这轮还在进行还是结束了」。
-
-**主键与顺序（2026-10-16 定）**
-
-- 规则：**id 会不会出现在用户能拿到的地方？** 会 → UUID；不会 → 自增
-- `conversation` / `user`：**UUID**（对外暴露；可枚举即越权）
-- `message`：**自增**，顺序直接按 id 排，**MVP 不做** **`seq`**
-  - 理由：写入模式是「实时严格追加」，插入顺序 = 对话顺序；id 有空洞（不连续）不影响排序
-  - 纪律：同一轮产生的多条消息（Agent 一轮可产出 5-6 条）**必须在同一事务里按序插入**，不要并发写——并发才会让 id 顺序与对话顺序脱钩
-  - 暂缓条件：真做「批量导入历史对话」或「异步并发落库」时，再补 `seq` / 专用排序字段（可推迟的决策）
-- 必修项（与主键无关）：每次访问会话必须校验「该会话属于当前登录用户」。**UUID 只防猜，不防偷**
-- **随机主键的索引代价（2026-10-16 记，用户提出）**：UUIDv4 随机插入会让**主键索引**的 B-tree 页分裂增多、索引膨胀、缓存命中率变差
-  - ⚠️ 前提差异：`聚簇索引` 是 MySQL/InnoDB 的概念（InnoDB 数据按主键物理排序）；**PG 是堆表，主键只是独立 B-tree**，没有「表物理顺序乱」这回事，代价只落在索引上
-  - 本项目判断：`t_user` / `t_conversation` 行数在「几行 ~ 几万」量级，UUID 的索引代价可忽略；唯一可能长到几十万行的 `t_message` 用的是自增 → **已天然规避**
-  - 可推迟项（真出现「不可枚举 + 顺序插入」双需求时）：**UUIDv7**（时间有序）或「对外 UUID + 内部自增」双主键
-
-### conversation
-
-- 会话主键ID
-- 用户ID
-- 模式枚举（自测 / 自由问答 / 复习）
-- 会话标题
-- 创建时间
-- 更新时间
-
-（①② 见下表的评审结论）
-
-**这三张表我第一版写成了什么样，评审后改了什么**
-
-| 表 | 第一版的写法 | 评审后修正 |
-| --- | --- | --- |
-| 共同 | `DEEFAULT`（拼写错） | `DEFAULT` |
-| 共同 | `created_time` / `created_at` 混用 | 统一 `created_at` |
-| t\_conversation | `mode ?`（类型未定） | `VARCHAR(20) NOT NULL` + `CHECK` 约束 |
-| t\_conversation | 以为 `updated_at` 会自动更新 | 改为**应用层**显式 `SET updated_at = now()` |
-| t\_message | 缺 `PRIMARY KEY` | 补 `GENERATED BY DEFAULT AS IDENTITY` + `PRIMARY KEY` |
-| t\_message | `conversation_id BIGINT`（和外键类型不一致） | `UUID`（外键类型必须与被引用列一致） |
-| t\_message | `content varchar(?)` | `TEXT`（PG 里 TEXT 与 VARCHAR 性能相同） |
-| t\_message | 把 `PRACTICE` 放进了 `type` | 归到 `mode` 层——会话模式 ≠ 消息类型（见版本化修订 ①） |
-| t\_message | 抄进了 `username` / `password_hash` | 删（那是 `t_user` 的字段） |
-| t\_user | 多一个 `updated_at` | 删（使用情况可由 `t_message.created_at` 推出） |
-
-**从消息反查用户**：`SELECT max(created_at) FROM t_message WHERE conversation_id IN (SELECT id FROM t_conversation WHERE user_id = ?)`
-
-—— 能推导出来的不存第二份。所以 `t_user` 不加活跃时间，`t_message` 也不加 `user_id`。
-
-**登录范围（2026-10-16 拍板：A 最小登录）**
-
-- 做：最小登录，够用即可
-- 不做：验证码 / JWT 刷新 / OAuth / 邮箱验证——配置型技术，抄一遍也答不出 why
-- JWT：项目里不做；面试要能答原理（用户跟教程用过，属「用过 + 能讲」）
-- 项目里顶替它的亮点：**越权校验**（每次访问会话校验归属）
-
-**PostgreSQL 命名坑**：`user` 是保留字，不能直接当表名 → 用 `t_user`（同理 `t_conversation` / `t_message`）；字段用 snake\_case，免得处处加双引号
-
-**字段取舍规则（2026-10-16 定）**
-
-- 一句话：**字段不是想出来的，是「用」出来的**——先问「谁会读它 / 谁拿它做判断」。没人用就先不加。
-- 加字段便宜（一行 `ALTER TABLE`），删字段昂贵 → 默认策略是「用到了再加」（YAGNI）。
-- `mode`：**要加**——三种会话模式的后端分支不同（自测要出题、自由问答直接答、复习要取题 + 混排），必须能区分。
-- `status`：**暂不加**——MVP 里没有任何逻辑依赖它；等做「继续上次学习」这个入口时再加。
-- 外键用**物理外键**（`REFERENCES`）：单库场景让数据库帮你挡脏数据，也是面试能讲的点。逻辑外键（只在代码里维护）留给分库分表场景。
-
-***
-
-## 表设计 v1（2026-10-16 冻结）
-
-> 上方 v0 保留为过程记录；**本节是执行版**。执行顺序：`t_user` → `t_conversation` → `t_message`（外键依赖）。
-
-```sql
-CREATE TABLE t_user (
-    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    username      VARCHAR(50)  NOT NULL UNIQUE,
-    password_hash VARCHAR(100) NOT NULL,
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-
-CREATE TABLE t_conversation (
-    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID         NOT NULL REFERENCES t_user(id),
-    mode       VARCHAR(20)  NOT NULL CHECK (mode IN ('SELF_TEST','FREE_CHAT','REVIEW','PRACTICE')),
-    title      VARCHAR(50),
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-
-CREATE TABLE t_message (
-    id              BIGINT       PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
-    conversation_id UUID         NOT NULL REFERENCES t_conversation(id),
-    role            VARCHAR(20)  NOT NULL CHECK (role IN ('USER','ASSISTANT','TOOL')),
-    type            VARCHAR(20)  NOT NULL CHECK (type IN ('QUESTION','ANSWER','FEEDBACK','CHAT')),
-    content         TEXT         NOT NULL,
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-```
-
-**冻结时的决定**
-
-- `t_user` 不加 `updated_at`：使用情况可从 `t_message.created_at` 推出——能推导的不存第二份（同 `t_message` 不存 `user_id` 的理由）。若真要，应叫 `last_active_at`（语义不同：行改动时刻 ≠ 用户活跃时刻）
-- `t_message` 不加 `updated_at`：消息不可变
-- `t_conversation.updated_at` 由**应用层**维护：单入口写入，显式 `SET updated_at = now()`；出现多写入入口时再补 trigger（不影响历史数据）
-- 未采用（可推迟项）：`seq` 排序字段、`status` 字段、`title` 的 `NOT NULL`
-- ⚠️ 注意：`mode` 已含 `PRACTICE`（版本化修订 ①），但 `type` **不含**「实践引导」——`PRACTICE` 属于**会话模式**层，不是消息类型层
-
-**本轮新增洞察（用户提出，产品边界）**
-
-- 陈述性知识 → 靠「回忆 + 批改」（自测模式）；程序性知识（技能：SQL、写代码）→ 靠「做 → 反馈 → 再做」，答题无效
-- **核心场景（第一个有真实数据支撑的）**：本项目的表设计过程本身就是「练习模式」的原型——引导者给出可验证动作，学习者动手、撞错、被评审
-
-***
-
-## 建表验证（2026-10-16 通过）
-
-**环境**：VPS 自建 PostgreSQL `16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)`，库 `yu_ai_agent`（与 `application-local` 注释里的 datasource url 同名），DataGrip 在线执行，Auto 事务模式。
-
-**结果**：三条 DDL 按 `t_user` → `t_conversation` → `t_message` 顺序执行成功，三张表建成。
-
-**约束实测（约束真的在挡人，才叫验证通过）**
-
-| 违规动作 | 实际结果 |
-| --- | --- |
-| 用不存在的 `user_id` 插会话 | `[23503] violates foreign key constraint "t_conversation_user_id_fkey"` |
-| 用不存在的 `conversation_id` 插消息 | `[23503] violates foreign key constraint "t_message_conversation_id_fkey"` |
-| 给 `mode` 传非法值（`ABC`） | `[23514] violates check constraint "t_conversation_mode_check"` |
-| 正常插入用户 / 会话 / 消息 | 通过，`RETURNING id` 正常返回 |
-
-错误码记一笔（面试可讲）：PG 里 **`23503` = foreign_key_violation，`23514` = check_violation**，两类约束各有独立 SQLSTATE。
-
-**附带发现**
-
-- VPS 上 **`vector` 扩展已安装**——`vector_store` 表能建出来即证明。这意味着「会话记忆与向量库**同库同事务**」的选型可行，不需要额外部署。
-- `vector_store` 目前是**空表**：印证了 `PgVectorStoreConfig` 那段 TODO——pgvector 从未成功灌入过数据（历史报错是连接被关）。空表不用删，`initializeSchema(true)` 下次会自己重建/灌入。
-
-**过程偏差（按风险预案记档）**
-
-- 验证第 ⑤ 步「插消息」意外报 `[23503]`：原因是**手抄 UUID 粘错**（引用了不存在的会话 id），不是 DDL 问题。
-- 教训：**真实代码里不手抄 UUID**——用 `INSERT ... RETURNING id` 拿值传参，或在同一条 SQL 里用子查询取 `conversation_id`。
-- 顺带成为「物理外键 vs 逻辑外键」取舍的一条实证素材：物理外键在验证阶段就抓到了一次真实的引用错误。
-
-***
-
-## 接口约定 · 会话标识（2026-10-16 定）
-
-**结论**：`conversationId` 就是 `t_conversation.id`（UUID 字符串）。**前端不生成会话主键**，也不再维护任何映射层。
-
-**依据（企业级标准做法）**
-
-1. **服务端是会话 id 的唯一权威**。前端不自己发明业务主键：新建会话 = `POST /conversations` 拿服务端生成的 id，之后所有消息请求都带这个 id。前端自己生成的随机串如果要用，只能当**幂等键**（`client_message_id` / `Idempotency-Key`），用于防止"重试导致重复建会话"，不能当会话主键。
-2. **对外标识符的选择取决于主键类型**——这才是取舍的分水岭：
-   - 主键是**自增整型**（MySQL 场景常见）：连续、可枚举、能推算业务量 → 不直接暴露，另设业务号/雪花 ID 做对外标识。**别的方式在这里不是"落后"，而是标准做法。**
-   - 主键是 **UUID**：不可枚举、不可猜、全局唯一 → **本身就是合格的外部标识符**，不需要再加一层。
-3. **映射层 = 第二份真相**。任何「外部 chatId → 内部 id」的映射都要额外承担缓存一致性、多实例同步、失效清理三件麻烦事。除非有历史包袱（老客户端协议不能改）或天生外部标识（三方渠道如微信 openid），否则不引入。
-
-**取舍维度小结**（面试可直接讲）
-
-| 维度 | 直接暴露 UUID（选定） | 维护映射层 |
-| --- | --- | --- |
-| 是否可枚举 | 不可枚举，天然安全 | 取决于映射键，可能可枚举 |
-| 代码复杂度 | 零映射，零缓存 | 多一份映射 + 一致性维护 |
-| 多实例部署 | 无状态，天然支持 | 需共享缓存或 DB 存映射 |
-| 主键类型无关性 | 依赖 UUID 这个前提 | 自增强主键时才有必要性 |
-
-**否决 B（保留前端自定义 chatId + 映射）**：在本项目前提下，它等于存了一份「能推导出来却存了第二份」的东西，违反既定的字段取舍规则。
-
-**面试口径（比"我加了个映射字段"更干净）**：主键选 UUID 的理由之一就是**能直接对外暴露、省掉映射层**；对外不可枚举 + 对内可直接用作外键，一举两得。
-
-**遗留约束（不可省）**
-
-- 每次访问会话必须校验归属：**UUID 只防猜，不防偷**。
-- 若要防"重试重复建会话"，用 `client_message_id` 幂等键，而不是让前端自己生成会话主键。
-
-**可推迟的升级路径**：懒创建（lazy create）——前端不带 id 直接发消息，服务端发现无 id 就建会话并把 id 回传（SSE 首帧或响应头），省一次往返。MVP 不做（YAGNI），但方案 A 的接口设计要留得住这个升级。
-
-***
-
 ## 待办
 
 - [ ] 拍板 MVP 主干与调度算法
-- [x] 表设计 v1 冻结（user / conversation / message）
+- [x] 表设计 v1 冻结（user / conversation / message）→ 见 [`data-design.md`](./data-design.md)
 - [x] 落 `db/schema.sql`（幂等可重放，面试可直接看）
 - [x] 表设计 v1 已建表验证通过（FK / CHECK 实测生效）
+- [x] 第①格纵切（登录）完成：`POST /auth/login` 跑通，MockMvc 3/3 绿 → 见 [`impl-log.md`](./impl-log.md)
+- [ ] 第②格纵切（建会话）：`CurrentUserResolver`（从 session 取 userId）+ `ConversationService` + `ForbiddenException` + 全局异常处理器 + `ConversationController`
+- [ ] 第③~⑤格：前端接上（`createConversation()`）/ 消息落库 / 历史恢复
 - [ ] 第一条纵切（记忆落库）跑通后，回填 1-2 页《架构与设计取舍》——基于真实踩坑，这才是面试可信的「设计文档」
 - [ ] 会话与记忆统一落库（PostgreSQL，与 pgvector 同库同事务）
 - [ ] 新增 knowledge\_item / test\_record / review\_schedule
 - [ ] 核心场景：用本人真实学过的概念跑一遍闭环（待做）
-
