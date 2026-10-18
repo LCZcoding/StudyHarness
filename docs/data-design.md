@@ -1,4 +1,4 @@
-# 表设计 · yu-ai-agent
+# 表设计 · ai-agent-study
 
 > 本文件放表设计的过程版（v0）与执行版（v1），以及建表验证记录。
 > v0 刻意保留错误与评审过程——**错的记录比对的结论更能说明为什么这么设计**。
@@ -123,7 +123,7 @@ CREATE TABLE t_message (
 
 ## 建表验证（2026-10-16 通过）
 
-**环境**：VPS 自建 PostgreSQL `16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)`，库 `yu_ai_agent`（与 `application-local` 注释里的 datasource url 同名），DataGrip 在线执行，Auto 事务模式。
+**环境**：VPS 自建 PostgreSQL `16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)`，库 `ai_agent_study`（与 `application-local` 注释里的 datasource url 同名），DataGrip 在线执行，Auto 事务模式。
 
 **结果**：三条 DDL 按 `t_user` → `t_conversation` → `t_message` 顺序执行成功，三张表建成。
 
