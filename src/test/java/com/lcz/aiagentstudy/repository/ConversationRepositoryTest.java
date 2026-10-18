@@ -1,5 +1,6 @@
 package com.lcz.aiagentstudy.repository;
 
+import com.lcz.aiagentstudy.model.ConversationMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

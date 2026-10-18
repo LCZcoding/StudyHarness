@@ -73,7 +73,7 @@
 规则：**只在一个入口出现的失败 → 用返回值（`Optional`）；会在 N 个入口重复出现的拒绝 → 用异常 + 全局处理器。**
 
 - 本格：`AuthService.login` 返回 `Optional<UUID>`（登录校验只有这一个入口）
-- 后续格：`ConversationService.assertOwned` 抛 `ForbiddenException`（归属校验会在 N 个接口重复）——见第②格
+- 后续格：`ConversationService.assertOwned` 抛 `ForbiddenException`（归属校验会在 N 个接口重复）——**见第④/⑤格**（②格只有"新建"动作，构造不出自然的越权场景，故未做，符合划界表）
 
 **动词与返回类型必须一致**：`find...` → `Optional<T>`；`get...` → `T`（拿不到就是异常）。本格复用既有的 `UserRepository.findByUsername`，未新造 `get`。
 
@@ -135,11 +135,40 @@ return userRepository.findByUsername(username)
 
 ***
 
-## 第②格纵切 · 建会话（进行中）
+## 第②格纵切 · 建会话（2026-10-18 完成，本格 5/5 绿 + 回归 5/5 绿）
 
-**目标产出**：`conversationId`（`POST /conversations` 返回 UUID）
+**产出**：`POST /api/conversations` → `201 Created` + `Location: /conversations/{id}` + `{"conversationId":"<uuid>"}`。
 
-**待做**：`CurrentUserResolver`（从 session 取 userId）+ `ConversationService.assertOwned` 抛 `ForbiddenException` + 全局异常处理器 + `ConversationController`；`ConversationRepository` 直接复用（已完成）。
+MockMvc 5 条全绿：未登录 401 / 已登录 201+Location+conversationId **+ 查库比对 `user_id` == session userId** / 缺 mode 400 / `"abc"` 400 / `"free_chat"` 400。回归：`AuthControllerTest` 3 条 + `ConversationRepositoryTest` 2 条仍绿（合计 10/10）。
+
+### 本格确立的基建（后续格沿用）
+
+| 组件 | 职责 | 关键取舍 |
+| --- | --- | --- |
+| `web.CurrentUserResolver` | session → userId，取不到抛 `UnauthorizedException` | 用 `instanceof` 模式匹配，**不用强转**：强转失败是 `ClassCastException` → 500，而它实际是"登录态不可用" → 该 401 |
+| `web.GlobalExceptionHandler` | 4 类异常 → HTTP | **不写 `Exception.class` 兜底**：会把 404/405 一起吞成 500 |
+| `exception.UnauthorizedException` / `ForbiddenException` | 业务拒绝 | 构造器只收 message、**不带状态码**：401 是 HTTP 层的词汇，异常不该认识它（同一异常还要能被定时任务等非 HTTP 入口复用） |
+
+**文案归属**（沿用①格"文案随产生拒绝的地方走"）：`throw new UnauthorizedException("未登录")` 写在抛的地方；`@NotNull(message="mode 不能为空")` 写在校验注解上；处理器**只做转发** `e.getMessage()`。
+
+**身份权威**（本格的核心，也是③格的前提）：服务端签发 UUID、身份只从 session 取、请求体里**没有 userId 字段**（客户端想自报也没地方报）。验收用例 3 用"查库比对"把这条钉死——**201 只证明"创建动作成功"，一个字都没说归属**。
+
+### 与文档的差异（版本化修订，不覆盖 api-conversations.md）
+
+- `@NotNull` 带了 `message="mode 不能为空"`（文档 §3.3 定的就是这句；运行日志实测 `default message [mode 不能为空]` 生效）
+- **`ConversationRepository.create` 的签名一度被改成 `ConversationMode`，后回退为 `String`**——违反文档 §4.1.1 的拍板。偏离 → 实测 → 回退，全过程见下
+- `ConversationService.belongsTo` 出口一度加上、后删除：④/⑤真正需要的形态是 `assertOwned`（校验不过就抛 403），**不是返回 boolean 的查询**
+
+### 踩坑：枚举对象直传 JDBC（预测外，已转记 resume-assets.md）
+
+- **现象**：`org.postgresql.util.PSQLException: Can't infer the SQL type to use for an instance of com.lcz.aiagentstudy.model.ConversationMode. Use setObject() with an explicit Types value to specify the type to use.` → `BadSqlGrammar` → 两条 Repository 用例全 ERROR
+- **根因**：JDBC 驱动只认标准类型，**它不猜，直接拒绝执行**（我曾预测"驱动会调 `toString()` 兜底"——实测证明我错了）
+- **修法**：显式 `mode.name()`。为什么是 `name()` 不是 `toString()`：`name()` 不可覆写、与 DB 的 CHECK 字符串逐字对齐；`toString()` 可被覆写，将来有人为了日志好读加一行 override，就会撞 CHECK 报 `23514`
+- **教训**：**"签名更类型安全"不等于更安全**——契约一改，调用方（测试）跟着改，转换一步没省，代价却是运行时 500。**"优雅"之前要先算改动波及面**
+
+### 归属校验 `assertOwned` / 403
+
+未做，**符合预期**（文档 §1 划界表留给④/⑤；②格只有"新建"动作，构造不出自然的越权场景，硬写测试就是人为造场景）。
 
 ***
 

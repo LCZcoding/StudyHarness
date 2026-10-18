@@ -1,12 +1,12 @@
 package com.lcz.aiagentstudy.controller;
 
 import com.lcz.aiagentstudy.constant.SessionKeys;
+import com.lcz.aiagentstudy.exception.UnauthorizedException;
 import com.lcz.aiagentstudy.service.AuthService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,8 +32,9 @@ public class AuthController {
         Optional<UUID> userId = authService.login(req.username(), req.password());
 
         if(userId.isEmpty()){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message","用户名或密码错误"));
+            throw new UnauthorizedException("用户名或密码错误");
+//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+//                    .body(Map.of("message","用户名或密码错误"));
         }
         session.setAttribute(SessionKeys.USER_ID, userId.get());
         return ResponseEntity.ok(Map.of("userId",userId.get().toString()));

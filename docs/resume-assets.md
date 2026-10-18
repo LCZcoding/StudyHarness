@@ -18,6 +18,7 @@
 | 4 | 从零设计学习系统数据库：user / conversation / message / knowledge\_item / test\_record / review\_schedule                 | 为什么这么拆？消息角色与工具调用怎么存？主键为什么用 UUID？ | 表设计文档 + 约束               | 待做        |
 | 5 | 复习调度：定时任务 + 幂等 + 固定 1/3/7 天 vs SM-2 取舍                                                                        | 幂等怎么保证？为什么不上 SM-2？任务重复执行会怎样？     | 同用户重复触发不产生重复复习           | 待做        |
 | 6 | 出题质量控制：小评测集验证「不给答案、只挑漏洞」的提示词                                                                                  | 怎么评估出题质量？失败案例是什么？                | N 道题的通过率                 | 待做        |
+| 7 | JDBC 参数边界：枚举对象直传 `JdbcTemplate`（PG 驱动不认自定义类型，直接拒执行）→ 显式 `name()` → 建会话接口从 500 转 201 | 驱动为什么不猜类型？为什么不能用 `toString()` 兜底？真要传对象该怎么写？ | 报错原文 + 建会话 HTTP 从 500 → 201 的对照 | 素材已有，待验证 |
 
 **为什么不再靠技术拿亮点**：旧简历的「RAG 检索优化」实为 Spring AI 默认用法（已在决策日志的否决记录中移除），正是它让项目二被一眼看穿。堆技术栈是把短板放大，不是补短板。
 
@@ -44,10 +45,11 @@
 
 **惊吓预算**：12 月底 DDL 提前留 2-3 周缓冲。偏差算预算内支出，不算延期。
 
-**实测纠正过我的两处判断（记档，避免以后重犯）**
+**实测纠正过我的三处判断（记档，避免以后重犯）**
 
 - 断言「int 传 varchar 会报 `42804`」→ 实测**允许**（`int → varchar` 属解析器 I/O 转换，**不在 `pg_cast` 目录里**）；反向 `varchar → int` 才不允许。别把"PG 强类型"当成双向规则
 - 断言「MockMvc 能断言 `Set-Cookie: JSESSIONID`」→ 实测失败，`Cookies = []`。**写 `Set-Cookie` 是容器（Tomcat）的职责，MockMvc 丢掉了容器**。修法是断言 session 属性而非 cookie
+- 断言「枚举对象直传 `JdbcTemplate`，驱动会按 `toString()` 兜底」→ 实测**直接拒绝**：`org.postgresql.util.PSQLException: Can't infer the SQL type to use for an instance of ...ConversationMode`（`BadSqlGrammar`，两条 Repository 用例全 ERROR）。**JDBC 驱动只认标准类型，不认识的自定义类型它不猜、直接抛**。修法是显式 `mode.name()`（不可覆写、与 DB 的 CHECK 字符串逐字对齐），不是 `toString()`（可覆写，将来有人为了日志好读改一下，就会撞 CHECK 报 `23514`）
 
 通用教训：**每次给出可证伪的预测 + 让程序真跑一遍，比靠推理更可靠。**
 
