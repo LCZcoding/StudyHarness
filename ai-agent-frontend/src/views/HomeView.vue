@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <header class="topbar">
-      <span class="brand">YU · AI AGENT</span>
+      <span class="brand">AI AGENT STUDY</span>
       <span class="tag">应用中心 · APPLICATION HUB</span>
     </header>
 

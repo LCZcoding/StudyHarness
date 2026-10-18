@@ -19,6 +19,6 @@ spring:
         max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/yu_ai_agent
+    url: jdbc:postgresql://localhost:5432/ai_agent_study
     username: 改为你的用户名
     password: 改为你的密码

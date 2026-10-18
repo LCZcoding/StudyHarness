@@ -2,7 +2,7 @@
   <ChatRoom
     theme="manus"
     title="AI 超级智能体"
-    ai-name="YuManus"
+    ai-name="LiManus"
     user-name="我"
     ai-avatar="🛰️"
     user-avatar="🧑‍💻"
@@ -12,7 +12,7 @@
     placeholder="给 Agent 下达一个任务…"
     idle-text="Agent 空闲"
     streaming-text="Agent 执行中，步骤实时输出…"
-    greeting="我是 YuManus，全能 AI 智能体"
+    greeting="我是 LiManus，全能 AI 智能体"
     greeting-sub="我会拆解任务、调用工具，一步步完成你的目标"
     :suggestions="suggestions"
   />

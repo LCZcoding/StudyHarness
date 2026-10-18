@@ -50,7 +50,7 @@
 
 ```
 ai-agent-study/
-├── src/main/java/com/lcz/yuaiagent/
+├── src/main/java/com/lcz/aiagentstudy/
 │   ├── advisor/          # 增强器（日志、复读）
 │   │   ├── MyLoggerAdvisor.java
 │   │   └── ReReadingAdvisor.java
@@ -75,7 +75,7 @@ ai-agent-study/
 │   │   ├── ResourceDownloadTool / TerminalOperationTool
 │   │   ├── TerminateTool / WebScrapingTool / WebSearchTool
 │   │   └── FileConstant.java
-│   └── YuAiAgentApplication.java
+│   └── AiAgentStudyApplication.java
 ├── src/main/resources/
 │   ├── application.yml
 │   ├── application-local.yml          # 本地配置（含密钥，已在 .gitignore 中忽略）
@@ -267,7 +267,7 @@ npm run dev
 在 `mcp-servers.json` 中以 stdio 方式配置：
 
 ```json
-"yu-image-search-mcp-server": {
+"image-search-mcp-server": {
   "command": "java",
   "args": [
     "-Dspring.ai.mcp.server.stdio=true",

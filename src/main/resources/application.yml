@@ -28,7 +28,7 @@ springdoc:
   group-configs:
     - group: 'default'
       paths-to-match: '/**'
-      packages-to-scan: com.lcz.yuaiagent.controller
+      packages-to-scan: com.lcz.aiagentstudy.controller
 # knife4j增强配置
 knife4j:
   enable: true

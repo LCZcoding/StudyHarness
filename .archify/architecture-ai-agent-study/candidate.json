@@ -44,7 +44,7 @@
       "pos": [420, 228],
       "size": [300, 64],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/controller/AiController.java", "label": "SSE 接口" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/controller/AiController.java", "label": "SSE 接口" }
       ]
     },
     {
@@ -55,7 +55,7 @@
       "pos": [90, 356],
       "size": [250, 72],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/app/LoveApp.java", "label": "恋爱应用" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/app/LoveApp.java", "label": "恋爱应用" }
       ]
     },
     {
@@ -67,8 +67,8 @@
       "pos": [680, 356],
       "size": [270, 72],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/agent/LiManus.java", "label": "超级智能体" },
-        { "path": "src/main/java/com/lcz/yuaiagent/agent/ToolCallAgent.java", "label": "手动工具调用" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/agent/LiManus.java", "label": "超级智能体" },
+        { "path": "src/main/java/com/lcz/aiagentstudy/agent/ToolCallAgent.java", "label": "手动工具调用" }
       ]
     },
     {
@@ -79,7 +79,7 @@
       "pos": [1020, 356],
       "size": [150, 72],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/agent/ConversationStore.java", "label": "多轮记忆" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/agent/ConversationStore.java", "label": "多轮记忆" }
       ]
     },
     {
@@ -90,7 +90,7 @@
       "pos": [80, 480],
       "size": [270, 60],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/chatmemory/FileBasedChatMemory.java", "label": "文件记忆" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/chatmemory/FileBasedChatMemory.java", "label": "文件记忆" }
       ]
     },
     {
@@ -101,7 +101,7 @@
       "pos": [680, 480],
       "size": [290, 70],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/tools/ToolRegistration.java", "label": "工具注册" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/tools/ToolRegistration.java", "label": "工具注册" }
       ]
     },
     {
@@ -112,7 +112,7 @@
       "pos": [80, 600],
       "size": [270, 60],
       "sources": [
-        { "path": "src/main/java/com/lcz/yuaiagent/rag/LoveAppVectorStoreConfig.java", "label": "向量存储配置" }
+        { "path": "src/main/java/com/lcz/aiagentstudy/rag/LoveAppVectorStoreConfig.java", "label": "向量存储配置" }
       ]
     },
     {

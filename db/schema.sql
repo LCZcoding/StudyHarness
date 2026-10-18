@@ -1,6 +1,6 @@
 -- ============================================================
--- yu-ai-agent · 数据库建表脚本
--- 目标库：yu_ai_agent（PostgreSQL 16）
+-- ai-agent-study · 数据库建表脚本
+-- 目标库：ai_agent_study（PostgreSQL 16）
 -- 验证环境：PostgreSQL 16.15，已实测通过（FK / CHECK 约束生效）
 --
 -- 执行顺序不可颠倒（外键依赖）：t_user -> t_conversation -> t_message
@@ -8,7 +8,7 @@
 -- 不会比对定义差异（改了字段记得手动 ALTER，别指望重跑脚本生效）。
 --
 -- 建库本身不在本脚本内（CREATE DATABASE 不能在事务块中执行，且需先连到默认库）：
---   连到 postgres 库执行：CREATE DATABASE yu_ai_agent;
+--   连到 postgres 库执行：CREATE DATABASE ai_agent_study;
 --
 -- 本库同时承担 pgvector 向量存储（spring-ai-pgvector-store，表名 vector_store）。
 -- 若目标机器需要启用向量能力，另行执行：
