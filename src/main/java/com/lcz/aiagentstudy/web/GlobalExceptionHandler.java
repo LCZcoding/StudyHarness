@@ -3,6 +3,8 @@ package com.lcz.aiagentstudy.web;
 import com.lcz.aiagentstudy.exception.ForbiddenException;
 import com.lcz.aiagentstudy.exception.UnauthorizedException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -21,4 +23,16 @@ public class GlobalExceptionHandler  {
     public ResponseEntity<?> handleForbidden(ForbiddenException ex){
         return ResponseEntity.status(403).body(Map.of("message", ex.getMessage()));
     }
-}
+    // 校验失败：文案由 DTO 注解的 message 携带，处理器只把第一条转发出去
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
+        return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
+
+    // body 解不开（非法 JSON / UUID 格式不对）：拒绝方是 Jackson，它带不了我们的文案
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", "请求体不合法"));
+    }
+    }

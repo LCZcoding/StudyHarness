@@ -2,16 +2,14 @@ package com.lcz.aiagentstudy.repository;
 
 import java.util.UUID;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-@Repository 
+@Repository
+@RequiredArgsConstructor
 public class ConversationRepository {
     private final JdbcTemplate jdbcTemplate;
-
-    public ConversationRepository(JdbcTemplate jdbcTemplate){
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     // create conversation
     public UUID create(UUID userId, String mode){
