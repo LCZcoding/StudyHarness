@@ -278,9 +278,65 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 ***
 
-## 第③ / ⑤格（待做）
+## 第③格纵切 · 前端接上（2026-10-19 完成，浏览器端到端实测通过）
+
+**产出**：`/guide` 的登录态与会话 id 全部改为「后端权威」；聊天接口从**无鉴权的教学接口** `/ai/love_app/chat/sse`（GET + 原生 `EventSource`）切到 ④格契约 `POST /ai/chat/stream`。
+
+纯前端改动，无后端改动：
+
+| 文件 | 改动 |
+| --- | --- |
+| `api/chatStream.js`（新增） | `fetch` + `res.body.getReader()` 手工解 SSE 帧，替代 `EventSource` |
+| `components/ChatRoom.vue` | 加 `transport` prop；`closeSource()` 按 `source` / `controller` 双分派 |
+| `views/GuideChatView.vue` | 删 `sse-path`、加 `transport="post-stream"`；`onMounted` 调 `createConversation('PRACTICE')` 拿后端签发的 id |
+| `stores/auth.js`（新增）+ `router/index.js` | 显式登录态标记（`localStorage`）+ `router.beforeEach` 守卫（`meta.requiresAuth`） |
+| `views/LoginView.vue` | 登录成功后 `setAuth()` |
+
+### 核心 1 · `EventSource` 接不了 POST 流（换 `fetch` 的四个反直觉点）
+
+④格把聊天接口改成 `POST` + JSON body。原生 `EventSource` **只能发 GET、不能自定义请求头、不能带 body**，于是只能换 `fetch`：
+
+1. **4xx/5xx 不抛异常**——`await fetch()` 照常返回，必须自己判 `res.ok` 再看错误体。
+2. **`res.body` 是一次性资源**——要读流就用 `res.body.getReader()`，不能再调 `res.text()`（会抛 `body stream already read`）。
+3. **逐片解码要 `decoder.decode(value, { stream: true })`**——UTF-8 一个汉字 3 字节，会被切在两片之间，不加 `stream: true` 会输出 `�`。
+4. **取消靠 `AbortController`**（不是 `.close()`）；`AbortError` 是「用户主动取消」，不是错误，要静默收场。
+
+### 核心 2 · SSE 的两层换行（`\n\n` 是帧界，`\n` 是帧内行界）
+
+一帧形如 `data:<文本>\n\n`：`\n\n`（空行）分隔**帧与帧**，单个 `\n` 分隔**帧内的行**。`SseEmitter.send(Object)` 在文本含换行时，会**给每一行都补一个 `data:` 前缀**——AI 输出的 `。\n\n我们…` 因此被编码成 `data:。\ndata:\ndata:\n\n` 三个 data 行。
+
+解帧必须按帧隔离：`buffer` 累积 → `split('\n\n')` → `frames.pop()`（最后一段可能是不完整帧，退回 `buffer` 等下一片）→ 帧内 `split('\n').filter(startsWith('data:')).map(slice(5)).join('\n')`。实测证据：**网络分片边界与帧边界完全无关**（出现过「一片含一整帧 + 半帧」、「一帧被切在 `data:！` 与 `\n\n` 两片之间」），用上述算法还原后与 AI 原文逐字一致。
+
+### 核心 3 · 登录态不能用 Cookie 判断（`stores/auth.js` 存在的理由）
+
+`JSESSIONID` 是 **HttpOnly Cookie**：`document.cookie` 读不到（浏览器仍会自动随请求携带）。更要命的是正确性——**「有 Cookie ≠ 已登录」**：Spring MVC 解析 `HttpSession` 参数时执行 `getSession()`（= `getSession(true)`），**未登录请求也会被创建空会话并下发 `Set-Cookie`**。所以路由守卫只能依赖前端自己的显式标记，不能读 Cookie。
+
+### 预测外问题 1 · 未登录也下发 `JSESSIONID`（记账，本格未修）
+
+- **现象**：无痕窗口未登录访问 `/guide`，Network 里也出现 `Set-Cookie: JSESSIONID`。
+- **根因**：`AiChatController.stream` / `ConversationController.create` 的 `HttpSession session` 参数在参数解析阶段按需 `getSession(true)`——**先建空会话、下发 Cookie，之后才走到 `requireUserId` 抛 401**。
+- **修法（用户拍板「没必要改」，记账不修）**：控制器参数换 `HttpServletRequest`，内部 `request.getSession(false)`——取不到就不创建。
+- **影响面**：不构成越权（空会话无 `userId` 属性），但会让「有没有 Cookie」看起来像登录信号，正是核心 3 要绕开的坑。
+
+### 预测外问题 2 · Vite 端口自增（环境坑，非代码问题）
+
+- **现象**：后端占 8123；前端 `5173` 起不来（被上一次残留的 node 进程占用），Vite **自动退到 5174**，两个端口都能访问到页面，误判成「前端没起」或「起两份」。
+- **根因**：Vite `server.strictPort` 默认 `false`，端口被占自动 +1。
+- **附带**：Cookie 按域（`localhost`）存储、**不区分端口**，所以 5173 / 5174 共用同一份 `JSESSIONID`。
+
+### 验收（浏览器端到端）
+
+4 条守卫用例通过：无痕访问 `/guide` 立刻跳 `/login` 且 Network 无 `POST /conversations` ／ 登录后可进 `/guide` ／ `localStorage.removeItem('ai-agent-auth')` 后被弹回 ／ `/manus` 同样被拦。功能侧：登录 → `/guide` → 发消息 → 逐字流出正常；落库侧已由 ④格 `t_message` 实证（USER→ASSISTANT 两行、同事务）。
+
+### 本格仍未做（已入 decision-log 待办）
+
+- `POST /auth/logout` 与前端 `clearAuth()`（`setAuth()` 目前没有对应的撤销出口）
+- `HomeView` 顶栏登录态展示
+
+***
+
+## 第⑤格纵切（待做）
 
 | 格 | 产出 | 要点 |
 | --- | --- | --- |
-| ③ 前端接上 | 前端能拿到并使用 `conversationId` | `api` 加 `createConversation()`；`GuideChatView` 异步拿 id；`withCredentials` 带 Cookie；SSE 从 `EventSource` 换成 `fetch` + `ReadableStream`（④ 已把聊天接口改成 POST，`EventSource` 只支持 GET） |
 | ⑤ 历史恢复 | 会话可回读 | `GET /conversations/{id}/messages`；复用 `assertOwned`（④ 已就位），只做「读得出」 |

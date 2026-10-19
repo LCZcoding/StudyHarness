@@ -21,6 +21,7 @@
 | 7 | JDBC 参数边界：枚举对象直传 `JdbcTemplate`（PG 驱动不认自定义类型，直接拒执行）→ 显式 `name()` → 建会话接口从 500 转 201 | 驱动为什么不猜类型？为什么不能用 `toString()` 兜底？真要传对象该怎么写？ | 报错原文 + 建会话 HTTP 从 500 → 201 的对照 | 素材已有，待验证 |
 | 8 | 流式落库的阻塞点：`doOnComplete` 里的 JDBC 阻塞跑在 IO 事件循环线程上 → `publishOn(boundedElastic)` 把整条下游（含 SSE 写）挪出 event loop → 并发下不再拖垮 loop | 阻塞了谁？`publishOn` 与 `subscribeOn` 差在哪？为什么不直接甩到别的线程？ | 回调所在线程名前后对照 + 并发压测 | 素材已有，待验证 |
 | 9 | 假验收排查：契约承诺 400 带文案、测试只断言状态码 → 补 `MethodArgumentNotValidException` / `HttpMessageNotReadableException` 两个处理器，400 响应体从空变成前端可直接弹出的文案 | 为什么原来没生效？为什么文案不全塞进处理器？ | 补测前后 400 响应体对照 | 素材已有，待验证 |
+| 10 | 前端登录态误判修复：`JSESSIONID` 是 HttpOnly（`document.cookie` 读不到）+ 未登录请求也会被 Spring 下发空会话 Cookie → 前端改用显式登录态标记 + `router.beforeEach` 守卫 → 未登录访问 `/guide` 立刻被拦 | 为什么不读 Cookie 判断？前端标记能被伪造，安全靠什么？为什么不上 JWT？ | 未登录访问 `/guide` 的 `Set-Cookie` 实证 + 4 条守卫验收 | 素材已有 |
 
 **为什么不再靠技术拿亮点**：旧简历的「RAG 检索优化」实为 Spring AI 默认用法（已在决策日志的否决记录中移除），正是它让项目二被一眼看穿。堆技术栈是把短板放大，不是补短板。
 
@@ -47,13 +48,14 @@
 
 **惊吓预算**：12 月底 DDL 提前留 2-3 周缓冲。偏差算预算内支出，不算延期。
 
-**实测纠正过我的五处判断（记档，避免以后重犯）**
+**实测纠正过我的六处判断（记档，避免以后重犯）**
 
 - 断言「int 传 varchar 会报 `42804`」→ 实测**允许**（`int → varchar` 属解析器 I/O 转换，**不在 `pg_cast` 目录里**）；反向 `varchar → int` 才不允许。别把"PG 强类型"当成双向规则
 - 断言「MockMvc 能断言 `Set-Cookie: JSESSIONID`」→ 实测失败，`Cookies = []`。**写 `Set-Cookie` 是容器（Tomcat）的职责，MockMvc 丢掉了容器**。修法是断言 session 属性而非 cookie
 - 断言「枚举对象直传 `JdbcTemplate`，驱动会按 `toString()` 兜底」→ 实测**直接拒绝**：`org.postgresql.util.PSQLException: Can't infer the SQL type to use for an instance of ...ConversationMode`（`BadSqlGrammar`，两条 Repository 用例全 ERROR）。**JDBC 驱动只认标准类型，不认识的自定义类型它不猜、直接抛**。修法是显式 `mode.name()`（不可覆写、与 DB 的 CHECK 字符串逐字对齐），不是 `toString()`（可覆写，将来有人为了日志好读改一下，就会撞 CHECK 报 `23514`）
 - 按④契约 §2.3 的表格以为「400 的响应体已经带文案」→ 实测**不带**：`GlobalExceptionHandler` 只实现了 401/403，两类 400 由 Spring 的 `DefaultHandlerExceptionResolver` 接走，响应体为空。证据是日志里的 `Resolved [MethodArgumentNotValidException: ...]` / `Resolved [HttpMessageNotReadableException: ...]`——**`Resolved` 二字说明拒绝者不是我们的处理器**。修法是补齐 2 个 `@ExceptionHandler`。教训：**「契约里写了 body」+「测试只断言状态码」= 假验收**；文档承诺的输出形状，必须有测试真的去读它
 - 判过 `ChatService.stream` 的方法体「可以过」→ IDE 提示「在非阻塞上下文中使用阻塞调用可能会导致线程匮乏」：`doOnComplete` 里的 `appendRound` 跑在**数据源线程**（`WebClient` 场景即 event loop）上做 JDBC 阻塞。修法是 `publishOn(boundedElastic)` 把整条下游挪出 event loop；**不能直接甩到别的线程**——异常会逃逸，`onError` / `completeWithError` 再也收不到。顺带记牢 `subscribeOn`（只管订阅/request）与 `publishOn`（管下游全部信号）的区别
+- 以为「前端可以直接读 `JSESSIONID` Cookie 判断登录态」→ 实测**读不到、也判断不了**：`JSESSIONID` 是 **HttpOnly**（`document.cookie` 永远为空，浏览器仍自动随请求携带）；且 **Spring MVC 解析 `HttpSession` 参数时执行 `getSession(true)` 按需创建空会话**——**未登录请求同样被下发 `Set-Cookie`**，于是「有 Cookie ≠ 已登录」。修法是前端用 `localStorage` 显式标记驱动 `router.beforeEach`，安全仍由后端 session 兜（前端标记即便被伪造也越不了权）。记账不修：控制器参数由 `HttpSession` 换 `HttpServletRequest` + `getSession(false)` 即可消除空会话
 
 通用教训：**每次给出可证伪的预测 + 让程序真跑一遍，比靠推理更可靠。**
 
@@ -62,4 +64,4 @@
 ## 纵切实施记录的规则（配合使用）
 
 - 每一格的踩坑不写在本文件，写进 [`impl-log.md`](./impl-log.md)；其中「**预测外问题**」按上面规则转记到本文件的风险预案，并进亮点台账。
-- 台账第 1/2/3 条对应第①~⑤格之外的既有资产；第 4 条对应表设计 v1；第 5/6 条对应 MVP 主干后段；第 7 条对应第②格踩坑；第 8/9 条对应第④格的两个预测外问题。
+- 台账第 1/2/3 条对应第①~⑤格之外的既有资产；第 4 条对应表设计 v1；第 5/6 条对应 MVP 主干后段；第 7 条对应第②格踩坑；第 8/9 条对应第④格的两个预测外问题；第 10 条对应第③格的 HttpOnly Cookie 登录态误判。
