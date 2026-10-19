@@ -19,11 +19,24 @@
 </template>
 
 <script setup>
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ChatRoom from '../components/ChatRoom.vue'
-import { createChatId } from '../utils/chatId.js'
-
+import { createConversation } from '../api/conversation.js'
+const router = useRouter()
 // 进入页面自动生成聊天室 id，区分不同会话
-const chatId = createChatId()
+const chatId = ref('')
+onMounted(async()=>{
+  try{
+    const data = await createConversation('PRACTICE')
+  chatId.value = data.conversationId
+  }catch(e){
+    if(e.response?.status == 401){
+      router.push('/login')
+    }
+  }
+  
+})
 
 const suggestions = [
   '我的代码报错了，帮我理一下排查思路',

@@ -2,7 +2,10 @@
   <div class="home">
     <header class="topbar">
       <span class="brand">AI AGENT STUDY</span>
-      <span class="tag">应用中心 · APPLICATION HUB</span>
+      <div class="top-right">
+        <span class="tag">应用中心 · APPLICATION HUB</span>
+        <RouterLink to="/login" class="login-link">登录</RouterLink>
+      </div>
     </header>
 
     <main class="grid">
@@ -65,10 +68,27 @@
   font-size: 14px;
   letter-spacing: 3px;
 }
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
 .tag {
   font-size: 12px;
   color: #6b7f92;
   letter-spacing: 2px;
+}
+
+.login-link {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #22d3ee;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+.login-link:hover {
+  background: rgba(34, 211, 238, 0.12);
 }
 
 .grid {

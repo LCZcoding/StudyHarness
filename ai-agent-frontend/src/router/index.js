@@ -8,6 +8,11 @@ const routes = [
     component: HomeView
   },
   {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/LoginView.vue')
+  },
+  {
     path: '/guide',
     name: 'guide',
     // 进入页面即生成聊天室 id（组件 setup 阶段）
