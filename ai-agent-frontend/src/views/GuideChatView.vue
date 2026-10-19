@@ -6,7 +6,7 @@
     user-name="我"
     ai-avatar="❓"
     user-avatar="🧑"
-    sse-path="/ai/love_app/chat/sse"
+    transport="post-stream"
     stream-mode="token"
     :chat-id="chatId"
     placeholder="描述你遇到的问题，我们一起拆解…"
@@ -31,7 +31,7 @@ onMounted(async()=>{
     const data = await createConversation('PRACTICE')
   chatId.value = data.conversationId
   }catch(e){
-    if(e.response?.status == 401){
+    if(e.response?.status === 401){
       router.push('/login')
     }
   }

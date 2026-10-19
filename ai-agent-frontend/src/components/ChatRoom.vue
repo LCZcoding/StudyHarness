@@ -89,6 +89,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { createSseChat } from '../api/sse.js'
+import { streamChat } from '../api/chatStream.js'
 
 const props = defineProps({
   // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色）
@@ -98,11 +99,15 @@ const props = defineProps({
   userName: { type: String, default: '我' },
   aiAvatar: { type: String, default: '🤖' },
   userAvatar: { type: String, default: '🧑' },
-  // SSE 接口路径（不含 /api 前缀）
-  ssePath: { type: String, required: true },
+  // SSE 接口路径（不含 /api 前缀）——仅 event-source 模式需要
+  ssePath: { type: String, default: '' },
   // 流式模式：token = 逐字追加；step = 按步骤换行追加
   streamMode: { type: String, default: 'token' },
   // 聊天室 id（问题引导助手需要，Manus 接口不需要则不传）
+
+  // 传输方式：event-source = 原生 EventSource（GET、无 body）；post-stream = fetch POST 读流
+  transport: { type: String, default: 'event-source' },
+
   chatId: { type: String, default: '' },
   placeholder: { type: String, default: '输入你想说的话…' },
   idleText: { type: String, default: '在线' },
@@ -119,6 +124,7 @@ const streaming = ref(false)
 const messages = ref([])
 
 let source = null
+let controller = null
 let msgSeq = 0
 
 const shortChatId = computed(() => props.chatId.replace(/-/g, '').slice(0, 12))
@@ -144,34 +150,51 @@ function send(picked) {
 
   const aiMsg = addMessage('ai', '')
   streaming.value = true
-
-  const params = { message: text }
-  if (props.chatId) params.chatId = props.chatId
+  // 先清掉上一轮的连接/请求（与具体传输方式无关）
+  closeSource()
 
   let firstChunk = true
 
-  closeSource()
-  source = createSseChat({
-    path: props.ssePath,
-    params,
-    onMessage(chunk) {
-      if (props.streamMode === 'step') {
-        aiMsg.content += firstChunk ? chunk : `\n${chunk}`
-      } else {
-        aiMsg.content += chunk
-      }
-      firstChunk = false
-    },
-    onDone() {
-      finish()
-    },
-    onError(err) {
-      aiMsg.content = firstChunk
-        ? `（${err.message}）`
-        : `${aiMsg.content}\n（连接中断，以上为已接收内容）`
-      finish()
+  const onMessage = (chunk) => {
+    if (props.streamMode === 'step') {
+      aiMsg.content += firstChunk ? chunk : `\n${chunk}`
+    } else {
+      aiMsg.content += chunk
     }
-  })
+    firstChunk = false
+  }
+
+  const onDone = () => finish()
+
+  const onError = (err) => {
+    aiMsg.content = firstChunk
+      ? `（${err.message}）`
+      : `${aiMsg.content}\n（连接中断，以上为已接收内容）`
+    finish()
+  }
+
+  if (props.transport === 'post-stream') {
+    // fetch 流的取消靠 AbortController，必须先造好、把 signal 交给 streamChat
+    controller = new AbortController()
+    streamChat({
+      conversationId: props.chatId,
+      message: text,
+      signal: controller.signal,
+      onMessage,
+      onDone,
+      onError
+    })
+  } else {
+    const params = { message: text }
+    if (props.chatId) params.chatId = props.chatId
+    source = createSseChat({
+      path: props.ssePath,
+      params,
+      onMessage,
+      onDone,
+      onError
+    })
+  }
 }
 
 function stop() {
@@ -194,7 +217,18 @@ function closeSource() {
     source.close()
     source = null
   }
+  if (controller) {
+    controller.abort()
+    controller = null
+  }
 }
+
+// function closeSource() {
+//   if (source) {
+//     source.close()
+//     source = null
+//   }
+// }
 
 function onKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {

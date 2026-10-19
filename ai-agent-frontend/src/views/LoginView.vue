@@ -46,6 +46,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/auth.js'
+import { setAuth } from '../stores/auth.js'
 
 const router = useRouter()
 
@@ -60,9 +61,10 @@ async function submit() {
   try {
     await login(username.value, password.value)
     // 登录态在服务端 session 里，前端不需要存 token，直接回首页
+    setAuth()
     router.push('/')
   } catch (e) {
-    // 后端所有错误响应体的形状统一为 { message }，所以一句话就能兜住
+    // 后端所有错误响应体的形状统一为 { message }，所以一句f话就能兜住
     error.value = e.response?.data?.message || '登录失败，请稍后重试'
   } finally {
     loading.value = false
