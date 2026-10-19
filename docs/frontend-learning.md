@@ -90,6 +90,23 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
 
 **这一步的意义**：先建立「我发出去的请求长什么样」的直觉。以后所有前端问题，第一反应都是「去 Network 看」。
 
+### 练习 0.5（③格新增，必须先做）：让前端拿到「登录态」
+
+- **为什么必须先做**：③格要打的接口是 `POST /api/ai/chat/stream`，它的第一道门就是「从 session 取 userId，取不到 → 401 `未登录`」（见 [api-chat-stream.md](./api-chat-stream.md) §2.3）。前端当前**没有任何登录入口**（[HomeView.vue](../ai-agent-frontend/src/views/HomeView.vue) / [GuideChatView.vue](../ai-agent-frontend/src/views/GuideChatView.vue) 里一次都没调过登录），session 是空的 → ③格每一步都会 401。后端 `POST /api/auth/login`（body `{"username","password"}` → 200 `{"userId":"..."}`，靠 `Set-Cookie` 下发 `JSESSIONID`）已经就绪，缺的只是前端这一侧
+- **要加的三样东西**：
+  1. `../ai-agent-frontend/src/api/auth.js`：`login(username, password)`，内部 `request.post('/auth/login', { username, password })`
+  2. `../ai-agent-frontend/src/views/LoginView.vue`：两个输入框 + 一个按钮 → 调 `login` → 成功 `router.push('/')`
+  3. [router/index.js](../ai-agent-frontend/src/router/index.js) 加一条 `/login` 路由；[HomeView.vue](../ai-agent-frontend/src/views/HomeView.vue) 顶栏加一个「登录」入口（否则只能手敲 URL）
+- **顺手要理解的 Vue 概念（登录页一次性用到三样）**：
+  - `v-model="username"`：**双向绑定**——输入框里敲的字会自动写进 `username` 这个 `ref`，反过来 `username.value` 变了输入框的值也跟着变（这就是第 1 节说的「带拦截器的盒子」在表单上的用法）
+  - `@submit.prevent="submit"`：`@submit` 是事件，`.prevent` 是**修饰符**，等于帮你调了 `event.preventDefault()`——表单默认提交会导致整页刷新，刷新就把 Vue 的状态全清了
+  - `try / catch / finally` + `:disabled="loading"`：请求是异步的，按钮要在请求期间禁用来防重复提交
+- **错误怎么显示**：后端失败时返回 `{"message":"用户名或密码错误"}`，全局处理器已经保证**所有错误响应体都是这一个形状**。所以前端只要 `catch (e) { error.value = e.response?.data?.message || '登录失败' }` 一句话就够，不需要为每种错误写分支
+- **验收**：
+  - 浏览器开 `http://localhost:5173/login`，填 `lcz` / `testhash` 提交 → Network 里 `POST /api/auth/login` 是 **200**，**Response Headers 里有 `Set-Cookie: JSESSIONID=...`**
+  - Application → Cookies 里能看到 `JSESSIONID` 这一条
+  - 故意输错密码 → 页面显示「用户名或密码错误」，不是白屏、不是 500
+
 ### 练习 1（最小改动）：给 axios 补上 `withCredentials`
 
 - 现状：[request.js](../ai-agent-frontend/src/api/request.js) 的实例**没有** `withCredentials`
@@ -101,7 +118,12 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
 
 - 新建 `../ai-agent-frontend/src/api/conversation.js`（或加进 `chat.js`），写一个 `createConversation(mode)`，内部是 `request.post('/conversations', { mode })`
 - **注意一个坑（拦截器已经在替你干活）**：[request.js](../ai-agent-frontend/src/api/request.js) 的响应拦截器写的是 `(response) => response.data`，所以你 `await createConversation(...)` 拿到的**直接就是响应体** `{ conversationId: "..." }`，不用再 `.data` 一次
-- **验收（不用改任何界面就能验）**：在浏览器 Console 里直接 `await createConversation('FREE_CHAT')` → 打印出 uuid；同时 Network 里出现 `POST /api/conversations` → **201**
+- **验收（不用改任何界面就能验）**：先在 `/login` 登录，然后在浏览器 Console 里敲两行（Vite dev 会按路径直接提供模块，所以 `Console` 里能 `import` 到源文件；**直接写 `createConversation(...)` 会报未定义**，因为模块导出不会挂到 `window` 上）：
+  ```js
+  const { createConversation } = await import('/src/api/conversation.js')
+  await createConversation('PRACTICE')
+  ```
+  → 打印出 uuid；同时 Network 里出现 `POST /api/conversations` → **201**
 - **这一步的意义**：**Console 里直接调 api 函数**是前端最高效的契约验证手段——不用为了验一个接口去改界面。这是你以后自己写前端时最常用的招
 
 ### 练习 3（真正的「写」）：让 GuideChatView 从后端拿会话 id
@@ -109,7 +131,7 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
 - **现状与为什么**：[GuideChatView.vue](../ai-agent-frontend/src/views/GuideChatView.vue) 里是 `const chatId = createChatId()` ——**前端自己造会话主键**。这是要改掉的核心问题（依据见[接口约定](./impl-log.md)：服务端才是会话 id 的唯一权威，前端造 id 在第二个用户那里会撞、刷新就丢）
 - **目标形态**：
   1. `chatId` 从「同步生成的普通变量」改成 `ref('')`
-  2. 在 `onMounted` 里 `await createConversation('FREE_CHAT')`，拿到后写进 `chatId.value`
+  2. 在 `onMounted` 里 `await createConversation('PRACTICE')`，拿到后写进 `chatId.value`
   3. 处理两种非正常态：请求中（可先放个 loading）、请求失败（给个提示，别静默）
 - **好消息**：ChatRoom.vue 里已有 `v-if="chatId"` 兜住顶部显示，`send()` 里也是 `if (props.chatId) params.chatId = ...`——**空的 chatId 不会把页面搞崩**，你可以安心分步改
 - **范围**：本练习只迁 GuideChatView（学习助手这条链路）。`ManusChatView.vue` **也在用** `createChatId()`，但它当前不落库（没有对应的 `t_conversation` 记录），先不动
@@ -119,13 +141,31 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
   - 顶部 `CHAT ID` 显示的是 `shortChatId`（去横线取前 12 位），不必逐字相等，**对得上前缀即可**
 - **改完别急着删**：`utils/chatId.js` **仍有 `ManusChatView` 在用**。删除无用代码的前提是「先搜确认真没人用」——这正是你在后端删 import 时的习惯（`grep` 一下，别凭印象）
 
-### 练习 4（④格前置：认识「框架也有天花板」）
+### 练习 4（认识「框架也有天花板」）
 
 - 现状：[sse.js](../ai-agent-frontend/src/api/sse.js) 用的是浏览器**原生 `EventSource`**
 - **它的硬限制**：只能发 **GET**、不能自定义请求头、不能带 POST body（这是 `EventSource` 规范定的，不是没写对）；另外服务端关流时浏览器也会触发 `error`，所以代码里必须主动 `close()` 防止自动重连——这段注释已经在 [sse.js](../ai-agent-frontend/src/api/sse.js) 里写着了
-- **为什么现在要提前看**：④格后端是 `POST /ai/chat/stream`（消息体要带 JSON）。**一旦是 POST + body，`EventSource` 直接出局**，必须换成 `fetch` + 读 `response.body` 的 `ReadableStream`，手动切 SSE 帧（`TextDecoder`）
-- **本练习只做调研，不实现**：查一下 MDN 的 `EventSource` 限制、以及 `ReadableStream.getReader()` 怎么读
+- **④格落地后它就出局了**：④格后端已实现为 `POST /api/ai/chat/stream`（消息体是 JSON）。**POST + body 的接口，`EventSource` 直接出局**，必须换成 `fetch` + 读 `response.body` 的 `ReadableStream`，手动切 SSE 帧（`TextDecoder`）
 - **这一步的意义**：这是"前端不只是画画界面"的最好例子——**一个框架 API 的边界，会直接决定后端接口能怎么写**。面试讲全栈时，这条比"我会写 Vue"值钱得多
+
+### 练习 5（③格核心）：实现 `chatStream.js`（`fetch` + `ReadableStream`）
+
+- 新建 `../ai-agent-frontend/src/api/chatStream.js`，导出 `streamChat({ conversationId, message, onMessage, onDone, onError, signal })`：
+  - `fetch('/api/ai/chat/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ conversationId, message }), signal })`
+  - **失败响应是 JSON 不是流**：`if (!res.ok) { const err = await res.json(); throw new Error(err.message) }` —— `res.ok` 为真时打开的才是 SSE 流
+  - `const reader = res.body.getReader()`，循环 `await reader.read()` 拿 `{ done, value }`，`done === true` 就是流结束（④格契约：**不发结束帧**，流关闭即结束）
+- **三个必须理解的点**：
+  - `fetch` 返回的 `res` 只是**响应头**，body 还没下载完；`res.body.getReader()` 才能一片一片读——这是"流式"的物理基础
+  - `new TextDecoder()` 要带 `{ stream: true }`：一个汉字占 3 字节，有可能被切在两片之间；`stream: true` 让解码器记住上一片剩下的半个字符，等下一片到齐再吐出来，否则会出乱码
+  - 停顿按钮要靠 **`AbortController`**：`fetch` 没有 `close()` 方法，只能 `controller.abort()` 真正断开连接
+- **验收**：浏览器 Console 里 `await streamChat({ conversationId: '<真实 id>', message: '什么是指针的别名？', onMessage: (c) => console.log(c) })` → 看到文字**一片一片**打印，而不是最后一次性出现
+
+### 练习 6（收尾）：让 `ChatRoom.vue` 支持 POST 流
+
+- `ChatRoom.vue` 现在只会「拼 query 串 → `EventSource`」。加一个 `transport` prop 区分两种传输：`'event-source'`（ManusChatView 继续用的 GET 教学接口）与 `'post-stream'`（GuideChatView 走的④格接口，需要 `conversationId`）
+- `stop()` / `closeSource()` 里对 `EventSource` 调 `.close()`，对 `fetch` 流调 `.abort()`
+- **不要删 `sse.js` 和 `utils/chatId.js`**：[ManusChatView.vue](../ai-agent-frontend/src/views/ManusChatView.vue) 仍在用（它打的 `/ai/manus/chat` 是 GET + 无鉴权的教学接口，不落库）
+- **验收**：GuideChatView 里发一条消息 → Network 里是 **POST** `/api/ai/chat/stream`（不再是 GET），回答逐字出现；发完后用 psql 查 `t_message` 能看到这一轮的 USER / ASSISTANT 两行
 
 ***
 
@@ -135,7 +175,7 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
 | --- | --- | --- |
 | Network 面板 | 请求头 / 响应头 / 状态码 / 请求体 / EventStream | 判断"请求发出去没、后端回什么" |
 | Console | 直接敲代码（含 `await`） | 不改界面验接口契约（练习 2） |
-| Application → Cookies | `JSESSIONID` | 确认登录态带上了没（练习 1/3） |
+| Application → Cookies | `JSESSIONID` | 确认登录态带上了没（练习 0.5 / 1 / 3） |
 | Sources → 断点 / `debugger` | 函数怎么一步步走 | 看不懂代码时，让它停在你想看的那行 |
 | Vue Devtools（浏览器插件） | 组件树、props、每个 `ref` 的实时值 | **学 Vue 最强的工具**：值变了立刻看得见 |
 

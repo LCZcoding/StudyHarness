@@ -172,10 +172,115 @@ MockMvc 5 条全绿：未登录 401 / 已登录 201+Location+conversationId **+ 
 
 ***
 
-## 第③~⑤格（待做）
+## 第④格纵切 · 消息落库（2026-10-19 完成，本格 7/7 绿 + 回归 10/10 绿）
+
+**产出**：`POST /ai/chat/stream` → SSE 逐字流出；流结束后把这一轮的 USER / ASSISTANT 两条**同一事务、按序**写进 `t_message`；`ConversationService.assertOwned` 第一次真正抛 `ForbiddenException` → 403。
+
+契约（唯一真理源）：[`api-chat-stream.md`](./api-chat-stream.md)。
+
+新增类：`model.MessageRole` / `model.MessageType`、`repository.MessageRepository`、`service.MessageService`、`service.ChatService`、`controller.AiChatController`；`ConversationService` 追加 `assertOwned`。
+
+测试 7 条全绿：`AiChatControllerTest` 5（未登录 401 / 别人的会话 403 / 不存在的 UUID 403 同文案 / 坏 `conversationId` 400 带文案 / 坏 `message` 400 带文案）、`MessageServiceTest` 1（一轮落两行，顺序与 `role`/`type` 对齐）、`ChatServiceTest` 1（mock 模型吐两片 → 拼成全文落库）。回归 10 条仍绿，合计 **17/17**。
+
+### 本格的核心：`@Transactional` 拦不住流式方法
+
+`Flux` 是「装配说明」不是「结果」：`ChatService.stream` 一返回，若它标了 `@Transactional`，**事务当场提交，而 chunk 还在路上**。所以落库挂在 `doOnComplete` 上、由**另一个 bean**（`MessageService.appendRound`）承接 `@Transactional`——同一个类里写 `this.appendRound(...)` 会绕过 Spring 代理，`@Transactional` **静默失效、不报错**。两个类分开是刻意的。
+
+第二层：`Flux` **懒执行**——不 `subscribe` 一行回调都不跑；`AiChatController` 的 `.subscribe()` 才是启动开关。
+
+### 本格确立的基建
+
+| 组件 | 职责 | 关键取舍 |
+| --- | --- | --- |
+| `MessageRepository.insert(UUID, String role, String type, String content)` | 一条 INSERT | **收 `String` 不收枚举**：沿用②格「枚举直传 JDBC 被驱动拒绝」的教训，`name()` 转换归 Service 侧 |
+| `MessageService.appendRound(...)`（`@Transactional`） | 一个事务插两条 | 否决「先落 USER 再落 ASSISTANT」：中途失败会留下永远等不到回答的孤儿问句 |
+| `ChatService.stream(...)` | 组装流 + 累积全文 + 完成时落库 | **不标 `@Transactional`**；累积用 `StringBuilder`（框架不提供"把已发出的 chunk 读回来"的能力），且必须在方法内 `new`——`ChatService` 是单例，写成字段会让不同会话串内容 |
+| `ConversationService.assertOwned` | 归属拒绝 → 403 | 形态是「不过就抛异常」，**不是返回 boolean 的查询**（②格已预判并删掉了 `belongsTo` 的出口包装） |
+| `AiChatController.stream` | 身份(401) → 归属(403) → 开流 | emitter 骨架照抄 `AiController.doChatWithLoveAppSseEmitter`；**`SseEmitter` 不出现在 Service**（业务层不认识 web，⑤ 与自测模式才能复用 `ChatService`） |
+
+### 归属失败为什么要归并
+
+`conversationId` 不存在 与 不属于你 → **一律 403 + 同一句「会话不存在或无权访问」**。404 与 403 的差别本身就是存在性旁信道：枚举 UUID 时，404 表示"不存在"、403 表示"存在但非你的"，等于免费确认了哪些 UUID 真实存在。用例 2/3 共用同一个文案常量，把这条钉死。
+
+### 测试看门狗（本格新增的锋利处）
+
+- 用例 4/5 **故意不伪造登录态**：`@Valid` 一旦静默失效，请求会走到「取身份」变成 401 而不是 400，测试照样红。
+- 用例 4/5 断言的是**文案**（`conversationId 不能为空` / `请求体不合法` / `message 不能为空` / `message 过长`），不再只看状态码——原因是预测外问题 1。
+- `AiChatControllerTest` 用 `@MockitoBean LoveApp` 顶掉模型：万一归属校验被改坏，请求走到开流那步也不会真的打收费 API。**Boot 3.4 起是 `@MockitoBean`，不是 `@MockBean`**。
+
+### 预测外问题 1：400 的两类处理器从未实现（已修）
+
+- **现象**：测试跑通后核对④契约 §2.3，发现 400 的响应体**是空的**。日志实证（非推断）：`Resolved [MethodArgumentNotValidException: ... default message [conversationId 不能为空]]` 与 `Resolved [HttpMessageNotReadableException: Cannot deserialize value of type java.util.UUID from String "not-a-uuid"]`——**`Resolved` 二字说明是 Spring 的 `DefaultHandlerExceptionResolver` 接的，不是我们的 `GlobalExceptionHandler`**。
+- **根因**：②格契约 §2.4 承诺了 4 类映射（401 / 403 / `MethodArgumentNotValidException`→400 / `HttpMessageNotReadableException`→400），**但 `GlobalExceptionHandler` 只实现了前两类**；②格测试只断言状态码，缺口因此一直隐身。
+- **修法**：补齐两个 `@ExceptionHandler`。校验失败那条**守规矩**（文案由 `@NotNull(message = ...)` 携带、处理器只转发第一条 `defaultMessage`）；body 解不开那条是**必要例外**（拒绝方是 Jackson 序列化器，它带不了我们的文案，只能固定给一句「请求体不合法」）。
+- **教训**：「契约里写了 body」+「测试只断言状态码」= **假验收**。文档承诺的输出形状，必须有测试真的去读它。
+
+### 预测外问题 2：流式回调里的阻塞调用（记账，本格未修）
+
+- **现象**：IDE 提示 `ChatService.stream`「在非阻塞上下文中使用阻塞调用可能会导致线程匮乏」。
+- **根因**：`doOnComplete` 的回调跑在**「完成信号」所在的那个线程**上——即底层 HTTP 客户端的线程（`WebClient` / Reactor Netty 场景下是 event loop）。`messageService.appendRound` 是 JDBC 阻塞调用（两条 INSERT + 事务提交），阻塞 event loop 会连累同一条 loop 上的其他请求。
+- **为什么不能随手"把落库甩到别的线程"**：契约 §5 拍板「落库失败 → 顺着 `onError` → `completeWithError`」，而异常**只有从链路内部抛出**才会变成 `onError`。`Schedulers.boundedElastic().schedule(落库)` 会让异常逃逸到另一个线程，前端再也收不到「本轮未保存」。
+- **正确修法**：`loveApp.doChatByStream(...).publishOn(Schedulers.boundedElastic())`——`publishOn` 把**下游所有信号**（`onNext` / `onComplete` / `onError`）切到 `boundedElastic`（专为阻塞工作准备的池），整条下游（含 `emitter.send` 的 servlet 阻塞写）一并挪出 event loop。代价是每个 chunk 多一次线程出入队。
+- **易混点**：`subscribeOn` 只改「订阅 / request 发生在哪个线程」，**不改**数据与完成信号的发射线程——用它解决阻塞是无效的。
+- **本格决策**：**不修**。本格目标是「存得进 + 归属校验可验证」，引入线程模型变更会把调试面扩大；记账待主干处理。附带说明：既有 `AiController.doChatWithLoveAppSseEmitter` 在同一个订阅回调里做 `emitter.send`，属同类问题（教学 demo，未管）。
+
+### curl 端到端实测（2026-10-19 16:10，应用跑在 8123，真实 DeepSeek 模型）
+
+**① 逐字流出**（`POST /api/ai/chat/stream`，带 cookie，`-N` 关缓冲）→ HTTP 200，`data:` 帧按 token 粒度到达（中文甚至按单字切）：
+
+```
+data:指针
+
+data:的
+
+data:别名
+...
+data:你判断一下，说说理由？
+HTTP:200
+```
+
+**② 不带 cookie** → 401
+
+```
+{"message":"未登录"} HTTP:401
+```
+
+**③ 随机 UUID（会话不存在）** → 403
+
+```
+{"message":"会话不存在或无权访问"} HTTP:403
+```
+
+**④ 别人的会话**（另建一个 synthetic user 持有会话）→ 403，**与 ③ 逐字同文案**——「不存在」与「不归你」归并成功
+
+```
+{"message":"会话不存在或无权访问"} HTTP:403
+```
+
+**⑤ 查库确认落两行**（`ORDER BY id`）
+
+```
+role | type | len | head
+USER | QUESTION | 9 | 什么是指针的别名？
+ASSISTANT | ANSWER | 1053 | # 指针的别名
+```
+
+恰好 2 行、USER 在前、`type` 分别为 `QUESTION` / `ANSWER`；`ASSISTANT` 那行是 **1053 字符的全文**——证明 `StringBuilder` 累积 + `doOnComplete` 落库这条线在真实模型下也成立（不只是 mock 里成立）。
+
+**⑥ 附带验证**：测试过程中误传空 `conversationId`，返回 `{"message":"conversationId 不能为空"} HTTP:400`——**预测外问题 1 补上的 400 处理器在真实请求下也生效了**。
+
+**收尾**：登录 `POST /api/auth/login` → 200 + `userId`；建会话 `POST /api/conversations` → `201` + `Location: /conversations/<uuid>`（②格契约顺带在真实请求下复验了一次）；④ 用的 synthetic user / conversation 已 `DELETE`，远端库无残留。
+
+### 本格仍未做
+
+- 「把多轮记忆换成读 DB」（`FileBasedChatMemory` → DB）：本格只做「存得进」，「读得出」归⑤格与主干（台账 #3）。
+- `publishOn(Schedulers.boundedElastic())`（预测外问题 2）：记账不修。
+
+***
+
+## 第③ / ⑤格（待做）
 
 | 格 | 产出 | 要点 |
 | --- | --- | --- |
-| ③ 前端接上 | 前端能拿到并使用 `conversationId` | `api` 加 `createConversation()`；`GuideChatView` 异步拿 id；修掉当前破损状态；`withCredentials` 带 Cookie |
-| ④ 消息落库 | 一轮问答的 USER / ASSISTANT 写进 `t_message` | `POST /ai/chat/stream`；**同一轮多条消息必须同一事务按序插入** |
-| ⑤ 历史恢复 | 会话可回读 | `GET /conversations/{id}/messages` |
+| ③ 前端接上 | 前端能拿到并使用 `conversationId` | `api` 加 `createConversation()`；`GuideChatView` 异步拿 id；`withCredentials` 带 Cookie；SSE 从 `EventSource` 换成 `fetch` + `ReadableStream`（④ 已把聊天接口改成 POST，`EventSource` 只支持 GET） |
+| ⑤ 历史恢复 | 会话可回读 | `GET /conversations/{id}/messages`；复用 `assertOwned`（④ 已就位），只做「读得出」 |

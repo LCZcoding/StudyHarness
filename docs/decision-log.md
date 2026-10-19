@@ -141,8 +141,9 @@
 - [x] 落 `db/schema.sql`（幂等可重放，面试可直接看）
 - [x] 表设计 v1 已建表验证通过（FK / CHECK 实测生效）
 - [x] 第①格纵切（登录）完成：`POST /auth/login` 跑通，MockMvc 3/3 绿 → 见 [`impl-log.md`](./impl-log.md)
-- [ ] 第②格纵切（建会话）：`CurrentUserResolver`（从 session 取 userId）+ `ConversationService` + `ForbiddenException` + 全局异常处理器 + `ConversationController`
-- [ ] 第③~⑤格：前端接上（`createConversation()`）/ 消息落库 / 历史恢复
+- [x] 第②格纵切（建会话）完成：`POST /conversations` 跑通 `201 + Location`，MockMvc 5/5 绿（合计 10/10）→ 见 [`impl-log.md`](./impl-log.md) 第②格
+- [x] 第④格纵切（消息落库）**完成**：`POST /ai/chat/stream` 跑通，SSE 流结束后**同一事务**落两条 `t_message`，`assertOwned` → 403 首次生效；17/17 绿 + curl 端到端实测通过（逐字流出 / 401 / 403 两分支同文案 / 查库确认两行）→ 见 [`impl-log.md`](./impl-log.md) 第④格
+- [ ] 第③ / ⑤格：前端接上（`createConversation()` + `fetch` 读流）/ 历史恢复（`GET /conversations/{id}/messages`）
 - [ ] 第一条纵切（记忆落库）跑通后，回填 1-2 页《架构与设计取舍》——基于真实踩坑，这才是面试可信的「设计文档」
 - [ ] 会话与记忆统一落库（PostgreSQL，与 pgvector 同库同事务）
 - [ ] 新增 knowledge\_item / test\_record / review\_schedule
