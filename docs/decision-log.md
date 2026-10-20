@@ -155,3 +155,6 @@
 - [x] 前端两个入口合并为一个（2026-10-20）——完成：只留 `/guide`，「AI 超级智能体」入口 `/manus` 下线。`HomeView.vue` 双卡改单卡（删第二张卡 + `VS` 分隔 + `card.manus` 样式）、`router/index.js` 删 `/manus` 路由、删 `ManusChatView.vue`；随之失去引用的 `utils/chatId.js` / `api/sse.js` / `api/chat.js` 一并删除，`ChatRoom.vue` 的 `event-source` 分支与 `ssePath` / `transport` prop 同步移除（改为只支持 `post-stream`）。`vite build` 通过。后端 `/api/ai/manus/chat`、`LiManus`、`agent/`、`tools/` **保留**（`tools/` 是主干「资料接入第二层」的原料）
 - [ ] 把 `LiManus` 的工具调用 / ReAct 能力接进 `/guide`（即合并的「路 B」）：新增 `POST /api/ai/agent/stream`（鉴权 → 归属 → 步骤流 → 落库），记忆改用 `t_message` 而非 kryo `ConversationStore`；动工前先出接口契约
 - [ ] `ChatRoom.vue` 残留清理：`theme-manus` 样式与 `streamMode: 'step'` 分支已无调用方，待「路 B」接入时复用或删除
+- [x] 登录后回跳（redirect after login）——完成：守卫 `router/index.js` 与视图 401 兜底 `GuideChatView.toLoginIfUnauthorized` 均带 `?redirect=to.fullPath`；`LoginView.vue` 新增 `safeRedirect` 站内路径白名单，堵住 open redirect（`//evil.com` 这类协议相对地址）。浏览器实测「未登录点卡片」与「session 过期 401」两条路径的地址栏均为 `/login?redirect=/guide`，刷新参数不丢 → 见 [`impl-log.md`](./impl-log.md)「登录后回跳」
+- [ ] 401 统一收敛到 axios 响应拦截器（`api/request.js`）：现在三个视图各自 catch、各自决定跳不跳登录页，容易改一处漏两处；收敛后可顺便清掉 localStorage 里过期的 `ai-agent-auth` 标记（当前「标记说已登录、接口说 401」存在短暂不一致）
+- [ ] 已登录用户访问 `/login` 仍能进登录页，可加 `meta: { guestOnly: true }` 并重定向到首页

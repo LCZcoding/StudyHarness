@@ -561,6 +561,66 @@ emit('done')
 
 ***
 
+### 练习 11：登录后回跳（redirect after login）+ 开放重定向白名单
+
+**现象**：未登录时点首页卡片 → 被送去 `/login` → 登录成功 → **回到首页**，还得再点一次卡片才进得去。
+
+**怎么想（这条比代码重要）**：问题不在"登录"，在**「用户本来想去哪」这条信息被丢掉了**。路由跳转是一次导航，导航要传递的上下文必须跟着导航一起走；把上下文放在"内存变量/全局 store"里，**刷新（F5）就丢**，而刷新登录页是很常见的动作。所以载体选 URL：`/login?redirect=/guide`。
+
+**改法的两半（必须成对，少一个都不生效）**
+
+一半在守卫 [router/index.js](../ai-agent-frontend/src/router/index.js#L38-L43)：把原来想去的地方一起带过去。
+
+```js
+router.beforeEach((to) => {
+  if (to.meta.requiresAuth && !isAuthenticated.value) {
+    return { name: 'login', query: { redirect: to.fullPath } }   // fullPath 带 query/hash
+  }
+})
+```
+
+另一半在 [LoginView.vue](../ai-agent-frontend/src/views/LoginView.vue#L59-L68)：登录成功后跳回带去的地方，而不是写死的 `/`。
+
+```js
+router.push(safeRedirect(route.query.redirect))
+```
+
+注意本文件需要**两个** hook：`useRoute()` 用来读参数，`useRouter()` 用来跳转，别混。
+
+**开放重定向（open redirect）为什么必须防**：`redirect` 是**用户能改的输入**，直接拿它跳转，`?redirect=//evil.com` 就能把登录成功的人送去站外钓鱼页——用户看域名是本站在登录，登录完却被送走。白名单三条，**第三条才是真坑**：
+
+```js
+function safeRedirect(target) {
+  if (typeof target !== 'string') return '/'   // 参数不存在是 null；同名参数出现两次时 vue-router 给的是数组
+  if (!target.startsWith('/')) return '/'      // 站外绝对地址（http://、javascript: …）
+  if (target.startsWith('//')) return '/'      // 协议相对地址：它"以 / 开头"，骗过上一条，但等于 https://evil.com
+  return target
+}
+```
+
+这和后端在 DTO 上用 `@NotBlank` 挡非法输入是**同一个原则的两次出现**：凡是用户可控的值要影响关键行为（这里是跳转目标），就得在边界校验。反过来，别指望框架帮你挡——那是兜底行为，不是你的防线。
+
+**还有一个容易漏的入口（本次实测才发现的）**：把用户送去 `/login` 的地方**不止守卫一处**。项目里当时有三条：
+
+| 入口 | 位置 | 是否带 redirect |
+| --- | --- | --- |
+| 路由守卫（未登录点 `requiresAuth` 路由） | `router/index.js` | 已修 |
+| 视图内接口 401 兜底 | `GuideChatView.vue` 的 `toLoginIfUnauthorized` | 已修（改成 `push({ name: 'login', query: { redirect: route.fullPath } })`） |
+| axios 响应拦截器 | `api/request.js` | **未做统一处理**，目前靠各视图自己 catch |
+
+**为什么第二条必须修**：前端登录标记（localStorage 的 `ai-agent-auth`）会**残留过期**——服务端 session 失效了，标记还写着"已登录"。这时点卡片，守卫放行（标记是 `'1'`），进 `/guide` 后接口 401，才被踢到登录页。若这里不带 `redirect`，用户登录完照样掉回首页，等于"守卫那半白修了"。**凡是"把用户踢去登录页"的分支，都要用同一个函数发出去**，否则改一处、漏两处。
+
+**怎么验证（4 步，前两步不需要账号密码）**
+
+1. 未登录（清掉 `localStorage.ai-agent-auth`）刷新首页 → 点卡片 → 地址栏应是 **`/login?redirect=/guide`**。不用登录就能证明信息带上了。
+2. 在登录页 F5 → 参数应仍在。
+3. 直接开 `/guide`（localStorage 还残留 `'1'`）→ 接口 401 → 地址栏应是 **`/login?redirect=/guide`**（这条走的是第 2 个入口）。
+4. 登录成功 → 应落在 `/guide`，不再是 `/`；再手改地址试 `/login?redirect=//example.com` 登录 → 应回 `/`（白名单生效）。
+
+**已知边界（不做）**：登录标记在服务端 session 失效后不会自动清掉，所以会出现"标记说已登录、接口说 401"的短暂不一致。彻底解法是把 401 统一收敛到 axios 拦截器（顺便清标记），记在 [`decision-log.md`](./decision-log.md) 待办里。
+
+***
+
 ## 4. 调试工具箱：比背 API 重要十倍
 
 | 工具 | 看什么 | 典型用途 |

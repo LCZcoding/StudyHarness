@@ -559,3 +559,34 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 - **未验到的部分**：本机浏览器工具不支持动态改视口，`1440×900 / 834×1112 / 390×844` 三档未实测，仅有 `≤820px / ≤480px` 断点的代码保证，需人工在 DevTools 响应模式过一遍。
 
 **前端侧已归 [`frontend-learning.md`](./frontend-learning.md)：练习 10。**
+
+***
+
+## 登录后回跳（redirect after login，2026-10-20）
+
+**现象**：未登录点首页卡片 → 被送 `/login` → 登录成功 → **回到首页**，要再点一次卡片才进得去。
+
+**根因**：不是"登录没生效"，是**「用户本来想去哪」这条信息被丢了**。第一次改只修了守卫一处，实测又发现**还有第二个丢失点**。
+
+**把用户送去 `/login` 的入口共三处，只有守卫带了目标**
+
+| 入口 | 位置 | 状态 |
+| --- | --- | --- |
+| 路由守卫（`requiresAuth` 且未登录） | [`router/index.js`](../ai-agent-frontend/src/router/index.js#L38-L43) | 改：`return { name: 'login', query: { redirect: to.fullPath } }` |
+| 视图内接口 401 兜底 | [`GuideChatView.vue`](../ai-agent-frontend/src/views/GuideChatView.vue#L69-L78) `toLoginIfUnauthorized` | 改：`push({ name: 'login', query: { redirect: route.fullPath } })` |
+| axios 响应拦截器 | [`api/request.js`](../ai-agent-frontend/src/api/request.js#L18-L24) | 未做统一 401 处理，靠各视图自己 catch → 记为待办 |
+
+登录侧 [`LoginView.vue`](../ai-agent-frontend/src/views/LoginView.vue#L59-L84)：`router.push(safeRedirect(route.query.redirect))`，新增 `safeRedirect` 做站内路径白名单。
+
+**白名单的必要性**：`redirect` 是用户可改输入，直接拿它跳转会形成 **open redirect**（`?redirect=//evil.com` 把登录成功的人送去站外）。三条判断里 **`//` 那条才是真坑**——它"以 `/` 开头"能骗过前缀检查，但浏览器按协议相对地址解析成 `https://evil.com`。这与后端「输入校验在 DTO 边界完成」是同一原则的前端对应物。
+
+**踩坑（预测外，本次实测才发现）**：前端登录标记会**残留过期**——localStorage 的 `ai-agent-auth='1'`，而服务端 session 已失效。此时守卫按标记放行（用户确实没被拦），进 `/guide` 后接口 401，才由视图内的兜底把用户踢去登录页。**所以"守卫那半修好"并不等于闭环**：只要还有别的分支往 `/login` 跳，用户照样会被丢回首页。教训：**同一种"把用户踢去登录页"的动作散落多处时，先数清入口再改**，入口清单本身就是验收清单。
+
+**验收（真实浏览器实测，非推断）**
+
+- `npm run build` 通过（改动前后各一次）。
+- 未登录点卡片 → 地址栏 `/login?redirect=/guide`；登录页 F5 后参数保留。
+- localStorage 残留 `'1'`（标记已登录）→ 直接开 `/guide` → 接口 401 → 地址栏 `/login?redirect=/guide`（走的是第二个入口）；控制台只有预期内的 401，无 JS 崩溃。
+- **未验到的部分**：登录成功后的实际落点、`?redirect=//evil.com` 的白名单拦截，这两条都需要账号密码走完整提交流程，由用户自测确认。
+
+**前端侧已归 [`frontend-learning.md`](./frontend-learning.md)：练习 11。**
