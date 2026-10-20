@@ -7,7 +7,7 @@ import com.lcz.aiagentstudy.model.MessageRow;
 import com.lcz.aiagentstudy.service.ConversationService;
 import com.lcz.aiagentstudy.service.MessageService;
 import com.lcz.aiagentstudy.web.CurrentUserResolver;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -32,10 +32,10 @@ public class ConversationController {
     public record CreateRequest(@NotNull(message="mode 不能为空") ConversationMode mode){}
 
     @PostMapping
-    public ResponseEntity<?> create(@Valid @RequestBody CreateRequest createRequest, HttpSession session){
+    public ResponseEntity<?> create(@Valid @RequestBody CreateRequest createRequest, HttpServletRequest request){
         // 通过session创建对话，返回uuid
         // to know why currentUserResolver
-        UUID userId = currentUserResolver.requireUserId(session);
+        UUID userId = currentUserResolver.requireUserId(request);
         UUID conversationId = conversationService.create(userId, createRequest.mode());
 
         return ResponseEntity.created(URI.create("/conversations/" + conversationId))//create自动包括201
@@ -43,16 +43,16 @@ public class ConversationController {
     }
 
     @GetMapping
-    public ResponseEntity<?> list(HttpSession session) {
-        UUID userId = currentUserResolver.requireUserId(session);        // 401
+    public ResponseEntity<?> list(HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);        // 401
         List<ConversationRow> conversations = conversationService.list(userId);
         return ResponseEntity.ok(Map.of(ConversationKeys.CONVERSATIONS, conversations));
     }
 
     // @PathVariable 必须显式写名字，名字就叫 conversationId
     @GetMapping("/{conversationId}/messages")
-    public ResponseEntity<?> messages(@PathVariable("conversationId") UUID conversationId, HttpSession session) {
-        UUID userId = currentUserResolver.requireUserId(session);        // 401
+    public ResponseEntity<?> messages(@PathVariable("conversationId") UUID conversationId, HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);        // 401
         conversationService.assertOwned(conversationId, userId);         // 403，必须在查询之前
         List<MessageRow> messages = messageService.listByConversation(conversationId);
         return ResponseEntity.ok(Map.of(ConversationKeys.MESSAGES, messages));

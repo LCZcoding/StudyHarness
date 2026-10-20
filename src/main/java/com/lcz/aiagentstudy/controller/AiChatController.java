@@ -3,7 +3,7 @@ package com.lcz.aiagentstudy.controller;
 import com.lcz.aiagentstudy.service.ChatService;
 import com.lcz.aiagentstudy.service.ConversationService;
 import com.lcz.aiagentstudy.web.CurrentUserResolver;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -37,9 +37,9 @@ public class AiChatController {
     // 身份校验(401) → 归属校验(403) → 开流
     // emitter 骨架照抄 AiController.doChatWithLoveAppSseEmitter，别重新发明
     @PostMapping("/chat/stream")
-    public SseEmitter stream(@Valid @RequestBody StreamRequest req, HttpSession session) {
+    public SseEmitter stream(@Valid @RequestBody StreamRequest req, HttpServletRequest request) {
         // 拿到userId，同时currentUserResolver可以校验身份
-        UUID userId = currentUserResolver.requireUserId(session);
+        UUID userId = currentUserResolver.requireUserId(request);
         // 拿到conversationId
         UUID conversationId = req.conversationId();
         // 归属校验

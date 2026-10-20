@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -66,13 +67,19 @@ class ConversationControllerTest {
     }
 
     // 用例 1：未登录 → 401，body 里要有那句话（前端能直接弹出来）
+    // ③格遗留：还必须"不建会话" —— 见文末断言。MockMvc 测不到容器不下发 Set-Cookie（Cookies = []），
+    // "请求上有没有会话对象"是它在 MockMvc 里唯一可观测的代理。
     @Test
     void create_unauthorized() throws Exception {
-        mockMvc.perform(post("/conversations")
+        MvcResult result = mockMvc.perform(post("/conversations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"mode\":\"FREE_CHAT\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").exists());
+                .andExpect(jsonPath("$.message").exists())
+                .andReturn();
+
+        assertNull(result.getRequest().getSession(false),
+                "未登录请求不应被 Spring MVC 建出空会话（否则会下发一个 JSESSIONID，造成'有 Cookie ≠ 已登录'）");
     }
 
     // 用例 2 + 3：已登录 → 201 + Location + conversationId；
@@ -136,9 +143,13 @@ class ConversationControllerTest {
     // ⑤用例 1：GET /conversations 未登录 → 401，body 要有那句话
     @Test
     void list_unauthorized() throws Exception {
-        mockMvc.perform(get("/conversations"))
+        MvcResult result = mockMvc.perform(get("/conversations"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").exists());
+                .andExpect(jsonPath("$.message").exists())
+                .andReturn();
+
+        // 同上：控制器若改回参数式 HttpSession，这里立刻变非 null
+        assertNull(result.getRequest().getSession(false), "未登录请求不应被建出空会话");
     }
 
     // ⑤用例 2：只返回本用户的会话；另一用户的会话不出现；updatedAt 非 null
