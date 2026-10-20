@@ -335,8 +335,81 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 ***
 
-## 第⑤格纵切（待做）
+## 第⑤格纵切 · 历史恢复（2026-10-20 完成，本格 8/8 绿 + 回归 12/12 绿）
 
-| 格 | 产出 | 要点 |
+**产出**：`GET /api/conversations`（当前用户自己的会话列表，按「最近活动」倒序，`title` 由首条 USER 消息派生）；`GET /api/conversations/{conversationId}/messages`（某会话的全部消息，`id` 序）；顺带给 `GlobalExceptionHandler` 补一条 `MethodArgumentTypeMismatchException` → 400（本项目第一次出现**路径变量**）。
+
+契约（唯一真理源）：[`api-conversation-history.md`](./api-conversation-history.md)。
+
+新增：`model.ConversationRow` / `model.MessageRow`（record）；`ConversationController` 追加 `list` / `messages`；`ConversationService.list`、`MessageService.listByConversation`；`ConversationRepository.findAllByUserId` / `touch`、`MessageRepository.findAllByConversation`；`ConversationKeys` 追加 `CONVERSATIONS` / `MESSAGES`。
+
+### 返回样例
+
+```json
+// GET /api/conversations —— title 由首条 USER 消息前 50 字派生；无 USER 消息则为 null
+{
+  "conversations": [
+    {
+      "conversationId": "0d5a1d0e-3a1b-4d6f-9c2e-8b7f1a2c3d4e",
+      "mode": "PRACTICE",
+      "title": "我的代码报错了，帮我理一下排查思路",
+      "updatedAt": "2026-10-19T13:58:45.123456Z"
+    }
+  ]
+}
+
+// GET /api/conversations/{conversationId}/messages —— 按 id 序（= 对话顺序），不返回 type
+{
+  "messages": [
+    { "messageId": 23, "role": "USER",      "content": "什么是指针的别名？", "createdAt": "2026-10-19T13:58:41.001Z" },
+    { "messageId": 24, "role": "ASSISTANT", "content": "指针的别名是引用。", "createdAt": "2026-10-19T13:58:45.123Z" }
+  ]
+}
+```
+
+（时间字段是 `TIMESTAMPTZ` → 带偏移的 ISO-8601。上面两段是**按契约 §3.2 / §4.2 的形状示意**；真实抓包见下一节。）
+
+### curl 端到端实测（2026-10-20 08:33，应用跑在 8123，真实数据库）
+
+§4.4 的五条 + 一条补测，全部符合期望。cookie 存临时文件（用完即删）。
+
+| # | 请求 | 实测结果 |
 | --- | --- | --- |
-| ⑤ 历史恢复 | 会话可回读 | `GET /conversations/{id}/messages`；复用 `assertOwned`（④ 已就位），只做「读得出」 |
+| 1 | `POST /api/auth/login` | `200`，`{"userId":"008e1d32-..."}`，响应头 `Set-Cookie: JSESSIONID=...; Path=/api; HttpOnly` |
+| 2 | `GET /api/conversations`（带 cookie） | `200`，24 条，按 `updatedAt` **倒序**（`14:44:58` → `14:44:56` → `14:27:12` → … → 10-16 那条在末位）；字段名 `conversationId` / `mode` / `title` / `updatedAt` |
+| 3 | `GET /api/conversations/{id}/messages` | `200`，6 条，`messageId` `19→24` **升序**，`USER` 与 `ASSISTANT` 交替 |
+| 4 | `GET /api/conversations/abc/messages` | `400` + `{"message":"conversationId 不合法"}`（**body 有文案，非空**） |
+| 5 | `GET /api/conversations`（不带 cookie） | `401` + `{"message":"未登录"}` |
+| 补 | `GET /api/conversations/11111111-.../messages`（不存在） | `403` + `{"message":"会话不存在或无权访问"}` |
+
+**三条实证**（真机证据，不是推测）：
+
+1. **同一事务两行 `created_at` 完全相同**：第 3 条里 `messageId` 19 与 20 的 `createdAt` 都是 `2026-10-19T13:16:20.489572Z`（21/22、23/24 亦然）。这实证了 §6 那条「消息按 `id` 排序、不按 `created_at`」——按时间排序在这份数据上确实不稳定。
+2. **AI 正文的换行结构完整往返**：第 3 条的 `content` 里是 `你好！很高兴见到你。\n\n我们先从…`，说明④格 SSE 的「每行加 `data:` 前缀」与③格前端的「帧内 `data:` 行拼接」两端是对齐的。
+3. **未登录也下发 `JSESSIONID`**：第 5 条那条 401 的响应头里同样带 `Set-Cookie: JSESSIONID=...`，③格记录在案的已知问题再次复现（不影响功能，仍是待办）。
+
+### 测试 8 条新增全绿
+
+`ConversationControllerTest` 追加：list 未登录 401 / 只返回本用户会话（另一用户那条**不出现**、`updatedAt` 非 null）/ `updated_at DESC` 排序（**显式 `UPDATE t_conversation SET updated_at = ...`** 造两个可区分的值）/ `title` 派生（>50 字截到 50 字、长度恰为 50，无消息为 `null`）/ messages 未登录 401 / **别人的会话**与**不存在的随机 UUID**均 403 且 `$.message` **逐字同**「会话不存在或无权访问」（归属校验看门狗）/ 按④格方式落一轮消息后 `USER → ASSISTANT`、`content` 一致 / `abc` 非 UUID → 400 `{"message":"conversationId 不合法"}`。**每条错误响应都断言了 `$.message`**（不重蹈「假验收」）。
+
+回归 12 条仍绿（`AuthControllerTest` 3 + `ConversationControllerTest` 原 5 + `MessageServiceTest` 1 + `ChatServiceTest` 1 + `ConversationRepositoryTest` 2），合计 **20/20**。
+
+### 版本化修订（不覆盖 api-conversation-history.md 原记录）
+
+1. **列表排序键：`created_at` → `updated_at`**。`t_conversation.updated_at` 现由 `MessageService.appendRound` 在两条消息落库后调 `ConversationRepository.touch(conversationId)` 维护（SQL：`update t_conversation set updated_at = now() where id = ?`；`now()` 取的是「事务开始时间」，同一事务内多次调用返回同一个值）。**理由**：原否决「按 `updated_at` 排序」的依据是"没有代码维护它"，现在有维护者了 —— 让「按最近活动排序」成立。**否决**「把这条 UPDATE 塞进 `MessageRepository.insert`」：那会让管 `t_message` 的仓库去改 `t_conversation`（职责越界），且每条消息各更新一次。
+2. **列表响应时间字段：`createdAt` → `updatedAt`**。**理由**：排序依据与显示依据必须一致 —— 最新活动的会话排第一行，那行就该显示它的最近活动时间；且未聊过的会话 `updated_at` 等于 `created_at`，一个字段同时覆盖"创建时间"与"最近活动时间"两种语义。**否决**「保持 `createdAt`」（排第一的行显示更早的时间）与「两个都给」（多一个前端用不到的字段进契约，改起来更贵）。
+
+### 与文档的微偏差
+
+- `ConversationKeys.CONVERSATIONS` 曾声明成 `Object`（契约 §5 写的是 `String`）——**收尾时已改为 `String`**。`Map.of` 接受 `Object`，所以这个笔误不影响功能，但类型该是 `String`。
+- `ConversationRepository` 顶部残留一个未使用的 import（`com.alibaba.dashscope.aigc.conversation.Conversation`）——**收尾时已删除**。
+
+### 已知坑（记账，不修）
+
+- `t_message.conversation_id` **无索引**：派生 `title` 的相关子查询逐会话扫 `t_message`；MVP 数据量下无感，数据量上来再加（转记 resume-assets）。
+- `updated_at` **只在 `MessageService.appendRound` 里更新**：将来别的"写消息"入口（复习闭环的 `FEEDBACK`、手工导入历史等）必须也调 `ConversationRepository.touch`，否则列表排序会漏掉这类活动（转记 resume-assets）。
+- e2e curl（§4.4 五条）：本格收尾时未在本地跑 → **2026-10-20 08:33 已补跑，见上面「curl 端到端实测」**。
+
+### 本格仍未做
+
+- 前端「我的会话」页 + 历史渲染：归 [`frontend-learning.md`](./frontend-learning.md) —— **练习 7（列表，已写入）**、练习 8（历史回读，待补）。

@@ -48,6 +48,14 @@
 
 **惊吓预算**：12 月底 DDL 提前留 2-3 周缓冲。偏差算预算内支出，不算延期。
 
+**第⑤格（历史恢复）带出的记账待办（可预期，非预测外，未修）**
+
+- `POST /api/auth/logout` + 前端 `clearAuth()`：`setAuth()` 目前没有撤销出口（③格遗留）。
+- `HomeView` 顶栏登录态展示：登录后主页面还看不出"我是谁"。
+- `t_message.conversation_id` **缺索引**：⑤格派生的会话标题用相关子查询逐会话扫 `t_message`，另外 `GET /conversations/{id}/messages` 也按此列过滤；MVP 数据量下无感，**数据量上来再加**（`CREATE INDEX ... ON t_message(conversation_id)`）。
+- **`updated_at` 只在 `MessageService.appendRound` 里更新**：将来出现别的"写消息"入口（复习闭环的 `FEEDBACK`、手工导入历史等），必须也调 `ConversationRepository.touch(conversationId)`，否则列表的"按最近活动排序"会漏掉这类活动。
+- **列表里大量 `title` 为 `null`**：2026-10-20 实测 24 条会话里 22 条没有标题 —— 那些是③格之前 `/guide` 每次进入就新建一条 `PRACTICE` 会话、且走无鉴权教学接口**一条消息都不落库**留下的空会话。前端「我的会话」页要对 `title` 为 `null` 的行做兜底显示（例如"（暂无内容）"），否则列表是一片空行；历史空会话是否清理另定（清不清都不影响后端契约）。
+
 **实测纠正过我的六处判断（记档，避免以后重犯）**
 
 - 断言「int 传 varchar 会报 `42804`」→ 实测**允许**（`int → varchar` 属解析器 I/O 转换，**不在 `pg_cast` 目录里**）；反向 `varchar → int` 才不允许。别把"PG 强类型"当成双向规则

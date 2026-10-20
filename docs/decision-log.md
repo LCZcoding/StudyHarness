@@ -144,7 +144,7 @@
 - [x] 第②格纵切（建会话）完成：`POST /conversations` 跑通 `201 + Location`，MockMvc 5/5 绿（合计 10/10）→ 见 [`impl-log.md`](./impl-log.md) 第②格
 - [x] 第④格纵切（消息落库）**完成**：`POST /ai/chat/stream` 跑通，SSE 流结束后**同一事务**落两条 `t_message`，`assertOwned` → 403 首次生效；17/17 绿 + curl 端到端实测通过（逐字流出 / 401 / 403 两分支同文案 / 查库确认两行）→ 见 [`impl-log.md`](./impl-log.md) 第④格
 - [x] 第③格纵切（前端接上）**完成**：`/guide` 改用后端 `POST /conversations` 签发的 `conversationId`，聊天切到 `POST /ai/chat/stream`（`fetch` + `ReadableStream` 解 SSE 帧），新增路由守卫（显式登录态标记，不依赖 Cookie）；浏览器端到端实测通过 → 见 [`impl-log.md`](./impl-log.md) 第③格
-- [ ] 第⑤格纵切（历史恢复）：`GET /conversations/{id}/messages` + 前端回读
+- [x] 第⑤格纵切（历史恢复）**后端完成**：`GET /conversations` + `GET /conversations/{id}/messages` 跑通，MockMvc 本格 8/8 绿（回归 12/12，合计 20/20）；前端「我的会话」页 + 历史渲染仍待补 → 见 [`impl-log.md`](./impl-log.md) 第⑤格
 - [ ] 第一条纵切（记忆落库）跑通后，回填 1-2 页《架构与设计取舍》——基于真实踩坑，这才是面试可信的「设计文档」
 - [ ] 会话与记忆统一落库（PostgreSQL，与 pgvector 同库同事务）
 - [ ] 新增 knowledge\_item / test\_record / review\_schedule
