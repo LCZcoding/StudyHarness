@@ -11,6 +11,7 @@
 | [`data-design.md`](./data-design.md) | 表设计 v0（过程）/ v1（冻结）、建表验证 | 写 SQL / 讲数据库时 |
 | [`impl-log.md`](./impl-log.md) | 接口约定、纵切实施记录（逐格产出与踩坑） | 写代码时 |
 | [`resume-assets.md`](./resume-assets.md) | 亮点台账、风险预案 | 写简历时 |
+| [`mvp-backend-guide.md`](./mvp-backend-guide.md) | MVP 主干的**后端实施手册**（3 张新表 + 资料接入 / 出题 / 作答 / 复习 / 工具与 RAG，含可抄代码与每阶段验收） | 开始写主干代码时 |
 
 ***
 

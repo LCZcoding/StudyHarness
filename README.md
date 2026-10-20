@@ -85,11 +85,11 @@ ai-agent-study/
 ├── images-search-mcp-server/          # MCP 图片搜索服务（独立 Spring Boot）
 └── ai-agent-frontend/                 # Vue3 前端
     └── src/
-        ├── api/         # request.js（Axios 实例）/ chat.js（同步接口）/ sse.js（EventSource 封装）
-        ├── components/ChatRoom.vue  # 通用聊天室（props 配置化：theme / ssePath / streamMode）
+        ├── api/         # request.js（Axios 实例）/ auth.js / conversation.js / chatStream.js（fetch 读 SSE 流）
+        ├── stores/auth.js           # 前端登录态标记 + 当前用户名（仅显示用）
+        ├── components/ChatRoom.vue  # 通用聊天室（props 配置化：theme / streamMode / historyMessages）
         ├── router/index.js
-        ├── utils/chatId.js
-        └── views/       # HomeView / GuideChatView / ManusChatView
+        └── views/       # HomeView / GuideChatView / LoginView
 ```
 
 ---
@@ -107,6 +107,8 @@ ai-agent-study/
 - **工具调用**：可挂载 `allTools` 让引导助手也能调用工具。
 
 ### 2. AI 超级智能体（LiManus / 类 Manus）
+
+> 前端入口 `/manus` 已于 2026-10-20 下线，入口并入 `/guide`；后端 `/api/ai/manus/chat` 与 `LiManus` 保留，待后续把工具调用能力接进 `/guide`。
 
 一个自主规划、调用工具、多步执行的通用智能体：
 
@@ -182,11 +184,11 @@ BaseAgent（状态机 + 事件循环 + 记忆）
 
 位于 `ai-agent-frontend/`，Vue 3 + Vite。
 
-- **主页** `/`：应用中心，切换两个 AI 应用；
-- **问题引导解决助手** `/guide`：进入即自动生成 `chatId`，SSE 调用 `love_app/chat/sse`，清新蓝青主题（`theme-guide`，accent `#0ea5e9`）；
-- **超级智能体** `/manus`：SSE 调用 `manus/chat`，支持多轮记忆，Step 步骤与最终总结分区展示（`theme-manus`，科技深色）；
-- 两个页面复用同一个 `ChatRoom.vue`：通过传入 `theme` / `ssePath` / `streamMode` 等 props 配置化，无需改动组件内部逻辑；
-- SSE 使用浏览器原生 `EventSource`（`api/sse.js` 中封装），并在流正常结束时主动 `close()`，避免自动重连造成重复请求。
+- **主页** `/`：应用中心，唯一入口卡片（登录后右上角显示当前用户名与「登出」）；
+- **问题引导解决助手** `/guide`：左侧栏历史会话 + 点开继续聊 + 懒创建；聊天走 `POST /api/ai/chat/stream`（`fetch` + `ReadableStream` 解 SSE 帧），会话 id 由服务端签发；清新蓝青主题（`theme-guide`，accent `#0ea5e9`）；
+- **单一入口**：原「超级智能体」页 `/manus` 已于 2026-10-20 下线，入口并入 `/guide`；后端 `/api/ai/manus/chat` 与 `LiManus` 保留，待后续把工具调用能力接进 `/guide`；
+- `ChatRoom.vue` 通过 `theme` / `streamMode` / `historyMessages` 等 props 配置化复用，无需改动组件内部逻辑；
+- 流式响应由 `api/chatStream.js` 用 `fetch` + `ReadableStream` 自行解析（`EventSource` 只支持 GET、带不了 JSON 请求体，无法调用④格的 `POST /api/ai/chat/stream`）；帧与帧按 `\n\n` 分隔、帧内按 `\n` 分行，保留 AI 输出的空行结构。
 
 开发环境通过 Vite 代理把 `/api` 转发到 `http://localhost:8123`。
 
