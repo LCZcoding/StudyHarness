@@ -47,6 +47,8 @@
 
 **产出**：查 `t_user` → BCrypt 校验 → `HttpSession` 落 `userId`；接口 `POST /auth/login`；MockMvc 3 条测试全绿。
 
+（登录的姊妹接口 `POST /auth/logout` 于 2026-10-20 补上，契约见文末「③格遗留收口」一节。）
+
 ### 分层与职责（本格确立，后续格沿用）
 
 | 层 | 职责 | 禁止 |
@@ -315,7 +317,7 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 - **现象**：无痕窗口未登录访问 `/guide`，Network 里也出现 `Set-Cookie: JSESSIONID`。
 - **根因**：`AiChatController.stream` / `ConversationController.create` 的 `HttpSession session` 参数在参数解析阶段按需 `getSession(true)`——**先建空会话、下发 Cookie，之后才走到 `requireUserId` 抛 401**。
-- **修法（用户拍板「没必要改」，记账不修）**：控制器参数换 `HttpServletRequest`，内部 `request.getSession(false)`——取不到就不创建。
+- **修法（用户最初拍板「没必要改」，记账不修 → 2026-10-20 已修）**：控制器参数换 `HttpServletRequest`，内部 `request.getSession(false)`——取不到就不创建。见文末「③格遗留收口」。
 - **影响面**：不构成越权（空会话无 `userId` 属性），但会让「有没有 Cookie」看起来像登录信号，正是核心 3 要绕开的坑。
 
 ### 预测外问题 2 · Vite 端口自增（环境坑，非代码问题）
@@ -330,8 +332,8 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 ### 本格仍未做（已入 decision-log 待办）
 
-- `POST /auth/logout` 与前端 `clearAuth()`（`setAuth()` 目前没有对应的撤销出口）
-- `HomeView` 顶栏登录态展示
+- `POST /auth/logout` 与前端 `clearAuth()`（`setAuth()` 目前没有对应的撤销出口）——**2026-10-20 已修**，见文末「③格遗留收口」
+- `HomeView` 顶栏登录态展示——**2026-10-20 已修**，见文末「③格遗留收口」
 
 ***
 
@@ -386,7 +388,7 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 1. **同一事务两行 `created_at` 完全相同**：第 3 条里 `messageId` 19 与 20 的 `createdAt` 都是 `2026-10-19T13:16:20.489572Z`（21/22、23/24 亦然）。这实证了 §6 那条「消息按 `id` 排序、不按 `created_at`」——按时间排序在这份数据上确实不稳定。
 2. **AI 正文的换行结构完整往返**：第 3 条的 `content` 里是 `你好！很高兴见到你。\n\n我们先从…`，说明④格 SSE 的「每行加 `data:` 前缀」与③格前端的「帧内 `data:` 行拼接」两端是对齐的。
-3. **未登录也下发 `JSESSIONID`**：第 5 条那条 401 的响应头里同样带 `Set-Cookie: JSESSIONID=...`，③格记录在案的已知问题再次复现（不影响功能，仍是待办）。
+3. **未登录也下发 `JSESSIONID`**：第 5 条那条 401 的响应头里同样带 `Set-Cookie: JSESSIONID=...`，③格记录在案的已知问题再次复现（不影响功能，当时为待办）——**2026-10-20 已修**，见文末「③格遗留收口」。
 
 ### 测试 8 条新增全绿
 
@@ -410,6 +412,76 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 - `updated_at` **只在 `MessageService.appendRound` 里更新**：将来别的"写消息"入口（复习闭环的 `FEEDBACK`、手工导入历史等）必须也调 `ConversationRepository.touch`，否则列表排序会漏掉这类活动（转记 resume-assets）。
 - e2e curl（§4.4 五条）：本格收尾时未在本地跑 → **2026-10-20 08:33 已补跑，见上面「curl 端到端实测」**。
 
-### 本格仍未做
+### 前端侧（`/guide` 左侧栏：历史会话列表 → 点开 → 接着聊）
 
-- 前端「我的会话」页 + 历史渲染：归 [`frontend-learning.md`](./frontend-learning.md) —— **练习 7（列表，已写入）**、练习 8（历史回读，待补）。
+归 [`frontend-learning.md`](./frontend-learning.md)：**练习 7**（侧栏布局 + 会话列表）、**练习 8**（点历史会话 → 灌历史 + 接着聊 + 懒创建），均已写入。
+
+- **推翻的初版**：最初做的是独立 `/conversations` 页 + 首页「我的会话」入口。拍板改为**侧栏**并删掉该页、该路由与首页入口。理由：①用户要「点一下就能接着聊」，独立页面还得先跳回去；②`/guide` 每次进入就建空会话，是库里 22 条空会话的源头，列表放同页才能掐掉；③`/manus` 无会话列表、不落库，侧栏不该做进公共组件 `ChatRoom.vue`。
+- **路由**：新增 `/guide/:conversationId`（`name: 'guide-conversation'`），与 `/guide`（`name: 'guide'`，空白新对话态）共用 `GuideChatView.vue`。刷新后停在同一条会话，治③格记在案的「刷新就丢」。
+- **默认打开最近一条**：进 `/guide` 不带 id → 取列表第一条（后端已按 `updated_at DESC` 排好）并 `router.replace` 把 id 写进地址栏；列表为空则停在空白态等懒创建。
+- **懒创建**：`+ 新对话` 只切空白态、**不建会话**；`ChatRoom.vue` 新增可选 prop `resolveChatId`（返回 `Promise<conversationId>`），仅在 `post-stream` 且 `chatId` 为空时调用 → 父组件 `ensureChatId()` 才发 `POST /conversations`。这正是「每次进聊天页塞一条无消息会话」的源头封堵。
+- **历史回灌**：`ChatRoom.vue` 新增可选 prop `historyMessages` + 一个 `immediate` 的 `watch`，把后端 `{messageId, role: USER|ASSISTANT, content, createdAt}` 映射为界面 `{id, role: user|ai, content, time}`；本地新消息的 `msgSeq` 先抬到历史最大 `messageId`，避免 `:key` 与历史行撞号。**换会话是整批替换 `messages.value`，不是追加**。
+- **列表刷新**：`ChatRoom.vue` 新增 `done` 事件（挂在 `finish()` 里，正常完成/出错/被停止都发），父组件 `onRoundDone()` 刷新侧栏 → 刚聊过的会话冒到最上面、`title` 从 `null` 变为首条消息前 50 字。
+- **`title` 兜底**：侧栏对 `title === null` 显示「（暂无内容）」（那些是③格遗留的空会话）。
+
+**未做**：侧栏的删除 / 重命名 / 搜索；消息分页；「切会话时让上一轮的流式请求优雅收尾」（现在换会话直接断开，不报错、不落半截）。
+
+***
+
+## ③格遗留收口 · 登出与空会话（2026-10-20 完成，新增 2 条测试，全量 27/27 绿）
+
+**产出**：①`POST /api/auth/logout`（204 幂等）+ 前端 `clearAuth()` 与顶栏登出按钮；②`HomeView` 顶栏显示登录身份；③控制器不再用参数式 `HttpSession`，未登录请求不再被建出空会话。
+
+### 契约 `POST /api/auth/logout`（落位在①格登录契约旁）
+
+| 项 | 结论 |
+| --- | --- |
+| 请求 | 无 body、无参数 |
+| 成功 | `204 No Content`，**无响应体** |
+| 未登录调用 | **同样 `204`**（幂等） |
+| 失败态 | 无 —— 登出不存在"失败"，也没有需要区分的两种结果 |
+
+**拍板理由（用户拍板「204 幂等」）**：登出本就不该有失败态，重复调用天然安全；不需要靠 `401` 去区分「本来就已登出」——那个信息对调用方没有任何用处，只会逼前端多写一个分支。**否决**「200 + body（回显"已登出"）」：204 已经表达了全部语义，加 body 只是给前端多一个没用的字段。
+
+**分层归属**：`session.invalidate()` 是「写 session」→ 归 Controller（①格分层表里 Controller 的职责就是"收 JSON、定状态码、写 session"）；`AuthService` **不加** `logout` 方法 —— 它是纯 HTTP/会话语义，Service 层没有需要决策的东西，硬塞进去只会得到一个空实现。
+
+### 消除「未登录也下发空会话 JSESSIONID」（③格预测外问题 1，已修）
+
+| 文件 | 改动 |
+| --- | --- |
+| `web/CurrentUserResolver.requireUserId` | 参数 `HttpSession` → `HttpServletRequest`，内部 `request.getSession(false)`；`null` → `UnauthorizedException("未登录")` |
+| `controller/AiChatController.stream` | 参数同步改为 `HttpServletRequest` |
+| `controller/ConversationController.create / list / messages` | 3 处参数同步改为 `HttpServletRequest` |
+| `controller/AuthController.login` | **保留**参数式 `HttpSession` —— 它要写 session 属性，这里必须 `getSession(true)` |
+| `controller/AuthController.logout` | 用 `HttpServletRequest` + `getSession(false)`：若仍用参数式 `HttpSession`，未登录的登出会 `getSession(true)` **凭空建出一个新会话**，"登出"反而登出出一个新 `JSESSIONID` |
+
+**根因一句话**：Spring MVC 解析**参数式** `HttpSession` 时执行 `getSession(true)` —— 先建空会话、下发 Cookie，之后才走到 `requireUserId` 抛 401。改成 `request.getSession(false)` 后，取不到会话就 `null`，**既不创建也不下发 Cookie**。
+
+### 测试（新增 2 条 + 2 条老用例补断言）
+
+- `AuthControllerTest.logout_ok`：204 + **响应体为空** + `result.getRequest().getSession(false)` 为 `null`。第三条才是"非假验收"的那条 —— 它证明 `session.invalidate()` **真的执行了**，而不是只回了个 204。
+- `AuthControllerTest.logout_withoutLogin_isStillNoContentAndCreatesNoSession`：未登录 → 204，且会话对象为 `null`。**看门狗**：谁把 `logout` 的参数改回参数式 `HttpSession`，这条立刻红。
+- `ConversationControllerTest.create_unauthorized` / `list_unauthorized` **各追加一条 `assertNull(getSession(false))`**：未登录请求不应被建出空会话。
+- 说明：**MockMvc 测不到"容器不下发 `Set-Cookie`"**（`Cookies = []`，①格已记档）。在 MockMvc 里唯一可观测的代理就是"请求上有没有会话对象"，所以断言落在 `getSession(false)` 上。真机上可证伪的验收是**响应头 `Set-Cookie` 从「有」变「无」**，由人工实测覆盖。
+
+### 前端改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `stores/auth.js` | 新增 `clearAuth()`（`setAuth` 的撤销出口）；新增 `currentUsername` ref + `localStorage` 的 `ai-agent-username` |
+| `api/auth.js` | 新增 `logout = () => request.post('/auth/logout')` |
+| `views/LoginView.vue` | 登录成功后 `setAuth(username.value)`（传 username 只为界面显示"我是谁"） |
+| `views/HomeView.vue` | 顶栏按 `isAuthenticated` 切换：已登录 → 显示 `currentUsername` + 「登出」按钮；未登录 → 「登录」链接 |
+| `router/index.js` | **未改** —— 守卫已按 `isAuthenticated.value` 判断，`clearAuth()` 把它置 `false`，守卫无需感知登出动作 |
+
+**取舍**：`currentUsername` 是**纯显示缓存**，不参与任何身份判定（身份权威仍在服务端 session）；丢了也不影响鉴权，最坏是顶栏少显示一个名字。**否决**「把 `userId` 存下来显示」：UUID 对人没有意义，且会让人误以为它是第二份身份真相。
+
+前端侧已归 [`frontend-learning.md`](./frontend-learning.md)：**练习 9**（登出 + 顶栏显示「我是谁」）。
+
+**登出失败怎么办**：`logout()` 抛错时**照样执行 `clearAuth()`**（`finally` 里调用）。理由：登出接口已经是幂等的 204，若因为网络抖动把用户卡在"已登录"界面，反而是更坏的结果；服务端 session 最坏靠超时兜底。
+
+### 实测（人工，用户自己终端起 8123 / 5173）
+
+- 未登录访问 `/api/conversations` 的响应头：`Set-Cookie` 从「有」变「无」（③格预测外问题 1 的可证伪验收）。
+- 登录 → 登出 → 再访问受保护接口 → 401。
+- 首页顶栏：登录后显示用户名 + 「登出」；点登出后立刻变回「登录」链接，刷新仍是未登录态。

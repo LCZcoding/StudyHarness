@@ -1,8 +1,8 @@
 # 接口文档 · 会话历史（第⑤格纵切）
 
-> 状态：**待实现**（2026-10-20 定稿）。实现完把结果回填到 [`impl-log.md`](./impl-log.md) 的第⑤格。
+> 状态：**已实现**（2026-10-20 定稿，后端当日完成，见 [`impl-log.md`](./impl-log.md) 第⑤格）。
 > 分层与写法约定见 [`impl-log.md`](./impl-log.md) 第①格；统一错误响应体与全局处理器见 [`api-conversations.md`](./api-conversations.md) §2；表结构见 [`data-design.md`](./data-design.md)。
-> 本文档只覆盖**第⑤格的后端**：`GET /conversations`、`GET /conversations/{conversationId}/messages`。前端侧的改动在 [`frontend-learning.md`](./frontend-learning.md)：**练习 7（会话列表，已写入）**、练习 8（历史消息回读，待补）。
+> 本文档只覆盖**第⑤格的后端**：`GET /conversations`、`GET /conversations/{conversationId}/messages`。前端侧的改动在 [`frontend-learning.md`](./frontend-learning.md)：**练习 7**（`/guide` 左侧栏会话列表）、**练习 8**（点历史会话 → 灌历史 + 接着聊 + 懒创建），均已写入。
 
 ***
 

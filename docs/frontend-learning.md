@@ -167,6 +167,334 @@ messages 内容变化 --watch--> nextTick 后 scrollTop = scrollHeight  → 自�
 - **不要删 `sse.js` 和 `utils/chatId.js`**：[ManusChatView.vue](../ai-agent-frontend/src/views/ManusChatView.vue) 仍在用（它打的 `/ai/manus/chat` 是 GET + 无鉴权的教学接口，不落库）
 - **验收**：GuideChatView 里发一条消息 → Network 里是 **POST** `/api/ai/chat/stream`（不再是 GET），回答逐字出现；发完后用 psql 查 `t_message` 能看到这一轮的 USER / ASSISTANT 两行
 
+### 练习 7（⑤格新增）：在 `/guide` 里加左侧栏，把会话列表画出来
+
+- **为什么**：⑤格后端的两个接口已经实测通过（`GET /api/conversations`、`GET /api/conversations/{conversationId}/messages`，契约见 [api-conversation-history.md](./api-conversation-history.md)），但前端**没有任何地方能看到它们**。这是③格之后第一个"能看见的新功能"，也是本练习的全部意义
+- **为什么是左侧栏、不是独立的列表页**：最初做了一版独立的 `/conversations` 页 + 首页「我的会话」入口，被拍板推翻。三条理由：①用户要的是「**点一下就能接着聊**」，独立页面还得先跳回去；②`/guide` 每次进入都会 `POST /conversations` 新建一条空会话（库里已攒 22 条），把列表放进同页才能顺手掐掉这个源头；③`/manus` 走无鉴权教学接口、不落库，侧栏只对 `/guide` 有意义，不该做进公共组件 `ChatRoom.vue`
+- **和③格那几步的关键区别**：③格打的是**流式**接口（只能用 `fetch` + `ReadableStream`）；⑤格这两个接口是**普通 JSON 接口**，用 [request.js](../ai-agent-frontend/src/api/request.js) 的 axios 实例就够 —— **不要再为它写一套 `fetch`**
+- **范围**：本练习只做「侧栏布局 + 把列表画出来」。点某一行进去看历史消息、接着聊留给练习 8（一个练习只装一个能自己验收的成果）
+
+#### 7.1 加一个 api 函数（1 个文件）
+
+[api/conversation.js](../ai-agent-frontend/src/api/conversation.js) 里追加：
+
+```js
+// GET /conversations —— 响应拦截器已经把 response.data 剥出来了，拿到的就是 { conversations: [...] }
+export const listConversations = () => request.get('/conversations')
+```
+
+- **和 `createConversation` 的唯一区别**：这个是 `GET`（没有 body），那个是 `POST`（要 body）
+- **验收**（沿用练习 2 的 Console 手法，不用改任何界面）：先在 `/login` 登录，然后在 Console 里
+
+  ```js
+  const { listConversations } = await import('/src/api/conversation.js')
+  const data = await listConversations()
+  data.conversations.length
+  data.conversations[0]
+  ```
+
+  → 打印出条数（2026-10-20 实测是 `24`）和第一条的形状；Network 里出现 `GET /api/conversations` → **200**
+
+#### 7.2 改 `GuideChatView.vue`：把左侧栏摆进布局（1 个文件）
+
+`GuideChatView.vue` 现在的 template 只有一行 `<ChatRoom ... />`。要变成「左边一条侧栏 + 右边聊天区」，做法是**外面包一层 flex 容器**：
+
+```vue
+<template>
+  <div class="guide-layout">
+    <!-- 左侧栏：历史会话（只在 /guide 出现） -->
+    <aside class="sidebar">
+      <div class="side-head">
+        <span class="side-brand">会话</span>
+        <button type="button" class="new-btn" @click="newConversation">+ 新对话</button>
+      </div>
+
+      <p v-if="listLoading" class="side-state">加载中…</p>
+      <p v-else-if="listError" class="side-state error">{{ listError }}</p>
+      <p v-else-if="!conversations.length" class="side-state">还没有会话，发一条消息开始吧</p>
+
+      <ul v-else class="side-list">
+        <!-- 7.3 再填这里 -->
+      </ul>
+    </aside>
+
+    <!-- 原来的 ChatRoom 原样保留（练习 8 会再多传两样东西） -->
+    <ChatRoom class="room" theme="guide" ... />
+  </div>
+</template>
+```
+
+配套样式（`.room` 是打在 **ChatRoom 根元素**上的类，原理见下表）：
+
+```css
+.guide-layout {
+  height: 100%;
+  display: flex;          /* 两栏并排 */
+  background: #0e1116;    /* 侧栏沿用首页的深色底 + 青色强调 */
+}
+.sidebar {
+  flex: none;             /* 不参与伸缩：宽度由 width 定死 */
+  width: 262px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid rgba(34, 211, 238, 0.14);
+}
+.room {
+  flex: 1;                /* 吃满剩余宽度 */
+  min-width: 0;           /* 弹性容器必须显式写，否则内部长文本会把它撑破 */
+}
+```
+
+三个新概念：
+
+| 概念 | 是什么 | 用你熟悉的东西类比 |
+| --- | --- | --- |
+| `display: flex` + `flex: 1` | 父容器按行排子项；`flex: 1` 的子项吃掉「剩余空间」 | 一个「固定宽 + 自适应宽」的两栏布局，跟后端拼 SQL 时 `sum over` 那种"拿走剩下的"是同一个直觉 |
+| `.room` 类打在组件根上 | 给 `<ChatRoom class="room" />` 传的 `class` 会合并到它渲染出的根元素 `<section class="chat-room">` 上 | 相当于给复合组件再挂一个"样式钩子" |
+| `flex: none` vs `flex: 1` | 侧栏 `flex: none` = 宽度我定死；聊天区 `flex: 1` = 剩下的都给我 | 左右两栏各领一个角色，别都去抢剩余空间 |
+
+- **为什么不把侧栏做进 `ChatRoom.vue`**：`ChatRoom.vue` 是公共组件，[ManusChatView.vue](../ai-agent-frontend/src/views/ManusChatView.vue) 也在用，而 Manus 没有会话列表可显示。侧栏属于 `GuideChatView.vue` 这一层——**放对层次比放对文件更重要**
+- **四种状态一个都别省**：`listLoading` / `listError` / **空列表** / 有数据。第一个用 `v-if`、后三个用 `v-else-if` —— 这是"同一时刻只有一个分支"的写法（区别于几个 `v-if` 各自独立判断，可能同时命中）
+- **`v-else-if="!conversations.length"` 测的是"成功但空"**：契约定了空列表返回 `200` + `{"conversations":[]}`（不是 `204`），所以这是**正常结果**，不是错误
+- **`finally` 里的 `listLoading.value = false` 不能写进 `try`**：写进 `try` 的话，一旦请求失败就永远停在"加载中…"
+- **不需要加新路由**：这里是改已有的 `/guide` 页面，不是新建页面。所以**不要**再建 `ConversationsView.vue`、也不要往路由表里加 `/conversations`
+- **验收**：登录后地址栏敲 `http://localhost:5173/guide` → 左侧出现一条深色侧栏（顶部「会话 / + 新对话」），右侧仍是原来的聊天界面；把窗口拉窄，聊天区变窄、侧栏宽度不变
+
+#### 7.3 把列表渲染出来（还是同一个文件，3 个新概念）
+
+把 `<ul v-else>` 里面填上（**点击事件先不写**，那是练习 8 的事）：
+
+```vue
+<!-- v-for：把数组里每一条渲染成一行；:key 是每行的唯一身份证，Vue 靠它复用 DOM -->
+<li v-for="c in conversations" :key="c.conversationId" class="side-item">
+  <span class="side-title">{{ c.title || '（暂无内容）' }}</span>
+  <time class="side-time">{{ formatTime(c.updatedAt) }}</time>
+</li>
+```
+
+`script` 里加一个 `formatTime`：
+
+```js
+// 后端给的是带偏移的 ISO-8601 字符串（如 2026-10-19T14:44:58.518468Z）
+// new Date() 能直接解析它；传第二参数筛出「月/日 时:分」，避免侧栏太长
+function formatTime(iso) {
+  return new Date(iso).toLocaleString('zh-CN', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  })
+}
+```
+
+三个新概念，逐个说：
+
+| 概念 | 是什么 | 用你熟悉的东西类比 |
+| --- | --- | --- |
+| `v-for="c in conversations"` | 遍历数组，每条数据渲染一份 `<li>`；`c` 是循环变量，名字随便取 | Java 的 `for (ConversationRow c : list)` |
+| `:key="c.conversationId"` | 给每行一个**稳定且唯一**的标识，Vue 靠它判断"这行是原来的哪一行"，从而正确复用 DOM | 相当于给每个元素一个主键 |
+| `c.title \|\| '（暂无内容）'` | `title` 为 `null` 时取右边的兜底文案（JS 里 `null` / `undefined` / `''` 都算"假值"，`\|\|` 会短路到右边） | `Optional.ofNullable(c.title).orElse("（暂无内容）")` |
+
+- **`title` 兜底不是可选项，是必需的**：2026-10-20 实测那份数据里 **24 条会话有 22 条 `title` 是 `null`** —— 那些是③格之前 `/guide` 每次进入就新建、且**一条消息都不落库**的空会话。不兜底，列表就是一片空白行（记录在 [resume-assets.md](./resume-assets.md) 的待办里）
+- **不要在前端重排序**：后端 SQL 已经按 `updated_at DESC` 排好（最近活动的在最上面），前端原样渲染。**别去干后端已经干好的事**——排序规则两边各写一份，改起来必然不一致
+- **时间为什么能显示对**：契约 §7 坑 4 说过"别指望 JSON 里就是本地时间"。后端给的是带 `Z`（UTC）的 ISO-8601，`new Date(iso)` 按这个偏移定位到**绝对时刻**，`toLocaleString()` 再按浏览器时区显示。所以 `14:44:58Z` 在你机器上会显示成 **22:44**（东八区）
+- **验收**：
+  - 列表按时间倒序（最上面那条 `updatedAt` 最新）
+  - 有标题的两条（"你好"、"什么是指针的别名？"）正常显示，其余显示"（暂无内容）"
+  - 显示的时间是**北京时间**，且与库里的 `updated_at` 相差整 8 小时（即同一个绝对时刻）
+
+#### 7.4 侧栏顶部那个「+ 新对话」（概念，不写代码）
+
+按钮本身只有一句 `@click="newConversation"`，但它背后是本格最重要的一条拍板：**新对话懒创建**。
+
+- **点击时什么也不建**：`newConversation()` 只把 `chatId.value = ''`、`historyMessages.value = []`，然后 `router.replace({ name: 'guide' })`
+- **什么时候才真建**：等用户在空白会话里发出**第一条消息**，由 `ChatRoom.vue` 调 `resolveChatId()` → 父组件的 `ensureChatId()` 才 `POST /api/conversations`
+- **为什么这么绕**：以前 `/guide` 一进来就建会话，于是库里攒了 22 条「一条消息都没有」的空会话（列表里全是"（暂无内容）"）。懒创建把「会话」的定义收紧成「**真的聊过**」——列表干净了，也少一堆无意义的 INSERT
+- **代价（练习 8 要接的活）**：`chatId` 在页面生命周期内从「一定有值」变成「可能为空」。好消息是 `ChatRoom.vue` 早就有 `v-if="chatId"` 兜住顶部显示、`send()` 里也是 `if (props.chatId) params.chatId = ...`，**空 id 不会把页面搞崩**
+- **验收**：点「+ 新对话」→ 右侧回到欢迎语；先在 psql 里 `select count(*) from t_conversation` 记个数，然后什么消息都不发、来回点几下 → 再查 count **一个字不变**；发一条消息 → count 才 +1
+
+#### 练习 7 的边界（做完这些**不要**顺手做）
+
+| 不做 | 留给 |
+| --- | --- |
+| 点某一行 → 进那个会话、把历史消息渲染出来 | **练习 8**（打 `GET /api/conversations/{conversationId}/messages`） |
+| 路由带会话 id（`/guide/:conversationId`）、刷新不丢会话 | **练习 8** |
+| `resolveChatId` 懒创建钩子、聊完刷新侧栏 | **练习 8** |
+| 分页 / 搜索 / 删除会话 | 后端契约明确不做（api-conversation-history.md §6 拍板） |
+| 首页顶栏显示"我是谁" | resume-assets 的待办 |
+| 清理那 22 条历史空会话 | 待定，前后端契约都不受影响 |
+
+### 练习 8（⑤格收尾）：点历史会话 → 灌历史 + 接着聊 + 懒创建
+
+- **为什么**：练习 7 只把会话「**列出来**」了，点上去没反应。本练习补完用户真正要的那一下：**点一条 → 历史消息铺出来 → 接着聊，且续写落回同一条会话**
+- **一句话概括三个动作**：用 `GET .../messages` 把历史读进来 → 交给 `ChatRoom.vue` 渲染 → 下次发消息时把**同一个 `conversationId`** 传回 `POST /api/ai/chat/stream`。**"接着聊"不需要新接口，只需要把 id 传回去**
+
+#### 8.1 再加一个 api 函数（1 个文件）
+
+[api/conversation.js](../ai-agent-frontend/src/api/conversation.js) 里追加：
+
+```js
+// GET /conversations/{conversationId}/messages
+export const listMessages = (conversationId) =>
+  request.get(`/conversations/${conversationId}/messages`)
+```
+
+- 三条契约要点：`role` 是 `'USER' | 'ASSISTANT'`（前端据此分左右气泡）；顺序是 `id ASC`（**不要**在前端重排）；`403` 的文案逐字是「会话不存在或无权访问」
+- **验收**（Console 手法，沿用练习 2）：`const { listMessages } = await import('/src/api/conversation.js')` → `await listMessages('<真实 id>')` → 打印 `messages`，USER / ASSISTANT 交替出现
+
+#### 8.2 让 `ChatRoom.vue` 能「带着历史消息进来」（1 个文件，核心）
+
+`ChatRoom.vue` 加一个**可选** prop：
+
+```js
+// 不传 = 空会话（ManusChatView 不传，行为不变）
+historyMessages: { type: Array, default: () => [] },
+```
+
+再加一个 `watch` 把「后端的消息」翻译成「界面的消息」——这是**唯一**一处新旧格式对不上：
+
+```js
+watch(
+  () => props.historyMessages,
+  (list) => {
+    const items = list || []
+    // 本地新消息的 id 从「历史里最大 messageId」往后排，避免与历史行的 :key 撞号
+    msgSeq = items.reduce((max, m) => Math.max(max, Number(m.messageId) || 0), 0)
+    messages.value = items.map((m) => ({
+      id: m.messageId,
+      role: m.role === 'USER' ? 'user' : 'ai',   // 后端 role → 界面 role
+      content: m.content,
+      time: formatHistoryTime(m.createdAt)
+    }))
+  },
+  { immediate: true }
+)
+```
+
+四个必须理解的点：
+
+| 点 | 为什么 |
+| --- | --- |
+| `watch` 里是「整个换掉」不是「追加」 | 换会话 = 换一批消息，直接 `messages.value = ...` 赋值。写成 `push` 的话，点第二条会话时上一条的历史会粘着不走 |
+| `immediate: true` | 带着 `historyMessages` 挂载（或首屏为空）时，也要走一遍这个映射，否则首次渲染没有消息 |
+| `:key` 会撞号 | 历史行的 key 是数据库 `messageId`（如 `25`），本地新消息原本从 `1` 自增，一碰就重。所以先把 `msgSeq` 抬到历史最大值再自增 |
+| `role` 为什么要翻译 | 后端只认 `USER / ASSISTANT`（契约 §4.2），界面只管 `user / ai`（决定气泡在左还是右）。**两边各用各的词，只在边界上翻译一次** |
+
+- **验收（Console 手法）**：`const { default: ChatRoom } = ...` 不好直接调，这一步改用「练习 8.5 的第 1 条」在浏览器里看
+- **别动 `addMessage()`**：新消息仍旧用 `++msgSeq` 自增；只要 `watch` 先把 `msgSeq` 抬起，两套 id 就井水不犯河水
+
+#### 8.3 路由带会话 id（2 个文件，但要理解为什么加）
+
+[router/index.js](../ai-agent-frontend/src/router/index.js) 加一条：
+
+```js
+{
+  path: '/guide/:conversationId',
+  name: 'guide-conversation',
+  component: () => import('../views/GuideChatView.vue'),
+  meta: { requiresAuth: true }
+}
+```
+
+- **为什么要带 id**：③格时你抱怨过「刷新就丢」——不带 id 的 `/guide` 刷新后只能"猜"最近一条；带上 id，刷新还停在**同一条会话**
+- **一条路由两个名字**：`/guide`（`name: 'guide'`，新对话空白态）与 `/guide/:conversationId`（`name: 'guide-conversation'`）。两者**用同一个组件**，vue-router 按「更具体的路径优先」匹配，声明顺序无所谓
+- **同一个组件不会重新挂载**：从 `/guide` 切到 `/guide/:id` 或 `/guide/a` 切到 `/guide/b`，`onMounted` **都不会**再跑。所以必须补一个 `watch(() => route.params.conversationId)` 接住浏览器前进/后退
+
+[GuideChatView.vue](../ai-agent-frontend/src/views/GuideChatView.vue) 里的三处分工：
+
+- `onMounted`：**有 id 就用 id**；**没 id 就取列表第一条**（`conversations.value[0]`，后端已按 `updated_at DESC` 排好）并 `router.replace` 把 id 写进地址栏；列表也是空 → 停在空白态等懒创建
+- `openConversation(id)`：点侧栏某条 → 换 `chatId` + 清空旧历史 + 重新 `listMessages` + `router.replace`
+- `watch(route.params.conversationId)`：接住前进/后退（`id !== chatId.value` 才加载，避免和 `openConversation` 重复请求）
+
+#### 8.4 懒创建 + 聊完刷新列表（1 个文件，两个小改动）
+
+**改动 A：`ChatRoom.vue` 接受一个"建会话"的钩子**
+
+```js
+// 可选：返回 Promise<conversationId>；只在 post-stream 且 chatId 为空时用
+resolveChatId: { type: Function, default: null },
+```
+
+`send()` 的 POST 流分支最前面插一段：id 为空且有钩子 → `await props.resolveChatId()` 换来 id，再去 `streamChat`。
+
+- **`send` 因此从同步函数变成 `async`**（模板里 `@click="send()"` 照旧，`async` 不影响绑定）
+- **`await` 期间用户可能点「停止」**：`stop()` 已经 `finish()` 了，所以 `await` 回来要再判一次 `if (!streaming.value) return`，否则会在已停止的会话上又发起一条流
+- **建会话失败（如 401）**：把 `err.response?.data?.message || err.message` 写进 AI 气泡，别静默（和 `onError` 一个套路）。**注意 axios 的 `err.message` 只会是"Request failed with status code 400"这种技术文案**，后端契约文案在 `err.response.data.message` 里；401 时父组件 `ensureChatId()` 还会顺手 `router.push('/login')`
+
+**改动 B：一轮结束通知父组件刷新侧栏**
+
+```js
+const emit = defineEmits(['done'])
+// finish() 里（正常完成 / 出错 / 被停止都走这里）
+emit('done')
+```
+
+`GuideChatView.vue` 里 `<ChatRoom ... @done="onRoundDone" />` → `onRoundDone()` 调 `loadConversations()`：刚聊过的会话冒到最上面、`title` 从 `null` 变成首条消息前 50 字。
+
+- **为什么挂在 `finish()` 而不是只挂在 `onDone`**：出错、被停止时也该刷新列表——只要那一轮有落库，列表就该更新
+
+#### 8.5 验收（这一步必须**手动点**，Console 验不了交互）
+
+先在**你自己终端**起好后端（8123）与前端（5173），登录后按顺序走：
+
+1. 首页点「AI 问题引导解决助手」→ 进 `/guide` → **自动打开最近一条会话**，地址栏跳成 `/guide/<uuid>`，历史消息按对话顺序铺出来
+2. 侧栏点**另一条**会话 → 消息换成那一条的，选中态（高亮边框）跟着走；地址栏换成新 uuid
+3. 在历史会话里发一句新消息 → 回答正常流出；`psql` 查 `t_message` 能看到新的一轮 USER / ASSISTANT **落在同一个 `conversation_id`** 上
+4. 点「+ 新对话」→ 回到欢迎语；`select count(*) from t_conversation` **不变**
+5. 在这个空白会话里发第一条消息 → `POST /api/conversations` 出现（**201**），地址栏变成新 uuid，侧栏顶部多出这条新会话
+6. **F5 刷新** → 仍停在同一条会话，历史完整
+7. `title` 兜底：那 22 条空会话显示「（暂无内容）」而不是空白行
+8. 浏览器**后退** → 回到上一条会话，消息也跟着换（验证 8.3 的 `watch`）
+
+#### 练习 8 的边界
+
+| 不做 | 留给 |
+| --- | --- |
+| 侧栏的删除 / 重命名 / 搜索 | 后端契约明确不做 |
+| 消息分页（滚动加载更多） | MVP 外 |
+| 切会话时让上一轮的流式请求"优雅收尾" | 现在只在换会话时直接断开（不报错、不落半截）——够用 |
+| 未登录态的侧栏提示 | 路由守卫已把未登录挡在 `/login` |
+
+### 练习 9（③格遗留收口）：登出 + 顶栏显示「我是谁」
+
+**前置**：后端 `POST /api/auth/logout` 已就绪 → **204 无 body**（未登录调用也是 204，幂等）。契约见 [`impl-log.md`](./impl-log.md) 文末「③格遗留收口」。
+
+#### 9.1 `stores/auth.js`：给 `setAuth` 配一个撤销出口（1 个文件）
+
+- `isAuthenticated` 是 `ref`（**响应式变量**）：模板里用到它的地方**自动**跟着变，不需要手动通知任何组件。这就是练习 0.5 那个标记能直接驱动 `HomeView` 顶栏和路由守卫的原因。
+- `setAuth(username)` 多收一个参数 → 存进 `currentUsername`（`ref` + `localStorage` 的 `ai-agent-username`）。**为什么不是 `userId`**：UUID 对人没有意义，且存下来容易让人误以为它是"第二份身份真相"——它只是**显示缓存**，丢了不影响鉴权。
+- `clearAuth()` 要**同时**做两件事：删 `localStorage` 的两个 key + 把两个 `ref` 置回空/`false`。只改一半会得到"刷新前没登出、刷新后又变已登录"。
+
+#### 9.2 `api/auth.js`：加 `logout`（1 个文件）
+
+一行：`export const logout = () => request.post('/auth/logout')`。
+
+注意 `request.js` 的响应拦截器写的是 `(response) => response.data`，而 **204 的 `data` 是空字符串** —— 所以 `await logout()` 的返回值没有内容可解构，别去读它。
+
+#### 9.3 `HomeView.vue`：顶栏按登录态切换（1 个文件，4 个新概念）
+
+1. **`v-if` / `v-else`**：`v-if` 为假时这块**根本不在 DOM 里**（不是隐藏）。对比 `v-show`——`v-show` 元素一直在 DOM 里，只切 `display`。判据：要"有没有这个元素"用 `v-if`；只是频繁开关显示、且元素本身较重（比如带图表的 div），用 `v-show`。
+2. **`v-if` 与 `v-else` 必须相邻**：中间夹了别的元素就断链，`v-else` **静默失效**（不报错，但永远不渲染）。
+3. **`<script setup>` 里 import 的 `ref` 在模板中直接用名字**：`import { isAuthenticated } from '../stores/auth.js'` 之后，模板写 `isAuthenticated` 就是它 —— **模板里不用 `.value`，`<script>` 里才要 `.value`**。这条最反直觉，记牢。
+4. **`disabled` 绑 `loggingOut`**：防连点。`@click="handleLogout"` **不要加括号** —— 写成 `@click="handleLogout()"` 会变成"渲染时立刻调用一次"。
+
+`handleLogout` 里最关键的一行是 `finally { clearAuth() }`：**请求失败也照样清标记**。理由见 impl-log「登出失败怎么办」—— 登出接口是幂等的 204，把用户卡在"已登录"界面（还看不到错误）是比"服务端 session 多活一会儿"更坏的结果。
+
+#### 9.4 验收（必须手动点）
+
+1. 未登录打开首页 → 顶栏是「登录」链接
+2. 登录 → 自动回首页 → 顶栏显示**你输入的那个用户名** + 「登出」
+3. **F5 刷新** → 仍是已登录态（证明 `localStorage` 生效）
+4. 点「登出」→ Network 出现 `POST /api/auth/logout` 且状态码 **204**；顶栏立刻变回「登录」
+5. **可证伪的关键一条**（③格预测外问题 1 的验收）：登出后在 Console 敲 `await fetch('/api/conversations', { credentials: 'include' })` → 状态码 **401**、body `{"message":"未登录"}`；再到 Network 点开这条请求的 **Response Headers** → **不应再有 `Set-Cookie: JSESSIONID`**。以前未登录请求也会被塞一个新 Cookie，现在不会了
+6. 登出后 F5 → 仍是未登录态（`clearAuth()` 真的清了 `localStorage`，不是只改了内存里的 `ref`）
+
+#### 练习 9 的边界
+
+| 不做 | 留给 |
+| --- | --- |
+| 服务端 session 过期后前端自动弹回 `/login` | 要在 axios 拦截器里统一处理 401，属主干 |
+| 记住上次登录的用户名做预填 | 产品没要求 |
+| 顶层 `/manus` 页也显示登录态 | `/manus` 是教学 demo 页，暂不接 |
+
 ***
 
 ## 4. 调试工具箱：比背 API 重要十倍
