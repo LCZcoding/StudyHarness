@@ -61,13 +61,12 @@ async function submit() {
   loading.value = true
   try {
     await login(username.value, password.value)
-    // 登录态在服务端 session 里，前端不需要存 token，直接回首页
+    // 登录态在服务端 session 里，前端不需要存 token
     // 传入 username 只是为了让首页顶栏能显示"我是谁"，不参与鉴权
     setAuth(username.value)
     // router.push('/')
     // 原来写死 router.push('/')；改成回到"被打断前想去的地方"，没有就回首页
     router.push(safeRedirect(route.query.redirect))
-    
   } catch (e) {
     // 后端所有错误响应体的形状统一为 { message }，所以一句f话就能兜住
     error.value = e.response?.data?.message || '登录失败，请稍后重试'

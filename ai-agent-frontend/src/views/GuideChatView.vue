@@ -68,9 +68,10 @@ const listLoading = ref(true)
 const listError = ref('')
 
 // 401 统一处理：会话相关接口都要登录，被踢回登录页
+// 带上 redirect：否则服务端 session 过期时，用户登录完会掉回首页，得自己再点一次进来
 function toLoginIfUnauthorized(e) {
   if (e.response?.status === 401) {
-    router.push('/login')
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
     return true
   }
   return false
