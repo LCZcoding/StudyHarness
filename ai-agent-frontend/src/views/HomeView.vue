@@ -4,7 +4,14 @@
       <span class="brand">AI AGENT STUDY</span>
       <div class="top-right">
         <span class="tag">应用中心 · APPLICATION HUB</span>
-        <RouterLink to="/login" class="login-link">登录</RouterLink>
+        <!-- 登录态由 stores/auth.js 的 isAuthenticated 显式标记决定，不依赖 Cookie -->
+        <template v-if="isAuthenticated">
+          <span class="who">{{ currentUsername }}</span>
+          <button type="button" class="logout-btn" :disabled="loggingOut" @click="handleLogout">
+            {{ loggingOut ? '登出中…' : '登出' }}
+          </button>
+        </template>
+        <RouterLink v-else to="/login" class="login-link">登录</RouterLink>
       </div>
     </header>
 
@@ -45,7 +52,27 @@
   </div>
 </template>
 
-<script setup></script>
+<script setup>
+import { ref } from 'vue'
+import { isAuthenticated, currentUsername, clearAuth } from '../stores/auth.js'
+import { logout } from '../api/auth.js'
+
+const loggingOut = ref(false)
+
+async function handleLogout() {
+  loggingOut.value = true
+  try {
+    await logout()
+  } catch (e) {
+    // 登出接口是幂等的 204，即使请求失败也不该把用户卡在"已登录"界面：
+    // 前端标记照样清掉，服务端 session 最坏靠超时兜底。
+    console.error('[logout]', e?.message || e)
+  } finally {
+    clearAuth()
+    loggingOut.value = false
+  }
+}
+</script>
 
 <style scoped>
 .home {
@@ -89,6 +116,32 @@
 }
 .login-link:hover {
   background: rgba(34, 211, 238, 0.12);
+}
+
+.who {
+  font-size: 13px;
+  color: #e8edf2;
+  letter-spacing: 1px;
+}
+
+.logout-btn {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: #9fb0c0;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.logout-btn:not(:disabled):hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e8edf2;
+}
+.logout-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .grid {

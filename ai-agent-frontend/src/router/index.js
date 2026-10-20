@@ -16,7 +16,14 @@ const routes = [
   {
     path: '/guide',
     name: 'guide',
-    // 会话 id 由后端 POST /conversations 签发，见 GuideChatView 的 onMounted
+    // 不带会话 id：进入后默认打开「最近一条会话」，没有会话则停在空白态（懒创建）
+    component: () => import('../views/GuideChatView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/guide/:conversationId',
+    name: 'guide-conversation',
+    // 带会话 id：直接打开该会话，刷新后仍留在同一会话
     component: () => import('../views/GuideChatView.vue'),
     meta: { requiresAuth: true }
   },

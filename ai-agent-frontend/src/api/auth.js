@@ -8,3 +8,11 @@ import request from './request'
  */
 export const login = (username, password) =>
   request.post('/auth/login', { username, password })
+
+/**
+ * 登出
+ * POST /api/auth/logout  无请求体
+ * 成功：204 无响应体（服务端销毁 session，JSESSIONID 随之作废）
+ * 幂等：未登录调用同样返回 204，不会报错
+ */
+export const logout = () => request.post('/auth/logout')

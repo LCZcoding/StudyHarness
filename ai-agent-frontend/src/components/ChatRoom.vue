@@ -109,6 +109,13 @@ const props = defineProps({
   transport: { type: String, default: 'event-source' },
 
   chatId: { type: String, default: '' },
+  // 可选：预置的历史消息，形如 [{ messageId, role: 'USER'|'ASSISTANT', content, createdAt }]
+  // 不传 = 空会话（ManusChatView 不传，行为不变）
+  historyMessages: { type: Array, default: () => [] },
+  // 可选：懒创建会话的钩子，返回 Promise<conversationId>。
+  // 只在 transport === 'post-stream' 且 chatId 为空（还没建会话）时用：
+  // 用户在空白会话里发出第一条消息时，才真正去 POST /conversations。
+  resolveChatId: { type: Function, default: null },
   placeholder: { type: String, default: '输入你想说的话…' },
   idleText: { type: String, default: '在线' },
   streamingText: { type: String, default: '正在输入…' },
@@ -116,6 +123,9 @@ const props = defineProps({
   greetingSub: { type: String, default: '' },
   suggestions: { type: Array, default: () => [] }
 })
+
+// 一轮对话结束（正常完成 / 出错 / 被停止）时通知父组件，用于刷新侧栏列表
+const emit = defineEmits(['done'])
 
 const listEl = ref(null)
 const inputEl = ref(null)
@@ -139,7 +149,7 @@ function addMessage(role, content = '') {
   return messages.value[messages.value.length - 1]
 }
 
-function send(picked) {
+async function send(picked) {
   if (streaming.value) return
   const text = (picked !== undefined ? picked : input.value).trim()
   if (!text) return
@@ -174,10 +184,26 @@ function send(picked) {
   }
 
   if (props.transport === 'post-stream') {
+    // 懒创建：空白会话的第一条消息发出前，才去后端建会话拿 id
+    let cid = props.chatId
+    if (!cid && props.resolveChatId) {
+      try {
+        cid = await props.resolveChatId()
+      } catch (err) {
+        // 建会话失败（如 401）：把原因显示在 AI 气泡里，别静默
+        // axios 的 err.message 是"Request failed with status code 400"这种技术文案，
+        // 后端契约文案在 err.response.data.message 里 —— 优先用后者
+        aiMsg.content = `（${err.response?.data?.message || err.message}）`
+        finish()
+        return
+      }
+      // 等待期间用户可能点了「停止」→ 已经 finish，别再发起流
+      if (!streaming.value) return
+    }
     // fetch 流的取消靠 AbortController，必须先造好、把 signal 交给 streamChat
     controller = new AbortController()
     streamChat({
-      conversationId: props.chatId,
+      conversationId: cid,
       message: text,
       signal: controller.signal,
       onMessage,
@@ -209,6 +235,7 @@ function stop() {
 function finish() {
   streaming.value = false
   source = null
+  emit('done')
   nextTick(() => inputEl.value?.focus())
 }
 
@@ -273,6 +300,34 @@ function parseAiContent(content) {
   }
   return segs
 }
+
+// 历史消息 → 界面消息：后端 role 是 USER/ASSISTANT，界面要 user/ai
+function formatHistoryTime(iso) {
+  return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+// 父组件换会话 → 整个 messages 换掉（不是追加）
+// immediate: true 让「带着历史消息进来」在首次渲染前就位
+watch(
+  () => props.historyMessages,
+  (list) => {
+    // 切会话时若上一轮还在流式，先断开，避免残流写进已经换掉的界面
+    if (streaming.value) {
+      closeSource()
+      finish()
+    }
+    const items = list || []
+    // 让新的本地消息 id 从「历史里最大 messageId」往后排，避免与历史行的 :key 撞号
+    msgSeq = items.reduce((max, m) => Math.max(max, Number(m.messageId) || 0), 0)
+    messages.value = items.map((m) => ({
+      id: m.messageId,
+      role: m.role === 'USER' ? 'user' : 'ai',
+      content: m.content,
+      time: formatHistoryTime(m.createdAt)
+    }))
+  },
+  { immediate: true }
+)
 
 // 内容变化时自动滚动到底部
 watch(

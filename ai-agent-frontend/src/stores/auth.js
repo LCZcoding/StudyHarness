@@ -5,9 +5,25 @@ import { ref } from 'vue'
 // 写进 localStorage，刷新后仍然有效。
 const AUTH_KEY = 'ai-agent-auth'
 
+// 用户名只用于界面展示"我是谁"，不参与任何身份判定 —— 身份权威仍在服务端 session 里。
+// 所以它只是一份可随时丢弃的显示缓存，丢了也不影响鉴权。
+const USERNAME_KEY = 'ai-agent-username'
+
 export const isAuthenticated = ref(localStorage.getItem(AUTH_KEY) === '1')
 
-export function setAuth() {
+export const currentUsername = ref(localStorage.getItem(USERNAME_KEY) || '')
+
+export function setAuth(username) {
   localStorage.setItem(AUTH_KEY, '1')
+  localStorage.setItem(USERNAME_KEY, username || '')
+  currentUsername.value = username || ''
   isAuthenticated.value = true
+}
+
+// setAuth 的撤销出口：登出时调用
+export function clearAuth() {
+  localStorage.removeItem(AUTH_KEY)
+  localStorage.removeItem(USERNAME_KEY)
+  currentUsername.value = ''
+  isAuthenticated.value = false
 }
