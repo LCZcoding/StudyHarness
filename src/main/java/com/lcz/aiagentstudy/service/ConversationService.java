@@ -2,10 +2,12 @@ package com.lcz.aiagentstudy.service;
 
 import com.lcz.aiagentstudy.exception.ForbiddenException;
 import com.lcz.aiagentstudy.model.ConversationMode;
+import com.lcz.aiagentstudy.model.ConversationRow;
 import com.lcz.aiagentstudy.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -22,5 +24,9 @@ public class ConversationService {
         if (!conversationRepository.belongsTo(conversationId, userId)) {
             throw new ForbiddenException("会话不存在或无权访问");
         }
+    }
+    // 透传对话列表
+    public List<ConversationRow> list(UUID userId) {
+        return conversationRepository.findAllByUserId(userId);
     }
 }

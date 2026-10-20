@@ -1,7 +1,10 @@
 package com.lcz.aiagentstudy.repository;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
+import com.lcz.aiagentstudy.model.ConversationRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -29,6 +32,32 @@ public class ConversationRepository {
                 Boolean.class,
                 conversationId,
                 userId));
+    }
+
+    // 消息落库后，把会话的 updated_at 推到当前时间
+    public void touch(UUID conversationId) {
+        jdbcTemplate.update("update t_conversation set updated_at = now() where id = ?", conversationId);
+    }
+
+    // 查某个用户的全部会话列表，按「最近活动」倒序；标题由首条 USER 消息派生
+    public List<ConversationRow> findAllByUserId(UUID userId){
+        return jdbcTemplate.query("""
+                        select c.id, c.mode, c.updated_at,
+                                        (SELECT left(m.content, 50)
+                                          FROM t_message m
+                                          WHERE m.conversation_id = c.id AND m.role = 'USER'
+                                          ORDER BY m.id LIMIT 1) AS title
+                            from t_conversation c
+                            where c.user_id = ?
+                            order by c.updated_at DESC
+                        """,
+                (rs, rowNum) -> new ConversationRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("mode"),
+                        rs.getString("title"),
+                        rs.getObject("updated_at", OffsetDateTime.class)),
+                userId);
+
     }
 
 
