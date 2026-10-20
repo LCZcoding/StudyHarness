@@ -88,32 +88,27 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { createSseChat } from '../api/sse.js'
 import { streamChat } from '../api/chatStream.js'
 
 const props = defineProps({
-  // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色）
+  // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
   theme: { type: String, default: 'guide' },
   title: { type: String, default: '' },
   aiName: { type: String, default: 'AI' },
   userName: { type: String, default: '我' },
   aiAvatar: { type: String, default: '🤖' },
   userAvatar: { type: String, default: '🧑' },
-  // SSE 接口路径（不含 /api 前缀）——仅 event-source 模式需要
-  ssePath: { type: String, default: '' },
-  // 流式模式：token = 逐字追加；step = 按步骤换行追加
+  // 流式模式：token = 逐字追加（当前唯一入口 GuideChatView 走这条）；
+  //          step = 按步骤换行追加（原 /manus 入口用，入口下线后暂无调用方）
   streamMode: { type: String, default: 'token' },
-  // 聊天室 id（问题引导助手需要，Manus 接口不需要则不传）
-
-  // 传输方式：event-source = 原生 EventSource（GET、无 body）；post-stream = fetch POST 读流
-  transport: { type: String, default: 'event-source' },
+  // 聊天室 id（问题引导助手需要）
 
   chatId: { type: String, default: '' },
   // 可选：预置的历史消息，形如 [{ messageId, role: 'USER'|'ASSISTANT', content, createdAt }]
-  // 不传 = 空会话（ManusChatView 不传，行为不变）
+  // 不传 = 空会话（当前唯一入口 GuideChatView 会传）
   historyMessages: { type: Array, default: () => [] },
   // 可选：懒创建会话的钩子，返回 Promise<conversationId>。
-  // 只在 transport === 'post-stream' 且 chatId 为空（还没建会话）时用：
+  // 只在 chatId 为空（还没建会话）时用：
   // 用户在空白会话里发出第一条消息时，才真正去 POST /conversations。
   resolveChatId: { type: Function, default: null },
   placeholder: { type: String, default: '输入你想说的话…' },
@@ -133,7 +128,6 @@ const input = ref('')
 const streaming = ref(false)
 const messages = ref([])
 
-let source = null
 let controller = null
 let msgSeq = 0
 
@@ -160,7 +154,7 @@ async function send(picked) {
 
   const aiMsg = addMessage('ai', '')
   streaming.value = true
-  // 先清掉上一轮的连接/请求（与具体传输方式无关）
+  // 先清掉上一轮的请求（与具体内容无关）
   closeSource()
 
   let firstChunk = true
@@ -183,44 +177,32 @@ async function send(picked) {
     finish()
   }
 
-  if (props.transport === 'post-stream') {
-    // 懒创建：空白会话的第一条消息发出前，才去后端建会话拿 id
-    let cid = props.chatId
-    if (!cid && props.resolveChatId) {
-      try {
-        cid = await props.resolveChatId()
-      } catch (err) {
-        // 建会话失败（如 401）：把原因显示在 AI 气泡里，别静默
-        // axios 的 err.message 是"Request failed with status code 400"这种技术文案，
-        // 后端契约文案在 err.response.data.message 里 —— 优先用后者
-        aiMsg.content = `（${err.response?.data?.message || err.message}）`
-        finish()
-        return
-      }
-      // 等待期间用户可能点了「停止」→ 已经 finish，别再发起流
-      if (!streaming.value) return
+  // 懒创建：空白会话的第一条消息发出前，才去后端建会话拿 id
+  let cid = props.chatId
+  if (!cid && props.resolveChatId) {
+    try {
+      cid = await props.resolveChatId()
+    } catch (err) {
+      // 建会话失败（如 401）：把原因显示在 AI 气泡里，别静默
+      // axios 的 err.message 是"Request failed with status code 400"这种技术文案，
+      // 后端契约文案在 err.response.data.message 里 —— 优先用后者
+      aiMsg.content = `（${err.response?.data?.message || err.message}）`
+      finish()
+      return
     }
-    // fetch 流的取消靠 AbortController，必须先造好、把 signal 交给 streamChat
-    controller = new AbortController()
-    streamChat({
-      conversationId: cid,
-      message: text,
-      signal: controller.signal,
-      onMessage,
-      onDone,
-      onError
-    })
-  } else {
-    const params = { message: text }
-    if (props.chatId) params.chatId = props.chatId
-    source = createSseChat({
-      path: props.ssePath,
-      params,
-      onMessage,
-      onDone,
-      onError
-    })
+    // 等待期间用户可能点了「停止」→ 已经 finish，别再发起流
+    if (!streaming.value) return
   }
+  // fetch 流的取消靠 AbortController，必须先造好、把 signal 交给 streamChat
+  controller = new AbortController()
+  streamChat({
+    conversationId: cid,
+    message: text,
+    signal: controller.signal,
+    onMessage,
+    onDone,
+    onError
+  })
 }
 
 function stop() {
@@ -234,28 +216,16 @@ function stop() {
 
 function finish() {
   streaming.value = false
-  source = null
   emit('done')
   nextTick(() => inputEl.value?.focus())
 }
 
 function closeSource() {
-  if (source) {
-    source.close()
-    source = null
-  }
   if (controller) {
     controller.abort()
     controller = null
   }
 }
-
-// function closeSource() {
-//   if (source) {
-//     source.close()
-//     source = null
-//   }
-// }
 
 function onKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {

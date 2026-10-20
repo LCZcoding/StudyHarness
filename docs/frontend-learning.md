@@ -493,7 +493,71 @@ emit('done')
 | --- | --- |
 | 服务端 session 过期后前端自动弹回 `/login` | 要在 axios 拦截器里统一处理 401，属主干 |
 | 记住上次登录的用户名做预填 | 产品没要求 |
-| 顶层 `/manus` 页也显示登录态 | `/manus` 是教学 demo 页，暂不接 |
+| 顶层 `/manus` 页也显示登录态 | `/manus` 已于 2026-10-20 下线（入口并入 `/guide`），不再需要 |
+
+#### 版本化修订（2026-10-20）——`/manus` 入口下线
+
+- 主页原来两个入口（`/guide` 与 `/manus`）合并为一个：只留 `/guide`。删除 `ManusChatView.vue`、`router/index.js` 的 `/manus` 路由、`HomeView.vue` 的第二张卡与 `VS` 分隔符（`grid` 改单列）。
+- **连带删掉 4 处「零引用」**：`utils/chatId.js`（只有 `ManusChatView` 用）、`api/sse.js`、`api/chat.js`，以及 `ChatRoom.vue` 里的 `event-source` 分支 + `ssePath` / `transport` 两个 prop。组件现在**只支持 `post-stream`** 一种传输。
+- 为什么能一次清理干净：`/manus` 是唯一走原生 `EventSource`、且由前端自报 `chatId` 的入口；入口一撤，整条链路没有调用方。**注意顺序**：先删 `api/sse.js` 会让 `ChatRoom.vue` 直接构建失败——这是练习 3 那条「改完别急着删，先 `grep` 确认真没人用」的反向案例（先断引用、再删文件）。
+- **练习 3 / 练习 6 里那句「不要删 `api/sse.js` 与 `utils/chatId.js`，ManusChatView 仍在用」自本日起过期**：原文保留作历史判断留档，现状以本节为准。
+- 后端不动：`/api/ai/manus/chat`、`LiManus`、`agent/`、`tools/` 全部保留 —— `tools/`（`WebSearchTool` 等）是主干「资料接入第二层」的原料。
+
+### 练习 10：首页视觉打磨（居中 / 卡片质感 / 响应式）
+
+**只改一个文件**：[`HomeView.vue`](../ai-agent-frontend/src/views/HomeView.vue) 的 `<style scoped>`。目标三件事：内容双轴居中、卡片有质感、三档屏幕都不崩。
+
+#### 10.1 双轴居中 + 溢出安全（最容易踩的坑）
+
+居中本身很简单：父容器 `display: flex`，子元素 `margin: auto` 就同时吃下水平 + 垂直居中。**但为什么不用 `align-items: center / justify-content: center`**：
+
+- 那样写，当内容高度超过容器（小屏、长文案）时，子元素会被顶到容器上边界之外，**顶部那截滚不到**——因为溢出发生在滚动原点的上方。这是 flex 居中 + 滚动的经典坑。
+- `margin: auto` 不会：一旦空间不够，auto 外边距自动塌成 0，内容从顶部开始，老老实实可滚。
+
+所以正确组合是：
+
+```css
+.grid { display: flex; overflow-y: auto; }   /* 滚动容器 */
+.card { margin: auto; }                       /* 居中 + 溢出安全 */
+```
+
+另外滚动**不要**放在 `.home`（整个页面）上，要放在内容区 `.grid` 上——否则顶栏会跟着一起滚走。
+
+#### 10.2 设计令牌：把视觉常量收进 CSS 变量
+
+颜色 / 圆角 / 阴影 / 缓动曲线全部定义在 `.home` 的 `--xxx` 变量里，下面所有规则只引用变量名。三个好处：
+
+1. 改一处、全页生效（比如主色从 `#0284c7` 换一个，只改 `--brand`）；
+2. 阴影这种"一长串数值"不会散落各处，同一层次感保持统一；
+3. 读代码时 `box-shadow: var(--shadow-soft)` 直接告诉你这是"常驻柔影"还是 `--shadow-lift`"悬停抬升影"，比一串 rgba 好懂。
+
+阴影的层次感就靠**两层叠**：一层大而淡（扩散）、一层小而实（贴边），比单层生硬的黑影高级得多：
+
+```css
+--shadow-soft: 0 12px 34px rgba(12,46,70,.10), 0 2px 8px rgba(12,46,70,.06);
+--shadow-lift: 0 30px 70px rgba(12,58,82,.22), 0 6px 18px rgba(12,58,82,.10);
+```
+
+**注意阴影别用纯黑**：`rgba(0,0,0,.2)` 压在浅蓝卡上会发灰发脏；用主色的深色调（这里是深蓝 `12,46,70`）阴影会跟着画面走。
+
+#### 10.3 响应式的三档写法
+
+- **流体尺寸用 `clamp()`**，别写死像素：`height: clamp(320px, 66vh, 560px)` = 矮屏不挤、高屏不空、超大屏不失控；标题 `clamp(24px, 3vw, 40px)` 同理。
+- **断点只留两个**：`≤820px`（平板竖屏 / 窄窗）和 `≤480px`（手机）。断点越少越好维护，每个断点只改"真的需要变"的东西。
+- 窄屏做两件实事：① `.tag`（"应用中心 · APPLICATION HUB"）`display: none`，给登录/登出按钮让位；② 卡片从固定高度改 `height: auto` + `min-height`，避免被压扁。
+- 顶栏和卡片用**同一个** `max-width: 1080px` + `margin: 0 auto`，左右留白才会对齐——原来顶栏 `padding: 18px 30px`、内容区 `18px`，两边对不上，看起来就是"没居中"。
+
+#### 10.4 顺手做的两件事
+
+- `prefers-reduced-motion: reduce` 里关掉所有 transition/transform：系统开了"减少动态效果"的人不该被动画打扰。
+- `.card:focus-visible` 加描边：这是键盘 Tab 到卡片时的可视焦点。**只能写 `:focus-visible`，不能写 `:focus`**——后者鼠标点一下也留描边，很难看。
+
+#### 10.5 怎么验证（不靠"我觉得好看"）
+
+1. `npm run build` 先过一遍，确认没写坏。
+2. 浏览器 DevTools 打开**响应模式**，依次切 `390×844`（手机）→ `834×1112`（平板）→ `1440×900`（桌面），每档看：卡片左右留白是否相等、有没有被裁切、滚动条是否正常。
+3. 悬停卡片，在 Elements 面板看 computed 的 `transform` / `box-shadow` 是否跟着变（比肉眼更准）。
+4. 键盘 Tab 一遍，确认焦点描边出现。
 
 ***
 

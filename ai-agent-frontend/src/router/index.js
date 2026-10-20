@@ -26,12 +26,6 @@ const routes = [
     // 带会话 id：直接打开该会话，刷新后仍留在同一会话
     component: () => import('../views/GuideChatView.vue'),
     meta: { requiresAuth: true }
-  },
-  {
-    path: '/manus',
-    name: 'manus',
-    component: () => import('../views/ManusChatView.vue'),
-    meta: { requiresAuth: true }
   }
 ]
 
@@ -44,7 +38,7 @@ const router = createRouter({
 // 全局前置守卫：目标路由标了 requiresAuth 且未登录 → 转去 /login
 router.beforeEach((to) => {
   if (to.meta.requiresAuth && !isAuthenticated.value) {
-    return { name: 'login' }
+    return { name: 'login' , query: { redirect: to.fullPath } }
   }
 })
 

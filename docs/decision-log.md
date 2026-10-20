@@ -152,3 +152,6 @@
 - [x] `POST /auth/logout` + 前端 `clearAuth()`（③格留的撤销出口）——完成：拍板「204 幂等」（未登录调用也 204），`HomeView.vue` 顶栏加「登出」按钮，新增 2 条测试 → 见 [`impl-log.md`](./impl-log.md) 文末「③格遗留收口」
 - [x] `HomeView` 顶栏登录态展示——完成：显示 `currentUsername`（纯显示缓存，不参与鉴权）+ 「登出」按钮
 - [x] 控制器 `HttpSession` 参数改 `HttpServletRequest` + `getSession(false)`，避免未登录也下发空会话 `JSESSIONID`（③格预测外问题 1）——完成：`CurrentUserResolver` + 4 处控制器（`AuthController.login` 保留参数式 `HttpSession`，它要写 session 属性）；全量 27/27 绿
+- [x] 前端两个入口合并为一个（2026-10-20）——完成：只留 `/guide`，「AI 超级智能体」入口 `/manus` 下线。`HomeView.vue` 双卡改单卡（删第二张卡 + `VS` 分隔 + `card.manus` 样式）、`router/index.js` 删 `/manus` 路由、删 `ManusChatView.vue`；随之失去引用的 `utils/chatId.js` / `api/sse.js` / `api/chat.js` 一并删除，`ChatRoom.vue` 的 `event-source` 分支与 `ssePath` / `transport` prop 同步移除（改为只支持 `post-stream`）。`vite build` 通过。后端 `/api/ai/manus/chat`、`LiManus`、`agent/`、`tools/` **保留**（`tools/` 是主干「资料接入第二层」的原料）
+- [ ] 把 `LiManus` 的工具调用 / ReAct 能力接进 `/guide`（即合并的「路 B」）：新增 `POST /api/ai/agent/stream`（鉴权 → 归属 → 步骤流 → 落库），记忆改用 `t_message` 而非 kryo `ConversationStore`；动工前先出接口契约
+- [ ] `ChatRoom.vue` 残留清理：`theme-manus` 样式与 `streamMode: 'step'` 分支已无调用方，待「路 B」接入时复用或删除

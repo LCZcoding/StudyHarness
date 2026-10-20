@@ -34,7 +34,6 @@
       user-name="我"
       ai-avatar="❓"
       user-avatar="🧑"
-      transport="post-stream"
       stream-mode="token"
       :chat-id="chatId"
       :history-messages="historyMessages"

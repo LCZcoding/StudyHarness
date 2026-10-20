@@ -44,11 +44,12 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { login } from '../api/auth.js'
 import { setAuth } from '../stores/auth.js'
 
 const router = useRouter()
+const route = useRoute()
 
 const username = ref('')
 const password = ref('')
@@ -63,7 +64,10 @@ async function submit() {
     // 登录态在服务端 session 里，前端不需要存 token，直接回首页
     // 传入 username 只是为了让首页顶栏能显示"我是谁"，不参与鉴权
     setAuth(username.value)
-    router.push('/')
+    // router.push('/')
+    // 原来写死 router.push('/')；改成回到"被打断前想去的地方"，没有就回首页
+    router.push(safeRedirect(route.query.redirect))
+    
   } catch (e) {
     // 后端所有错误响应体的形状统一为 { message }，所以一句f话就能兜住
     error.value = e.response?.data?.message || '登录失败，请稍后重试'
@@ -71,6 +75,14 @@ async function submit() {
     loading.value = false
   }
 }
+// redirect 是用户可改的参数，必须只放行站内路径：
+// 否则 ?redirect=//evil.com 会把用户跳出站（open redirect）
+function safeRedirect(target) {
+  if (typeof target !== 'string') return '/'      // 同名参数多次出现时 query 会是数组
+  if (!target.startsWith('/') || target.startsWith('//')) return '/'
+  return target
+}
+
 </script>
 
 <style scoped>

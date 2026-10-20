@@ -485,3 +485,77 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 - 未登录访问 `/api/conversations` 的响应头：`Set-Cookie` 从「有」变「无」（③格预测外问题 1 的可证伪验收）。
 - 登录 → 登出 → 再访问受保护接口 → 401。
 - 首页顶栏：登录后显示用户名 + 「登出」；点登出后立刻变回「登录」链接，刷新仍是未登录态。
+
+***
+
+## 前端入口合并（2026-10-20，非纵切格）
+
+**结论**：主页原来的两个入口合二为一，只留 `/guide`（AI 问题引导解决助手）；「AI 超级智能体」入口 `/manus` 下线。
+
+**依据**：两个入口能力重叠但都不是"最全"——`/guide` 底座最全（登录 / 归属 / `t_conversation` / `t_message` 落库 / 历史侧栏 / 懒创建），`/manus` 能力最全（`LiManus` ReAct 循环 + 7 个工具）。合并有两条路：
+
+| | 路 A（选定） | 路 B（记为待办） |
+| --- | --- | --- |
+| 做法 | 只留 `/guide`，下线 `/manus` 入口 | 把 `LiManus` 的 ReAct + 工具调用接进 `/guide` |
+| 工作量 | 前端一处改动 + 零后端改动 | 等于新增一格纵切（新契约 + 归属 + 落库 + 记忆换源） |
+| 失掉什么 | 界面上暂时看不到工具调用步骤 | — |
+
+选路 A 的理由：符合"快速方便"，且 `LiManus` 的能力**没有消失**——后端 `/api/ai/manus/chat`、`LiManus`、`agent/`、`tools/` 全部保留，等主干之后要做工具调用时按路 B 一格接进去（`tools/` 同时也是主干「资料接入第二层」的原料）。**否决**路 C（反向只留 `/manus`）：那要补回登录、归属、`t_conversation`/`t_message` 落库、历史侧栏、服务端签发 id，等于把前面 5 格重做一遍。
+
+**改动清单（前端，零后端改动）**
+
+| 文件 | 改动 |
+| --- | --- |
+| `views/HomeView.vue` | 双卡 → 单卡：删第二张卡、`VS` 分隔符、`card.manus` / `.divider` / `.num` 样式，`grid-template-columns` 改单列 |
+| `router/index.js` | 删 `/manus` 路由 |
+| `views/ManusChatView.vue` | 删除 |
+| `utils/chatId.js` | 删除（只有 `ManusChatView` 用） |
+| `api/sse.js`、`api/chat.js` | 删除（零引用） |
+| `components/ChatRoom.vue` | 删 `event-source` 分支 + `ssePath` / `transport` 两个 prop，`closeSource` 只保留 `controller.abort()`；组件现在只支持 `post-stream` |
+| `views/GuideChatView.vue` | 去掉 `transport="post-stream"`（已是唯一传输） |
+
+**可复用的教训**：`/manus` 是唯一走原生 `EventSource` + 前端自报 `chatId` 的入口，入口一撤整条链路就没有调用方，所以能一次清干净。**顺序必须是"先断引用、再删文件"**——若先删 `api/sse.js`，`ChatRoom.vue` 的 import 会直接把构建打断（实测确认：删完跑 `vite build` 通过，且 `ManusChatView` 的 chunk 从产物中消失）。
+
+**验收**：`vite build` 通过；`/` 只剩一张卡；访问 `/manus` 不再匹配任何路由（`router/index.js` 没有 catch-all，会落到空白页 + 控制台 `No match found` 警告）；`/guide` 聊天、侧栏、懒创建、登出全部照旧。
+
+***
+
+## 首页视觉打磨（2026-10-20，只改 HomeView.vue 的 style）
+
+**起因**：入口合并成单卡后，卡片被拉伸到全宽、文案靠左、右侧大片留白，整页不像"一个入口"，像"没做完的双栏"。
+
+**三处根因**（不是审美问题，是布局写法的必然结果）
+
+| 现象 | 根因 |
+| --- | --- |
+| 卡片占满整屏宽、内容靠左 | 卡片没有 `max-width`；`.card-inner` 只 `justify-content: center`（纵向），没有 `align-items` / `text-align`（横向） |
+| 顶栏左右留白与卡片对不齐 | 顶栏 `padding: 18px 30px`、内容区 `18px`，两套留白互相独立 |
+| 垂直方向没居中 | `.grid` 是 `display: grid` + `grid-template-columns: 1fr`，行高由卡片 `min-height: 0` 撑开，没有"在剩余空间里居中"的约束 |
+
+**改法（`HomeView.vue` 的 `<style scoped>` 整体重写）**
+
+| 项 | 做法 | 理由 |
+| --- | --- | --- |
+| 设计令牌 | 颜色 / 圆角 / 两层阴影 / 缓动曲线收进 `.home` 的 CSS 变量 | 阴影这类长数值不散落；`--shadow-soft` 与 `--shadow-lift` 名字本身说明了层次 |
+| 双轴居中 | `.grid` 改 `flex` + `overflow-y: auto`；`.card` 用 `margin: auto` | **不能用 `align-items: center`**：内容高于容器时顶部会被推出可视区且滚不回来；`margin:auto` 在空间不足时自动塌成 0，溢出安全 |
+| 滚动归属 | 滚动放 `.grid`，`.home` 设 `overflow: hidden` | 放 `.home` 会让顶栏跟着滚走 |
+| 宽度 | 顶栏与卡片共用 `max-width: 1080px` + `margin: 0 auto` | 两边留白同源，视觉才对得齐 |
+| 卡片质感 | `border-radius: 26px`；两层阴影（大而淡 + 小而贴边），阴影色用深蓝 `rgba(12,46,70,…)` 而非纯黑 | 纯黑压在浅蓝卡上会发灰发脏 |
+| 高度 | `height: clamp(320px, 66vh, 560px)` | 矮屏不挤、高屏不空 |
+| 文案居中 | `.card-inner` 加 `align-items: center` + `text-align: center`；`.feats` 加 `justify-content: center`；`<p>` 去掉 `<br />` 改 `max-width: 44ch` 自然换行 | 硬换行在窄屏会出现"半句话孤行" |
+| hover | 上浮 4px + 换 `--shadow-lift` + `::after` 白色柔光淡入 + 箭头右移 8px + 标签变亮；`transition` 统一 `cubic-bezier(0.22,1,0.36,1)` | 四层动效（位移/阴影/柔光/内部元素）比只改阴影更有"抬起"感 |
+| 焦点 | `.card:focus-visible` 描边 | 必须 `:focus-visible` 而非 `:focus`，否则鼠标点击也留描边 |
+| 响应式 | 只留 `≤820px` 与 `≤480px` 两个断点；窄屏隐藏 `.tag`、卡片改 `height: auto` + `min-height` | 断点越少越好维护 |
+| 无障碍 | `prefers-reduced-motion: reduce` 下关掉全部 transition/transform | 尊重系统设置 |
+
+**踩坑（预测外）**：hover 规则最初包在 `@media (hover: hover)` 里，浏览器验证时**扫不到这些规则**、误判成"没写 hover"。改为顶层规则。理由：本卡是导航入口，点下去就跳走，触摸端不会留下"粘住的 hover"，包在 media 里没有实际收益。**教训：可验证性也是设计约束——把规则藏在 media 查询里，会让人（和自动化）验证不到。**
+
+**验证（真实浏览器，非推测）**
+
+- `npm run build` 两次通过（hover 改动前后各一次）。
+- 620px 视口实测：卡片 `left=20px / width=580px / right=600px`——左右边距各 20px，**水平居中无偏移**；顶栏高约 64px，可用高度约 456px，卡片 top≈88px、底部留白≈52px，上下居中。
+- hover 前后 computed style 对比：`transform` 出现 `translateY(-4px)`、`box-shadow` 切到 `--shadow-lift`、`::after` 的 `opacity` 从 0 变 1；`.enter b` 出现 `translateX(8px)`；`.feats li` 背景变 `rgba(255,255,255,0.7)`。
+- 控制台：硬刷新后无消息（先前的 `net::ERR_ABORTED localhost:5173` 是刷新动作本身中断旧请求，非页面报错）。
+- **未验到的部分**：本机浏览器工具不支持动态改视口，`1440×900 / 834×1112 / 390×844` 三档未实测，仅有 `≤820px / ≤480px` 断点的代码保证，需人工在 DevTools 响应模式过一遍。
+
+**前端侧已归 [`frontend-learning.md`](./frontend-learning.md)：练习 10。**
