@@ -22,6 +22,7 @@
 | 8 | 流式落库的阻塞点：`doOnComplete` 里的 JDBC 阻塞跑在 IO 事件循环线程上 → `publishOn(boundedElastic)` 把整条下游（含 SSE 写）挪出 event loop → 并发下不再拖垮 loop | 阻塞了谁？`publishOn` 与 `subscribeOn` 差在哪？为什么不直接甩到别的线程？ | 回调所在线程名前后对照 + 并发压测 | 素材已有，待验证 |
 | 9 | 假验收排查：契约承诺 400 带文案、测试只断言状态码 → 补 `MethodArgumentNotValidException` / `HttpMessageNotReadableException` 两个处理器，400 响应体从空变成前端可直接弹出的文案 | 为什么原来没生效？为什么文案不全塞进处理器？ | 补测前后 400 响应体对照 | 素材已有，待验证 |
 | 10 | 前端登录态误判修复：`JSESSIONID` 是 HttpOnly（`document.cookie` 读不到）+ 未登录请求也会被 Spring 下发空会话 Cookie → 前端改用显式登录态标记 + `router.beforeEach` 守卫 → 未登录访问 `/guide` 立刻被拦 | 为什么不读 Cookie 判断？前端标记能被伪造，安全靠什么？为什么不上 JWT？ | 未登录访问 `/guide` 的 `Set-Cookie` 实证 + 4 条守卫验收；**根因已在服务端一并消除**：4 处参数式 `HttpSession` 改 `HttpServletRequest` + `getSession(false)` → 未登录响应头 `Set-Cookie` 从「有」变「无」 | 素材已有（前端 + 服务端两侧都已收口） |
+| 11 | 修复登录后回跳丢失 + 开放重定向：登录页写死 `router.push('/')`、三处踢登录的入口都丢掉原目标 → `router.beforeEach` 透传 `?redirect=to.fullPath` + 登录页 `safeRedirect` 只放行站内路径（含单独拦 `//evil.com` 协议相对地址）→ 未登录点卡片登录后直达目标页，手改恶意 `redirect` 落回首页 | 只改守卫不改另外两处会怎样？`//evil.com` 为什么会骗过「以 `/` 开头」这条判断？前端做白名单够不够、服务端该不该也校验？ | 地址栏出现 `?redirect=/guide` → 登录落在 `/guide`；手改 `//evil.com` → 落回 `/`；session 失效走 `GuideChatView` 401 兜底同样带上 `redirect`；`npm run build` 通过 | 素材已有（浏览器实测三处入口 + 构建） |
 
 **为什么不再靠技术拿亮点**：旧简历的「RAG 检索优化」实为 Spring AI 默认用法（已在决策日志的否决记录中移除），正是它让项目二被一眼看穿。堆技术栈是把短板放大，不是补短板。
 
@@ -73,4 +74,4 @@
 ## 纵切实施记录的规则（配合使用）
 
 - 每一格的踩坑不写在本文件，写进 [`impl-log.md`](./impl-log.md)；其中「**预测外问题**」按上面规则转记到本文件的风险预案，并进亮点台账。
-- 台账第 1/2/3 条对应第①~⑤格之外的既有资产；第 4 条对应表设计 v1；第 5/6 条对应 MVP 主干后段；第 7 条对应第②格踩坑；第 8/9 条对应第④格的两个预测外问题；第 10 条对应第③格的 HttpOnly Cookie 登录态误判。
+- 台账第 1/2/3 条对应第①~⑤格之外的既有资产；第 4 条对应表设计 v1；第 5/6 条对应 MVP 主干后段；第 7 条对应第②格踩坑；第 8/9 条对应第④格的两个预测外问题；第 10 条对应第③格的 HttpOnly Cookie 登录态误判；第 11 条对应前端的登录后回跳（`router.beforeEach` + `LoginView.safeRedirect` + `GuideChatView` 401 兜底三处入口）。

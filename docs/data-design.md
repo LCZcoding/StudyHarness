@@ -2,7 +2,8 @@
 
 > 本文件放表设计的过程版（v0）与执行版（v1），以及建表验证记录。
 > v0 刻意保留错误与评审过程——**错的记录比对的结论更能说明为什么这么设计**。
-> 返回 [决策日志索引](./decision-log.md) ｜ 相关：[纵切实施记录](./impl-log.md)
+> **v2 之后（5 张学习闭环新表）在 [`mvp-backend-guide.md` 第 2 节](./mvp-backend-guide.md) 的建表 SQL 里，本文件不再追更。**
+> 返回 [决策日志索引](./decision-log.md) ｜ 相关：[纵切实施记录](./impl-log.md) ｜ [产品说明书](./product-spec.md)
 
 ***
 
