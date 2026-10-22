@@ -36,4 +36,11 @@ public class MessageRepository {
                 conversationId);
     }
 
+    // 插一条并返回自增 id：出题要把"消息 id"回填到 t_question.message_id
+    public long insertReturningId(UUID conversationId, String role, String type, String content) {
+        return jdbcTemplate.queryForObject(
+                "insert into t_message (conversation_id, role, type, content) values (?, ?, ?, ?) returning id",
+                Long.class, conversationId, role, type, content);
+    }
+
 }

@@ -640,3 +640,74 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 **教训**：验收数据本身要先验证。拿一批「看起来像 PDF」的文件直接测，会把生成器的缺陷误记到抽取器头上，
 浪费一轮排查。**先确认输入合法，再判断被测代码。**
+
+***
+
+## 阶段 2 出题（quiz/generate，2026-10-22）
+
+**做了什么**：`POST /quiz/generate` 读一份资料 → 模型出 3 个任务 → 建 `SELF_TEST` 会话 → 一条 USER 消息 +
+3 条 `ASSISTANT/QUESTION` 消息 → 3 行 `t_question` → 3 行 `CANDIDATE` 知识点。
+
+| 类 | 职责 |
+| --- | --- |
+| [`QuizController`](../src/main/java/com/lcz/aiagentstudy/controller/QuizController.java) | 唯一入口；`toResponse` 被后续复习接口复用 |
+| [`QuizService`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 拼提示词、调模型、校验模型返回（条数 / 字段 / `kind` / 至少 1 个 `EXPLAIN`） |
+| [`QuizStore`](../src/main/java/com/lcz/aiagentstudy/service/QuizStore.java) | 唯一的写库点；`@Transactional` 包住「会话 + 消息 + 题目 + 知识点」 |
+| [`QuestionRepository`](../src/main/java/com/lcz/aiagentstudy/repository/QuestionRepository.java) | 题目读写，`insertReturningId` 把消息 id 回填 `message_id` |
+
+**关键取舍**
+
+1. **模型调用在事务外**：`QuizService.generate` 先调模型拿到草稿，再交给 `QuizStore.createSelfTest` 写库。
+   模型慢，不能让一次 4 秒的调用占着数据库连接。
+2. **模型返回不合规就抛异常，不猜**：条数不对、字段缺、`kind` 不在枚举内、没有 `EXPLAIN` 四种情况统一
+   `IllegalStateException` → `500`。宁可让用户点重试，也不静默存一份残缺题目（技术债第 1 条）。
+3. **材料截断到 12000 字**：一份 5 万字讲义塞进去会顶到上下文上限，而「一次 3 题」本来就覆盖不了整份材料。
+4. **`target` 去重靠数据库**：`uq_knowledge_point_user_name` 保证同一用户同名知识点只有一行，代码不查重。
+5. **重问优先**：资料下有「`FAIL`/`PARTIAL` 且未补讲」的旧题时，第 1 个任务换成那道题，模型只出新 2 道。
+
+**验收（后端 8123 实跑，8/8 通过，耗时 4411 ms）**
+
+| # | 用例 | 实测 |
+| --- | --- | --- |
+| 1 | 3 个任务、至少 1 个 `EXPLAIN` | 2 `FACT` + 1 `EXPLAIN` |
+| 2 | 题目落库且 `knowledge_item_id` 正确 | 3 行全部指向 `12dda403-...` |
+| 3 | 知识点 `CANDIDATE` | 3 行 |
+| 4 | 会话与消息序列 | `mode=SELF_TEST`，消息 id 54~57（1 USER + 3 QUESTION） |
+| 5 | 不存在 / 无权资料 | `403 {"message":"资料不存在或无权访问"}` |
+| 6 | 非法 UUID | `400 {"message":"请求体不合法"}` |
+| 7 | 未登录 | `401 {"message":"未登录"}` |
+| 8 | 人工审题 | 三题分别命中 m / ef_construction / 对数级复杂度，均不泄露答案，`EXPLAIN` 带听众设定 |
+
+**本轮验不到的**：`retry` 重问分支（需先有一道 `FAIL`/`PARTIAL`，阶段 3 才有判分）；
+`VERIFIED` 知识点注入（当前全是 `CANDIDATE`）。两条等阶段 3 跑完补验。
+
+**教训**：模型返回必须当外部输入校验。`entity()` 只是把 JSON 反序列化，管不了「条数对不对」「有没有
+`EXPLAIN`」「`kind` 是不是枚举值」，这些都得在 `QuizService.draft` 里自己断言。
+
+## 阶段 2.5 出题评测（2026-10-22，规则 10/10，语义 0 告警）
+
+**做了什么**：把 `QuizPromptEvalTest` 从「字符串锚点」改成三层 —— 规则层硬断言、语义层 AI 裁判、
+报告落盘人工复审。裁判用 `dashScopeChatModel`（qwen-plus），出题仍用 `deepSeekChatModel`。
+
+| 轮次 | 规则层 | 泄露 | 超纲 | 缺听众 |
+| --- | --- | --- | --- | --- |
+| 第一轮（字符串锚点 + 旧 rubric） | 5/10 | — | — | — |
+| 第一轮（AI 裁判） | 10/10 | 6 | 1 | 1 |
+| 第二轮（按人工复审口径重写 rubric） | 10/10 | 0 | 0 | 0 |
+
+**人工复审的口径修正（用户拍板）**：产品唯一目的是让用户自己输出所学内容。
+题面给出前提、现象、反事实**不算泄露**（「如果只用两次握手会引发什么问题」是有效问题，
+用户仍要说出问题在哪）；只有替用户说出「要输出的结论 / 数值 / 选择」才算泄露。
+第一轮 8 条告警按此标准全部为误报，改的是裁判 rubric，不是出题提示词。
+
+**为什么废弃字符串锚点**：锚点写的是术语（`Proxy` / `布隆过滤器` / `预主密钥`），
+术语出现在题面属正常，`contains` 判不了「术语还是结论」，10 份材料误报 3 条。
+
+**取舍**
+
+1. 语义层不硬断言：裁判自身会偏，硬断言会让每次改提示词都被误判卡住。连续两轮人工结论一致后再升级。
+2. 裁判换模型：`deepseek` 出题、`qwen-plus` 判题，避免自我偏好。
+3. 报告写 `target/quiz-eval-report.md`，不进 git；人工结论只记本文件，避免报告与结论两份真相。
+
+**教训**：评测指标写错比没有评测更危险。第一轮 5/10 看起来像「提示词不行」，
+实际是判定规则把术语当答案。**先确认判定标准，再看通过率。**

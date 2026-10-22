@@ -187,6 +187,8 @@
 - [x] 按产品说明书整篇重写后端实施手册 → [`mvp-backend-guide.md`](./mvp-backend-guide.md)（2026-10-21，阶段 0~7）
 - [x] 阶段 0：`db/schema.sql` 已落 6 张新表并整库实跑（2026-10-22）；脚本定位为「空库一次性建全」，不再含升级用 ALTER
 - [x] 阶段 1：资料接入（粘贴 + `.md` / `.txt` / `.pdf`，含 `DocumentTextExtractor`）→ 2026-10-22 实跑验收 6/6 通过，见 [`impl-log.md`](./impl-log.md)
+- [x] 阶段 2：出题（`POST /quiz/generate`，3 题 / 至少 1 个 `EXPLAIN` / 知识点 `CANDIDATE`）→ 2026-10-22 实跑验收 8/8 通过，耗时 4411 ms
+- [ ] 阶段 2.5：出题评测集 ≥7/10（**进阶段 3 的前置条件**）
 - [x] 表设计 v1 冻结（user / conversation / message）→ 见 [`data-design.md`](./data-design.md)
 - [x] 落 `db/schema.sql`（幂等可重放，面试可直接看）
 - [x] 表设计 v1 已建表验证通过（FK / CHECK 实测生效）
