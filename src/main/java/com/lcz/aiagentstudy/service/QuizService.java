@@ -1,5 +1,6 @@
 package com.lcz.aiagentstudy.service;
 
+import com.lcz.aiagentstudy.exception.ForbiddenException;
 import com.lcz.aiagentstudy.model.KnowledgeItemRow;
 import com.lcz.aiagentstudy.repository.KnowledgePointRepository;
 import com.lcz.aiagentstudy.repository.QuestionRepository;
@@ -42,6 +43,10 @@ public class QuizService {
     private final KnowledgePointRepository knowledgePointRepository;
     private final QuestionRepository questionRepository;
     private final QuizStore quizStore;
+
+    private final GradingService gradingService;
+    private final HelpService helpService;
+    private final AttemptStore attemptStore;
 
     // 出题只看材料前 12000 字：再长会顶到模型上下文上限，
     // 且「一次出 3 题」本来就覆盖不了整份讲义（写进技术债第 7 条）
@@ -129,4 +134,32 @@ public class QuizService {
         return material.length() <= MATERIAL_LIMIT
                 ? material : material.substring(0, MATERIAL_LIMIT) + "\n……（材料已截断）";
     }
+
+    /** 求助：先回答用户的疑问，再把这题标记为"求助过"。不改判分、不产生成绩。 */
+    public String help(UUID userId, long questionId, String userQuestion) {
+        QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
+        String answer = helpService.answer(question.material(), question.text(), userQuestion);
+        questionRepository.markHelpUsed(questionId);
+        return answer;
+    }
+
+    public AttemptStore.AttemptResult attempt(UUID userId, long questionId, String answer) {
+        QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
+        GradingService.Grading grading = gradingService.grade(
+                question.material(), question.target(), question.kind(),
+                question.text(), answer);
+        return attemptStore.record(userId, question, answer, grading);
+    }
+
+    private QuestionRepository.QuestionContext requireOwnedQuestion(UUID userId, long questionId) {
+        QuestionRepository.QuestionContext question = questionRepository.findWithOwner(questionId)
+                .stream().findFirst()
+                // 与"不存在"同一句文案：不让攻击者用状态码探测题目是否存在
+                .orElseThrow(() -> new ForbiddenException("题目不存在或无权访问"));
+        if (!question.userId().equals(userId)) {
+            throw new ForbiddenException("题目不存在或无权访问");
+        }
+        return question;
+    }
+
 }

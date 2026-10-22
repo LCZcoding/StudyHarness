@@ -4,6 +4,7 @@ import com.lcz.aiagentstudy.app.LoveApp;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.UUID;
 
@@ -20,6 +21,7 @@ public class ChatService {
 
         return loveApp.doChatByStream(message, conversationId.toString())
                 .doOnNext(full::append)
+                .publishOn(Schedulers.boundedElastic()) // Reactor 专门给阻塞调用准备的弹性线程池，默认上限是 CPU×10，且不会无限膨胀。
                 .doOnComplete(()->messageService.appendRound(conversationId, message, full.toString()));
     }
 }
