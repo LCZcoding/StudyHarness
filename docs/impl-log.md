@@ -590,3 +590,53 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 - **未验到的部分**：登录成功后的实际落点、`?redirect=//evil.com` 的白名单拦截，这两条都需要账号密码走完整提交流程，由用户自测确认。
 
 **前端侧已归 [`frontend-learning.md`](./frontend-learning.md)：练习 11。**
+
+***
+
+## 阶段 1 资料接入（knowledge-items，2026-10-22）
+
+**做了什么**：把「学习材料」落成 `t_knowledge_item`，提供三个入口 —— 粘贴建、文件上传、列表。
+上传支持 `.md` / `.txt` / `.pdf`（PDF 仅文字层），落库前统一过 `DocumentTextExtractor`。
+
+| 类 | 职责 |
+| --- | --- |
+| [`KnowledgeItemController`](../src/main/java/com/lcz/aiagentstudy/controller/KnowledgeItemController.java) | 三个接口；`userId` 只从 session 取，不接受前端自报 |
+| [`KnowledgeService`](../src/main/java/com/lcz/aiagentstudy/service/KnowledgeService.java) | 生成 200 字内摘要（失败置 `null` 不阻断保存）、列表、`requireOwned` |
+| [`DocumentTextExtractor`](../src/main/java/com/lcz/aiagentstudy/service/DocumentTextExtractor.java) | 字节 → 文本；三条拒绝（扩展名、抽不出字、超 5 万字） |
+| [`KnowledgeItemRepository`](../src/main/java/com/lcz/aiagentstudy/repository/KnowledgeItemRepository.java) | `JdbcTemplate` 读写，`RETURNING id` 拿回 UUID |
+
+**关键取舍**
+
+1. **摘要失败不阻断保存**：摘要只服务列表展示，模型挂了不该让用户的材料丢失。
+2. **`sourceUrl` 存文件名**：上传接口把 `originalFilename` 写进 `source_url`，让列表能显示「来自 hnsw.md」；本轮不做网页抓取，这一列不承载 URL 语义。
+3. **扩展名白名单不看 MIME**：浏览器上报的 `Content-Type` 不可靠，`.docx` 改名成 `.pdf` 也会在解析阶段被挡下。
+4. **「抽不出字」与「解析失败」分两条文案**：扫描件走前者，加密/损坏 PDF 走后者。合并会让用户不知道该改什么。
+5. **<100 字不按扩展名分文案（有意接受）**：`.md` 太短也复用「没有可提取的文字（PDF 可能是扫描件）」。
+   后端不分支，**前端在提交前拦住并提示「至少 100 字」**。
+
+**验收（后端 8123 实跑，`curl.exe` + 真实 session，6/6 通过）**
+
+| # | 用例 | 实测 |
+| --- | --- | --- |
+| 1 | 粘贴建资料 | `201` + `Location: /knowledge-items/{uuid}` + `preview` + `summary` |
+| 2 | 列表 | `200`，3 条，`sourceUrl` 粘贴为 `null`、上传为文件名 |
+| 3 | 上传 `.md`（1002 字节） | `201`，`title` 自动取 `hnsw`，`sourceUrl = hnsw.md` |
+| 4 | 上传文字版 `.pdf`（781 字符） | `201`，`preview` 为完整英文正文 |
+| 5 | 上传 `.docx` | `400 {"message":"只支持 .md / .txt / .pdf"}` |
+| 6 | 上传 6 MB `.pdf` | `400 {"message":"文件太大，请控制在 5MB 以内"}` |
+| + | 未登录 `GET` | `401 {"message":"未登录"}` |
+
+**两条排除掉的假 bug**
+
+- `tmp/pdf` 下 4 份 PDF 抽取结果都是 1 个换行符。用同版本 iText（9.1.0）写探针直接读同一批文件，结果一致：
+  **`PDFGenerationTool` 生成的 PDF 缺少 ToUnicode 映射**，与 `DocumentTextExtractor` 无关。
+  验收改用 iText 现场生成、拉丁字体的 PDF，抽取 781 字符正常。
+- 公网 `pdf-test.pdf` 是**加密 PDF**，返回「PDF 解析失败，请确认文件未加密且格式正常」是正确分支。
+
+**未验到的部分**
+
+- 扫描件 PDF（按用户要求跳过，空文本分支已由「1 个换行符的 PDF」等价覆盖）。
+- 5 万字上限未构造真实超长文档，只做了代码审阅。
+
+**教训**：验收数据本身要先验证。拿一批「看起来像 PDF」的文件直接测，会把生成器的缺陷误记到抽取器头上，
+浪费一轮排查。**先确认输入合法，再判断被测代码。**

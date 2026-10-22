@@ -185,8 +185,8 @@
 - [x] 拍板 MVP 主干与调度算法 → 2026-10-21：主干 = 主动回忆测试 + 固定 1/3/7 天调度，见「版本化修订 ②」改动 9
 - [x] 写成产品说明书 → [`product-spec.md`](./product-spec.md)（2026-10-21）
 - [x] 按产品说明书整篇重写后端实施手册 → [`mvp-backend-guide.md`](./mvp-backend-guide.md)（2026-10-21，阶段 0~7）
-- [ ] 阶段 0：落 `db/schema.sql` 新增 6 张表（`t_knowledge_item` / `t_knowledge_point` / `t_question` / `t_test_record` / `t_review_schedule` / `t_ai_call`）并重放两次验幂等
-- [ ] 阶段 1：资料接入（粘贴 + `.md` / `.txt` / `.pdf`，含 `DocumentTextExtractor`）
+- [x] 阶段 0：`db/schema.sql` 已落 6 张新表并整库实跑（2026-10-22）；脚本定位为「空库一次性建全」，不再含升级用 ALTER
+- [x] 阶段 1：资料接入（粘贴 + `.md` / `.txt` / `.pdf`，含 `DocumentTextExtractor`）→ 2026-10-22 实跑验收 6/6 通过，见 [`impl-log.md`](./impl-log.md)
 - [x] 表设计 v1 冻结（user / conversation / message）→ 见 [`data-design.md`](./data-design.md)
 - [x] 落 `db/schema.sql`（幂等可重放，面试可直接看）
 - [x] 表设计 v1 已建表验证通过（FK / CHECK 实测生效）
