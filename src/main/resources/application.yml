@@ -8,6 +8,10 @@ spring:
       client:
         stdio:
           servers-configuration: classpath:mcp-servers.json
+  servlet:
+    multipart:
+      max-file-size: 5MB       # PDF 带图很容易上 MB，100KB 会连正常讲义都传不进来
+      max-request-size: 6MB
 #        sse:
 #          connections:
 #            server1:

@@ -1,5 +1,6 @@
 package com.lcz.aiagentstudy.web;
 
+import com.lcz.aiagentstudy.exception.BadRequestException;
 import com.lcz.aiagentstudy.exception.ForbiddenException;
 import com.lcz.aiagentstudy.exception.UnauthorizedException;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Map;
 
@@ -41,6 +43,18 @@ public class GlobalExceptionHandler  {
     public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         // `ex.getName()` 取的就是 `@PathVariable` 里声明的变量名
         return ResponseEntity.badRequest().body(Map.of("message", ex.getName() + " 不合法"));
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<?> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+    }
+
+    // 超过 multipart 上限时 Tomcat 抛这个。不映射会落到 500，前端只能提示"服务异常"，
+    // 用户不知道自己只是文件太大了。
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<?> handleTooLarge(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", "文件太大，请控制在 5MB 以内"));
     }
 
 }
