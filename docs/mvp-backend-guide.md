@@ -2021,6 +2021,28 @@ select name, status from t_knowledge_point where id = '<该题的 knowledge_poin
 | 同一 `question_id` 在 `t_review_schedule` 只有 1 行 | `ON CONFLICT (question_id)` 生效，没有「答一次排三条」 |
 | `/help` 后 `t_question.help_used = true`，且 `verdict` 不变 | 求助只记事实，不污染判分 |
 
+### 6.9 2026-10-22 实测（`questionId = 1`，后端 8123）
+
+| 断言 | 实测 | 结论 |
+| --- | --- | --- |
+| 糊答案被判 `PARTIAL` / `FAIL`，`gaps` 非空 | `FAIL`，`gaps` 3 条，`retryAllowed=true`，`nextDueAt` = 次日 | 通过 |
+| `feedback` / `gaps` 里没有正确答案 | 首测 `gaps` 第 3 条写了「如 2m 这一常见设置」；改提示词后复测（`questionId=2`）4 条全部只描述缺口，无数值、无术语定义 | 首测不通过，**复测通过** |
+| 第二次作答 `attemptNo = 2`、`retryAllowed = false` | `PASS`，`stage=3`，`nextDueAt` = 3 天后 | 通过 |
+| 第三次作答 `400` | `400 {"message":"这道题已经补讲过了，等下次复习再讲"}` | 通过 |
+| `t_review_schedule` 一题一行 | 每题 1 行，`stage=3`、`status=PENDING` | 通过 |
+| `/help` 后 `help_used=true` 且不产生成绩 | `help_used=t`；`t_test_record` 里没有该题的行；知识点仍为 `CANDIDATE` | 通过 |
+| 空作答 | `400 {"message":"answer 不能为空"}` | 通过 |
+| 别人的题 | `403 {"message":"题目不存在或无权访问"}` | 通过 |
+| 未登录 | `401 {"message":"未登录"}` | 通过 |
+| `PASS` 把知识点升为 `VERIFIED` | 「HNSW 第 0 层邻居数」「ef_construction 的作用」两行变 `VERIFIED` | 通过 |
+| `VERIFIED` 注入下一次出题 | 新会话第 2 题：「假设听众只了解你已掌握的 **ef_construction** 和 **HNSW 第 0 层邻居数**，请用它们做类比」 | 通过 |
+
+**已修缺陷（技术债第 25 条）**：`GradingService.SYSTEM_PROMPT` 原先只约束了 `feedback` 不给答案，
+`gaps` 可以把答案说出来。第 2 条已改为：
+
+> `gaps` 每条只描述「缺了哪一环」或「哪一步没说清」，可以给思考方向，
+> 但不得出现材料中的数值、公式、术语定义、结论，也不要举例。
+
 ***
 
 ## 7. 阶段 4：待办列表 + 复习 + 进度
@@ -3881,6 +3903,7 @@ select name, status from t_knowledge_point where user_id = '<你的 userId>';
 | 22 | 评测只测「稳定性」和「检索命中」，不测回答正确性 | 判分没有客观标准答案，只能靠人工标注做参照 | 有第二个人愿意一起标注时才扩展 |
 | 23 | `t_ai_call` 只记生成调用，不记 RAG 的 embedding 调用 | embedding 走 `EmbeddingModel`，没有 `ChatResponse`，要单独埋点；且按字符计费、单次很便宜 | 需要把成本算到「每一分钱」时 |
 | 24 | 不引入 `com.itextpdf:bouncy-castle-adapter`，**带权限加密的 PDF 一律解析失败** | 目标场景是「用户自己整理好的讲义」，优先控制依赖体积；失败文案已覆盖（`PDF 解析失败，请确认文件未加密且格式正常`）。代价是出版社导出的、用阅读器能正常打开但带权限密码的 PDF 会被挡下。日志里 `BouncyCastleFactoryCreator` 的 ERROR 属于这一分支，不是崩溃 | 真实用户开始上传讲义并反馈被拒时，加 `bouncy-castle-adapter:9.1.0`（约 9 MB）即可解决 |
+| 25 | `gaps` 可能把答案说出来：`GradingService.SYSTEM_PROMPT` 只约束了 `feedback`，实测 `gaps` 出现过「如 2m 这一常见设置」 | **已修（2026-10-22）**：第 2 条改为「只描述缺了哪一环或哪一步没说清，可以给思考方向，不得出现数值、公式、术语定义、结论，也不要举例」；口径依据见 `product-spec.md` 第 6 节 | 每轮改提示词后，人工看一条 `FAIL` 响应的 `gaps` |
 
 > 第 15、16 条是同一个取舍的两面：**排期在「点开复习」时就跟着题走了，而不是等答完再走**。
 > 好处是答完能正确递进、放弃不会丢账；代价是重复触发会留下重复题。要彻底解决，需要给
@@ -3975,5 +3998,10 @@ delete from t_knowledge_point kp
    and not exists (select 1 from t_question q where q.knowledge_point_id = kp.id);
 ```
 
-> 这只是本地开发的自救手段，不是产品功能。**不要在验收里用它伪造「待办已清空」** ——
+> 上面两段清理 SQL 只是本地开发的自救手段，不是产品功能。**不要在验收里用它伪造「待办已清空」** ——
 > 正常闭环里，待办是答完自动消失的。
+
+### 13.5 验收与复现
+
+功能完备性的验收记录（输入、实际响应、期望、复现命令、结论）见独立文件 [`acceptance-log.md`](./acceptance-log.md)。
+模型输出质量（出题好不好、判分措辞准不准）见第 5 节的 `QuizPromptEvalTest`，两者不混。
