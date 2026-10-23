@@ -102,4 +102,46 @@ public class QuestionRepository {
                 userId, knowledgeItemId);
         return rows.stream().findFirst();
     }
+
+    public record QuestionRow(long id, String kind, String target, String text, String verdict) {
+    }
+
+    /** 测验页刷新恢复：每题带最近一次结论（null = 还没作答）。(按会话查题) */
+    public List<QuestionRow> findByConversation(UUID conversationId) {
+        return jdbcTemplate.query("""
+                        select q.id, q.kind, q.target, m.content as text,
+                               (select tr.verdict from t_test_record tr
+                                 where tr.question_id = q.id
+                                 order by tr.id desc limit 1) as verdict
+                          from t_question q
+                          join t_message m on m.id = q.message_id
+                         where m.conversation_id = ?
+                         order by q.id
+                        """,
+                (rs, rowNum) -> new QuestionRow(
+                        rs.getLong("id"),
+                        rs.getString("kind"),
+                        rs.getString("target"),
+                        rs.getString("text"),
+                        rs.getString("verdict")),
+                conversationId);
+    }
+
+    public List<QuestionRow> findUnanswered(UUID conversationId) {
+        return jdbcTemplate.query("""
+                    select q.id, q.kind, q.target, m.content as text, null::text as verdict
+                      from t_question q
+                      join t_message m on m.id = q.message_id
+                     where m.conversation_id = ?
+                       and not exists (select 1 from t_test_record tr where tr.question_id = q.id)
+                     order by q.id
+                    """,
+                (rs, rowNum) -> new QuestionRow(
+                        rs.getLong("id"),
+                        rs.getString("kind"),
+                        rs.getString("target"),
+                        rs.getString("text"),
+                        rs.getString("verdict")),
+                conversationId);
+    }
 }

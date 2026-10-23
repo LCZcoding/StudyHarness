@@ -1,9 +1,10 @@
 package com.lcz.aiagentstudy.service;
 
+import com.lcz.aiagentstudy.exception.BadRequestException;
 import com.lcz.aiagentstudy.exception.ForbiddenException;
+import com.lcz.aiagentstudy.model.ConversationMode;
 import com.lcz.aiagentstudy.model.KnowledgeItemRow;
-import com.lcz.aiagentstudy.repository.KnowledgePointRepository;
-import com.lcz.aiagentstudy.repository.QuestionRepository;
+import com.lcz.aiagentstudy.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -44,9 +45,7 @@ public class QuizService {
     private final QuestionRepository questionRepository;
     private final QuizStore quizStore;
 
-    private final GradingService gradingService;
-    private final HelpService helpService;
-    private final AttemptStore attemptStore;
+
 
     // 出题只看材料前 12000 字：再长会顶到模型上下文上限，
     // 且「一次出 3 题」本来就覆盖不了整份讲义（写进技术债第 7 条）
@@ -135,6 +134,10 @@ public class QuizService {
                 ? material : material.substring(0, MATERIAL_LIMIT) + "\n……（材料已截断）";
     }
 
+    private final GradingService gradingService;
+    private final HelpService helpService;
+    private final AttemptStore attemptStore;
+
     /** 求助：先回答用户的疑问，再把这题标记为"求助过"。不改判分、不产生成绩。 */
     public String help(UUID userId, long questionId, String userQuestion) {
         QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
@@ -160,6 +163,61 @@ public class QuizService {
             throw new ForbiddenException("题目不存在或无权访问");
         }
         return question;
+    }
+
+    // 追加依赖
+    private final ConversationService conversationService;
+    private final KnowledgeItemRepository knowledgeItemRepository;
+    private final ReviewScheduleRepository reviewScheduleRepository;
+    private final ConversationRepository conversationRepository;
+
+    public List<QuestionRepository.QuestionRow> listByConversation(UUID userId, UUID conversationId) {
+        conversationService.assertOwned(conversationId, userId);
+        return questionRepository.findByConversation(conversationId);
+    }
+
+    /**
+     * 2 道到期 + 1 道交错。交错题来自「另一份资料」，这是产品里唯一一处跨资料混排，
+     * 也是"知识网络"能落地的最小形态。拿不到交错题就全用到期题（最多 3 道）。
+     */
+    public QuizStore.CreatedQuiz startReview(UUID userId) {
+        // 保证幂等
+        Optional<UUID> latest = conversationRepository.findLatestIdByMode(
+                userId, ConversationMode.REVIEW.name());
+        if (latest.isPresent()) {
+            List<QuestionRepository.QuestionRow> rest = questionRepository.findUnanswered(latest.get());
+            if (!rest.isEmpty()) {
+                List<QuizStore.CreatedQuestion> questions = rest.stream()
+                        .map(r -> new QuizStore.CreatedQuestion(r.id(), r.kind(), r.target(), r.text()))
+                        .toList();
+                return new QuizStore.CreatedQuiz(latest.get(), questions);
+            }
+        }
+
+        List<ReviewScheduleRepository.DueItem> due =
+                reviewScheduleRepository.findDue(userId, 3);
+        if (due.isEmpty()) {
+            throw new BadRequestException("现在没有到期需要复习的题");
+        }
+
+        UUID interleavedItemId = null;
+        TaskDraft interleaved = null;
+        Optional<UUID> anotherItemId =
+                knowledgeItemRepository.findAnotherItemId(userId, due.get(0).knowledgeItemId());
+        if (anotherItemId.isPresent()) {
+            KnowledgeItemRow item = knowledgeService.requireOwned(anotherItemId.get(), userId);
+            List<String> verified = knowledgePointRepository.findRecentVerified(userId, 5);
+            Optional<TaskDraft> draft = draftOne(item, verified);
+            if (draft.isPresent()) {
+                interleaved = draft.get();
+                interleavedItemId = item.id();
+            }
+        }
+
+        // 交错题出不来（只有一份资料 / 模型失败）就把第 3 道到期题补上，不阻断这次复习
+        List<ReviewScheduleRepository.DueItem> picked =
+                interleaved == null ? due : due.subList(0, Math.min(2, due.size()));
+        return quizStore.createReview(userId, picked, interleavedItemId, interleaved);
     }
 
 }

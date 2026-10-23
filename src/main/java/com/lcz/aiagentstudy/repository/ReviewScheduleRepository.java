@@ -74,7 +74,7 @@ public class ReviewScheduleRepository {
                         """,
                 questionId);
     }
-
+    // 某用户当前已到复习时间、且还没复习（PENDING）的题，连同题目内容、所属知识点、题目类型、复习阶段等一起返回，按优先级排序后取前 N 条。
     public List<DueItem> findDue(UUID userId, int limit) {
         return jdbcTemplate.query("""
                         select rs.question_id, rs.stage,

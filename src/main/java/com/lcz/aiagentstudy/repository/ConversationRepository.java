@@ -2,6 +2,7 @@ package com.lcz.aiagentstudy.repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.lcz.aiagentstudy.model.ConversationRow;
@@ -58,6 +59,14 @@ public class ConversationRepository {
                         rs.getObject("updated_at", OffsetDateTime.class)),
                 userId);
 
+    }
+
+    public Optional<UUID> findLatestIdByMode(UUID userId, String mode) {
+        return jdbcTemplate.query(
+                        "select id from t_conversation where user_id = ? and mode = ? " +
+                                "order by created_at desc limit 1",
+                        (rs, i) -> rs.getObject("id", UUID.class), userId, mode)
+                .stream().findFirst();
     }
 
 

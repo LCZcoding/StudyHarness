@@ -1,5 +1,7 @@
 package com.lcz.aiagentstudy.controller;
 
+import com.lcz.aiagentstudy.model.QuizResponse;
+import com.lcz.aiagentstudy.repository.QuestionRepository;
 import com.lcz.aiagentstudy.service.AttemptStore;
 import com.lcz.aiagentstudy.service.QuizService;
 import com.lcz.aiagentstudy.service.QuizStore;
@@ -13,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,27 +29,16 @@ public class QuizController {
     public record GenerateRequest(@NotNull(message = "knowledgeItemId 不能为空") UUID knowledgeItemId) {
     }
 
-    public record QuestionView(long questionId, String kind, String target, String text) {
-    }
 
-    public record GenerateResponse(UUID conversationId, List<QuestionView> questions) {
-    }
 
     @PostMapping("/generate")
-    public GenerateResponse generate(@Valid @RequestBody GenerateRequest req,
-                                     HttpServletRequest request) {
+    public QuizResponse generate(@Valid @RequestBody GenerateRequest req,
+                                 HttpServletRequest request) {
         UUID userId = currentUserResolver.requireUserId(request);
-        return toResponse(quizService.generate(userId, req.knowledgeItemId()));
+        return QuizResponse.of(quizService.generate(userId, req.knowledgeItemId()));
     }
 
-    /** 复习（`TodoController`）也用这个响应形状，抽出来避免同一个响应在两处拼。 */
-    static GenerateResponse toResponse(QuizStore.CreatedQuiz quiz) {
 
-        List<QuestionView> views = quiz.questions().stream()
-            .map(q -> new QuestionView(q.id(), q.kind(), q.target(), q.text()))
-            .toList();
-        return new GenerateResponse(quiz.conversationId(), views);
-    }
 
 
     public record AttemptRequest(
@@ -83,5 +75,25 @@ public class QuizController {
                              HttpServletRequest request) {
         UUID userId = currentUserResolver.requireUserId(request);
         return new HelpResponse(quizService.help(userId, questionId, req.question()));
+    }
+
+
+    public record QuestionStateView(long questionId, String kind, String target,
+                                    String text, String verdict) {
+    }
+
+    public record ConversationQuizResponse(UUID conversationId, List<QuestionStateView> questions) {
+    }
+    //恢复quiz对话接口
+    @GetMapping("/conversations/{conversationId}")
+    public ConversationQuizResponse conversation(@PathVariable UUID conversationId,
+                                                 HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        List<QuestionStateView> views = new ArrayList<>();
+        for (QuestionRepository.QuestionRow row : quizService.listByConversation(userId, conversationId)) {
+            views.add(new QuestionStateView(row.id(), row.kind(), row.target(),
+                    row.text(), row.verdict()));
+        }
+        return new ConversationQuizResponse(conversationId, views);
     }
 }
