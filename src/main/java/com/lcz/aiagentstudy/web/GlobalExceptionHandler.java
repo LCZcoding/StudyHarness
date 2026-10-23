@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.util.Map;
 
@@ -55,6 +56,13 @@ public class GlobalExceptionHandler  {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<?> handleTooLarge(MaxUploadSizeExceededException ex) {
         return ResponseEntity.badRequest().body(Map.of("message", "文件太大，请控制在 5MB 以内"));
+    }
+
+    // 请求头不是 multipart/form-data（典型：调用方把 FormData 序列化成了 JSON）。
+    // 这是调用方的问题，映射成 400 并给出可读文案，而不是让它落成 500。
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<?> handleNotMultipart(MultipartException ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", "上传请求格式不正确，请用 multipart/form-data 提交文件"));
     }
 
 }

@@ -45,7 +45,31 @@
       greeting-sub="无论是报错排查、代码问题还是概念学习，我们一起找到答案"
       :suggestions="suggestions"
       @done="onRoundDone"
-    />
+    >
+      <template #header-extra>
+        <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->
+        <button
+          type="button"
+          class="make-quiz"
+          :disabled="makeBusy || !chatId"
+          :title="chatId ? '把这段对话保存为资料并出 3 道题' : '先发一条消息，再把这轮做成题'"
+          @click="makeQuiz"
+        >
+          {{ makeBusy ? '整理中…' : '把这轮做成题' }}
+        </button>
+      </template>
+    </ChatRoom>
+
+    <p v-if="makeError" class="make-error">{{ makeError }}</p>
+
+    <!-- 整理 + 出题约 5 秒（建资料 1 次 + 出题 1 次模型调用），给一个明确的进行中态 -->
+    <div v-if="makeBusy" class="make-mask">
+      <div class="make-card">
+        <div class="make-spinner"></div>
+        <p>正在把这段对话整理成题…</p>
+        <span>保存为资料 → 出 3 道题，约 5 秒</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -54,6 +78,9 @@ import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatRoom from '../components/ChatRoom.vue'
 import { createConversation, listConversations, listMessages } from '../api/conversation.js'
+import { createItem } from '../api/knowledge.js'
+import { generate as generateQuiz } from '../api/quiz.js'
+import { messageOf } from '../utils/apiError.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -137,6 +164,43 @@ async function ensureChatId() {
 // 一轮对话结束 → 刷新侧栏（新会话出现 / 标题更新 / 排序更新）
 function onRoundDone() {
   loadConversations()
+}
+
+/* ---------- 把这轮对话做成题 ---------- */
+const makeBusy = ref(false)
+const makeError = ref('')
+
+// 聊天本身不进待办（待办三条来源都必须先有 t_question）。
+// 这里把整轮对话存成一份资料，再按资料出题，对话才真正进入「未测 → 判分 → 复习」闭环。
+async function makeQuiz() {
+  if (!chatId.value || makeBusy.value) return
+  makeBusy.value = true
+  makeError.value = ''
+  try {
+    const data = await listMessages(chatId.value)
+    const msgs = data.messages || []
+    if (!msgs.length) {
+      makeError.value = '这段对话还没有内容，先聊一轮再试'
+      return
+    }
+    // 标题沿用后端派生规则的口径：取首条 USER 消息前 50 字
+    const firstUser = msgs.find((m) => m.role === 'USER')
+    const title = (firstUser?.content || '对话整理').slice(0, 50)
+    let content = msgs
+      .map((m) => (m.role === 'USER' ? '我：' : '助手：') + m.content)
+      .join('\n\n')
+    // 后端正文上限 20000 字：超长时保留最近的部分，结论通常在后半段
+    if (content.length > 20000) content = content.slice(-20000)
+
+    const item = await createItem(title, content)
+    const quiz = await generateQuiz(item.knowledgeItemId)
+    router.push({ name: 'quiz', params: { conversationId: quiz.conversationId } })
+  } catch (e) {
+    if (toLoginIfUnauthorized(e)) return
+    makeError.value = messageOf(e, '整理失败，请稍后重试')
+  } finally {
+    makeBusy.value = false
+  }
 }
 
 // 浏览器前进/后退切到另一个 /guide/:id 时，组件不会重新挂载，靠监听路由参数换会话
@@ -300,6 +364,83 @@ const suggestions = [
 .room {
   flex: 1;
   min-width: 0;
+}
+
+/* 顶栏右侧的「把这轮做成题」：与 ChatRoom 的闲聊色系保持一致 */
+.make-quiz {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #22d3ee;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.18s ease, opacity 0.18s ease;
+}
+.make-quiz:not(:disabled):hover {
+  background: rgba(34, 211, 238, 0.12);
+}
+.make-quiz:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.make-error {
+  position: fixed;
+  top: 74px;
+  right: 24px;
+  z-index: 30;
+  max-width: 360px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: #1b1417;
+  color: #f9a8a8;
+  font-size: 12.5px;
+}
+
+.make-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 10, 14, 0.72);
+  backdrop-filter: blur(3px);
+}
+.make-card {
+  width: 320px;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background: #141b23;
+  text-align: center;
+}
+.make-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #dbe6f0;
+}
+.make-card span {
+  display: block;
+  margin-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #6b7f92;
+}
+.make-spinner {
+  width: 26px;
+  height: 26px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 211, 238, 0.22);
+  border-top-color: #22d3ee;
+  animation: make-spin 0.9s linear infinite;
+}
+@keyframes make-spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 820px) {

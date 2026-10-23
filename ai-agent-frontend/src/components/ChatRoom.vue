@@ -13,9 +13,13 @@
           </p>
         </div>
       </div>
-      <div v-if="chatId" class="room-id" :title="chatId">
-        <span class="rid-label">CHAT ID</span>
-        <span class="rid-value">{{ shortChatId }}</span>
+      <div class="h-right">
+        <!-- 父组件往顶栏右侧塞按钮（GuideChatView 用它放「把这轮做成题」） -->
+        <slot name="header-extra" />
+        <div v-if="chatId" class="room-id" :title="chatId">
+          <span class="rid-label">CHAT ID</span>
+          <span class="rid-value">{{ shortChatId }}</span>
+        </div>
       </div>
     </header>
 
@@ -452,6 +456,13 @@ onBeforeUnmount(closeSource)
   0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.35); }
   70% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
   100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
+.h-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .room-id {
