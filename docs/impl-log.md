@@ -650,7 +650,7 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 | 类 | 职责 |
 | --- | --- |
-| [`QuizController`](../src/main/java/com/lcz/aiagentstudy/controller/QuizController.java) | 唯一入口；`toResponse` 被后续复习接口复用 |
+| [`QuizController`](../src/main/java/com/lcz/aiagentstudy/controller/QuizController.java) | 唯一入口；响应形状 `model.QuizResponse` 被复习接口共用（阶段 4 抽出） |
 | [`QuizService`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 拼提示词、调模型、校验模型返回（条数 / 字段 / `kind` / 至少 1 个 `EXPLAIN`） |
 | [`QuizStore`](../src/main/java/com/lcz/aiagentstudy/service/QuizStore.java) | 唯一的写库点；`@Transactional` 包住「会话 + 消息 + 题目 + 知识点」 |
 | [`QuestionRepository`](../src/main/java/com/lcz/aiagentstudy/repository/QuestionRepository.java) | 题目读写，`insertReturningId` 把消息 id 回填 `message_id` |
@@ -711,3 +711,62 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 
 **教训**：评测指标写错比没有评测更危险。第一轮 5/10 看起来像「提示词不行」，
 实际是判定规则把术语当答案。**先确认判定标准，再看通过率。**
+
+***
+
+## 阶段 3 作答判分（quiz/attempt + help，2026-10-22）
+
+**做了什么**：`POST /quiz/{questionId}/attempt` 判分落 `t_test_record` + 推进 `t_review_schedule`；
+`POST /quiz/{questionId}/help` 先答再标 `help_used`。判分规则与 `gaps` 措辞口径见 `product-spec.md` 第 6 节，
+逐条实测见 [`acceptance-log.md`](./acceptance-log.md) 第 5 节（9/9 通过）。
+
+**关键取舍**
+
+1. **判分用 AI，不用字符串匹配**：答案对错是语义问题，`contains` 判不了「换个说法讲对了」。代价是判分不可复现，所以
+   `GradingService` 强制返回结构化 `Grading(verdict, feedback, gaps)`，`verdict` 不在枚举内直接抛异常，不猜。
+2. **`gaps` 不许给答案**：`SYSTEM_PROMPT` 第 2 条限定「只描述缺了哪一环，可给方向，不给数值/公式/术语定义/结论，不举例」。
+   给答案会让补讲的 `PASS` 变成抄写，1→3→7 排期全部失真；真不会走 `/help`（明码标记求助过）。
+3. **第 3 次提交在服务端拒绝**：`attempt_no` 由库里的最大序号推导，不信任前端传的顺序；拒绝文案写
+   `BadRequestException` 抛出点，全局处理器只转发。
+4. **求助不产生成绩**：`help` 只写 `t_question.help_used`，不动 `t_test_record`、不动排期。
+
+**踩坑（预测外，已修）**：`gaps` 初版把 `2m` 这类数值写进了漏洞清单——提示词只约束了 `feedback`，没约束 `gaps`。
+修法见技术债第 25 条（已修），复测对照见 `acceptance-log.md` 3-2 与 3-12。
+
+***
+
+## 阶段 4 待办 / 复习 / 进度（todo / review / progress，2026-10-22）
+
+**做了什么**：`GET /todos` 三类待办、`POST /review/start` 启动复习、`GET /progress` 三指标、
+`GET /quiz/conversations/{conversationId}` 恢复测验页。逐条实测见 [`acceptance-log.md`](./acceptance-log.md) 第 6 节
+（19 条：2026-10-22 首轮 16 条，其中 6-8 暴露「连点两次会复制题」；2026-10-23 加幂等后复测 6-17~6-19 三条全过）。
+
+| 类 | 职责 |
+| --- | --- |
+| [`TodoRepository`](../src/main/java/com/lcz/aiagentstudy/repository/TodoRepository.java) | 三段查询各管一类：`REVIEW` 一条汇总 / `RETRY` 按资料聚合 / `UNTESTED` 按会话聚合 |
+| [`TodoService`](../src/main/java/com/lcz/aiagentstudy/service/TodoService.java) | 三类合并 + 固定排序（`REVIEW` → `RETRY` → `UNTESTED`） |
+| [`ProgressService`](../src/main/java/com/lcz/aiagentstudy/service/ProgressService.java) | `masteredItems` / `streakDays` / 近 8 周活跃 |
+| [`QuizStore`](../src/main/java/com/lcz/aiagentstudy/service/QuizStore.java) 追加 `createReview` | 到期题**复制新行**并迁移排期，旧题保留作历史 |
+| [`model.QuizResponse`](../src/main/java/com/lcz/aiagentstudy/model/QuizResponse.java) | `/quiz/generate` 与 `/review/start` 共用响应形状 |
+
+**关键取舍**
+
+1. **复习复制题、不改旧题**：`t_question` 是历史记录（当时问了什么、答了什么），复习是新一轮作答，只能新增行。
+   旧排期行迁到新题（`ReviewScheduleRepository.moveQuestion` 只改 `question_id`，`due_at` 刻意不动），
+   旧题变成「有历史、无排期」。
+2. **`/review/start` 做幂等**：先查最新一条 `mode='REVIEW'` 会话，其中有未作答题就把那批题原样返回，不再新建。
+   原始实现在连点两次时会把同一批到期题复制一遍（`acceptance-log.md` 6-8），复制题撑大 `countMasteredItems` 的分母、
+   且旧题彻底失去排期。修复后实测 6-17~6-19：连点两次同一 `conversationId`、`t_question` 行数不变；
+   答 1 道再点只返回剩下 2 道。代价是「放弃的那一轮」没有出口，见技术债第 26 条。
+3. **只认最新一条 `REVIEW` 会话**，不认所有未答完的：否则几个月前遗留的一轮会永远劫持「开始复习」，用户再也开不了新一轮。
+4. **交错题用 `order by random()` 抽另一份资料**：同一用户资料多于两份时两次复习抽到的不一样，不是缺陷，
+   但演示时不可复现（`acceptance-log.md` 观察 2）。
+5. **响应形状不挂在 Controller 上**：`TodoController` 曾直接用 `QuizController.GenerateResponse`，形成 Controller 反向依赖。
+   改为两个 Controller 都返回 `model.QuizResponse.of(...)`；恢复接口多一个 `verdict`，形状不同，单独定义 `ConversationQuizResponse`。
+6. **`dueCount` 与待办同源**：`/progress.dueCount` 直接数 `findDue` 的结果，不另写一条 `count(*)`，
+   避免两个接口对「到期」的定义各写一遍。
+
+**教训**：连点两次的幂等性要在设计时明写前置条件，并且**幂等分支必须排在「判断有没有到期项」之前**。
+7.10 步骤 3 原先的期望没错，但把「没有到期项」当成了起点；实现里刚启动的复习题仍然到期，
+于是一条命令既可能是 `200` 也可能是 `400`，取决于猜不到的历史状态。修复后 `400` 只在「这一轮答完且无到期题」时出现。
+

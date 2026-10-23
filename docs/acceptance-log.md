@@ -11,7 +11,7 @@
 1. **每行一条命令，可单独复现**。`复现方法`列里出现的 `$B`、`$d`、`$env:PGPASSWORD` 见第 1 节。
 2. **`AI 回复 / 实际响应`列只放关键片段**，长文本用 `…` 截断；完整响应放临时文件，不写进本文件。
 3. **期望值不许为了通过而修改**。不通过就写「不通过」，在 `结论`列写原因，修复后追加「复测」行。
-4. 两类记录分开：功能完备性（第 2~5 节）、模型表现（第 6 节）。**不要用模型表现替代功能验收**。
+4. 两类记录分开：功能完备性（第 2~6 节）、模型表现（第 7 节）。**不要用模型表现替代功能验收**。
 
 ***
 
@@ -106,25 +106,59 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 
 ***
 
-## 6. 模型表现记录（不是功能验收）
+## 6. 阶段 4：待办 + 复习 + 进度
+
+验收日期 2026-10-22，账号 `lcz`，起始数据：资料 2 份（`12dda403` hnsw、`2887a8b4` HNSW 参数），题目 id 1~6，其中 1/2 PASS、3~6 未作答。
+
+| # | 场景 / 问题 | 输入 | 实际响应 | 接口 | 期望 | 复现方法 | 结论 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 6-1 | 待办基线（未制造数据） | — | 只有 `UNTESTED`：`3eb7852d` count=1、`d84208b4` count=3；无 `REVIEW`、无 `RETRY` | `GET /todos` | 只列「现在能做的」 | `curl.exe -s -b "$d\cookies.txt" $B/todos` | 通过 |
+| 6-2 | 答糊一道制造 `RETRY` | `{"answer":"完全不清楚，随便写点。"}` | `FAIL`、`gaps` 4 条、`retryAllowed=true`、`stage=1`、`attemptNo=1`、`nextDueAt`=次日 | `POST /quiz/3/attempt` | `FAIL` + 漏洞清单 | `--data-binary "@$d\a3.json"` | 通过 |
+| 6-3 | `RETRY` 出现 | — | `RETRY` 一条：`count=1`、`knowledgeItemId` 有值、`conversationId=null`；`3eb7852d` 的 `UNTESTED` 消失 | `GET /todos` | `RETRY` 按资料聚合，已答完的会话不再列 | 同 6-1 | 通过 |
+| 6-4 | 到期 → `REVIEW` | 把 q1/q2 的 `due_at` 改为昨天 | `REVIEW` 一条：`count=2`、`knowledgeItemId=null`，排在 `RETRY` / `UNTESTED` 之前 | `GET /todos` | 到期只汇总一条、排第一 | `psql -c "update t_review_schedule set due_at=now()-interval '1 day' where question_id in (1,2);"` 后跑 6-1 | 通过 |
+| 6-5 | 启动复习 | — | `200`：`conversationId=e9b02c05`；q7 题面 = 旧 q2 题面、q8 题面 = 旧 q1 题面（**逐字一致**）、q9 来自另一份资料 | `POST /review/start` | 2 道到期 + 1 道交错 | `curl.exe -s -b "$d\cookies.txt" -X POST $B/review/start` | 通过 |
+| 6-6 | 排期跟着题走 | — | q7/q8 各一行、`stage=3` 保留、`status=PENDING`、`due_at` 未变；q1/q2 的行已消失 | 查库 | 旧行消失、新行唯一、启动复习不作废 `stage` | `select question_id,stage,status,due_at from t_review_schedule order by 1;` | 通过 |
+| 6-7 | 交错题确实来自另一份资料 | — | q9 的 `knowledge_item_id=2887a8b4`（HNSW 参数），不是 q1/q2 所属的 `12dda403` | 查库 | 混排来自另一份资料 | 同 6-6 | 通过（同主题、不同资料） |
+| 6-8 | 立即再点一次复习 | 不推后 `due_at`，直接 `POST /review/start` | `200`：新建会话 `2c2aae00`，q10/q11 是 q7/q8 的再次复制，q12 又是一道交错题 | `POST /review/start` | 7.10 步骤 3 写的是 `400` | 重复 6-5 | **与文档不一致**（说明见下，已于 2026-10-23 修复，复测见 6-17） |
+| 6-9 | 真正没有到期项时再点 | 把 q10/q11 的 `due_at` 推到 3 天后 | `400 {"message":"现在没有到期需要复习的题"}` | `POST /review/start` | `400` + 该文案 | `psql -c "update ... set due_at=now()+interval '3 days' where question_id in (10,11);"` 后 `POST` | 通过（2026-10-23 加幂等后，仅推后 `due_at` 不再得到 `400`，正确复现见 6-19） |
+| 6-10 | 进度 | — | `masteredItems=0`、`totalItems=4`、`streakDays=1`、`dueCount=2`、`weeks` 8 项（当周 5 次） | `GET /progress` | `weeks` 恒 8 项、`streakDays` 与作答日期一致 | `curl.exe -s -b "$d\cookies.txt" $B/progress` | 通过 |
+| 6-11 | `dueCount` 跟待办一致 | 执行 6-9 的 `due_at` 推后 | `dueCount=0`，其余字段不变 | `GET /progress` | 与 `GET /todos` 的 `REVIEW` 同步归零 | 同 6-10 | 通过 |
+| 6-12 | 测验页恢复 | — | `3eb7852d` 返回 3 题：q1 `PASS`、q2 `PASS`、q3 `FAIL`，与 `t_test_record` 最近一行一致 | `GET /quiz/conversations/{conversationId}` | `verdict` 为 `null` / `PASS` / `PARTIAL` / `FAIL` | `curl.exe -s -b "$d\cookies.txt" $B/quiz/conversations/3eb7852d-0b72-4b41-9e1c-b25b3a8b551b` | 通过 |
+| 6-13 | 不存在的会话 | 随机 UUID | `403 {"message":"会话不存在或无权访问"}` | 同上 | `403`，与「无权」同文案 | 同上，换一个不存在的 UUID | 通过 |
+| 6-14 | 三个新接口未登录 | 不带 Cookie | `/todos` `401`、`/progress` `401`、`/review/start` `401` | 三者 | `401` | 三个请求都不带 `-b` | 通过 |
+| 6-15 | 重问分支（补齐原 2-8） | `{"knowledgeItemId":"12dda403…"}`，库里有 q3 的 `FAIL` 且未补讲 | `200`：q13 题面 = 旧 q3 题面（逐字一致），q14/q15 新出；会话 `212ac585` | `POST /quiz/generate` | 重问 1 道 + 新出 2 道 | `--data-binary "@$d\gen.json"` | 通过 |
+| 6-16 | 重问后的排期与待办 | — | 排期从 q3 迁到 q13（`stage=1`、`due_at` 不变），q3 的行消失；`RETRY` 消失，改由 `UNTESTED`（`212ac585` count=3）呈现 | 查库 + `GET /todos` | 排期跟着题走、不产生重复排期 | 同 6-6、6-1 | 通过 |
+| 6-17 | 幂等复测：连点两次 | `POST /review/start` 连续两次（q10~q12 均未作答，`due_at` 已被推到未来） | 两次都返回 `conversationId=2c2aae00`、`questionId` 10/11/12；`t_question` 15 行不变、`REVIEW` 会话 2 条不变；耗时 0.74s / 0.38s（无模型调用） | `POST /review/start` | 同一轮、同一批题、不新增行 | 两次执行 `curl.exe -s -b "$d\cookies.txt" -X POST $B/review/start`，中间查 `select count(*) from t_question;` | 通过（已修 6-8） |
+| 6-18 | 幂等复测：答 1 道再点 | q10 答 PASS 后立刻 `POST /review/start` | 返回同一会话 `2c2aae00`，只剩 q11、q12 两道未答题 | 同上 | 只返回未答题，不复制 | 先 `--data-binary "@$d\ans10.json" $B/quiz/10/attempt`，再 POST | 通过 |
+| 6-19 | 幂等复测：答完再点 | q11、q12 也答完后 POST | `400 {"message":"现在没有到期需要复习的题"}`，`t_question` 仍 15 行 | 同上 | `400` + 该文案 | 答完 q11/q12 后 POST | 通过 |
+
+**6-8 为什么不一致**：`ReviewScheduleRepository.moveQuestion` 只改 `question_id`，**`due_at` 刻意不动**（该类注释写明「保持 PENDING、due_at 不动」，为了让中途放弃的题仍然算欠着）。所以刚启动复习的 q10/q11 依然「已到期」，第二次点根本走不到「没有到期项」分支。7.10 步骤 3 的期望没有错，错在缺少前置条件——必须先让到期题不再到期（答完自动重排 3 天，或手工把 `due_at` 推到未来）。
+
+**两条观察（不是失败项）**
+
+1. **重复点复习会复制题 → 已修（2026-10-23）**：`QuizService.startReview` 先查最新一条 `mode='REVIEW'` 会话，其中有未作答题就原样返回那批题，不再新建。实测见 6-17~6-19。注意：正常复习本来就是「把旧题复制成新行」，`t_question` 会随每轮复习增长，这是设计而非缺陷；`ProgressRepository.countMasteredItems` 的分母按全部题统计，因此「已掌握」要求把复制出来的每一轮题都答到 `PASS`。
+2. **交错题不可复现**：`KnowledgeItemRepository.findAnotherItemId` 用 `order by random()` 取另一份资料，同一用户资料多于两份时，同一批到期题两次复习抽到的交错题不同。不是缺陷，但做演示时别指望两次结果一样。
+
+***
+
+## 7. 模型表现记录（不是功能验收）
 
 | # | 场景 / 问题 | 提示词 | AI 回复 | 期望 | 复现方法 | 结论 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 6-1 | 出题评测第 1 轮（10 份跨领域材料） | `QuizService.SYSTEM_PROMPT` 第 1 版 | 5/10 通过；失败 5 条里 4 条是字符串锚点误报（`Proxy`、`布隆过滤器`、`预主密钥`） | ≥7/10 | `mvn -Dtest=QuizPromptEvalTest test` | 不通过，判定为评测规则有缺陷 |
-| 6-2 | 出题评测第 2 轮（改用 AI 裁判 + 规则层） | 第 2 版提示词 | 规则层 10/10；裁判 0 条泄露、0 条超纲、0 条缺听众 | 规则层 10/10，语义告警人工复核 | 同上，报告在 `target/quiz-eval-report.md` | 通过（人工复审口径见第 6 节末） |
-| 6-3 | 判分措辞 | `GradingService.SYSTEM_PROMPT` 第 1 版 | `gaps` 给出 `2m` | 不给数值 | 见 3-2 | 不通过，已修 |
+| 7-1 | 出题评测第 1 轮（10 份跨领域材料） | `QuizService.SYSTEM_PROMPT` 第 1 版 | 5/10 通过；失败 5 条里 4 条是字符串锚点误报（`Proxy`、`布隆过滤器`、`预主密钥`） | ≥7/10 | `mvn -Dtest=QuizPromptEvalTest test` | 不通过，判定为评测规则有缺陷 |
+| 7-2 | 出题评测第 2 轮（改用 AI 裁判 + 规则层） | 第 2 版提示词 | 规则层 10/10；裁判 0 条泄露、0 条超纲、0 条缺听众 | 规则层 10/10，语义告警人工复核 | 同上，报告在 `target/quiz-eval-report.md` | 通过（人工复审口径见本节末） |
+| 7-3 | 判分措辞 | `GradingService.SYSTEM_PROMPT` 第 1 版 | `gaps` 给出 `2m` | 不给数值 | 见 3-2 | 不通过，已修 |
 
 **语义判定口径（人工复审用）**：题面是否替用户说出了「用户本来要输出的那个答案」。
 点名概念、给前提或现象、反事实提问都不算泄露；直接给出结论、数值、选择才算。
 
 ***
 
-## 7. 未覆盖与待验
+## 8. 未覆盖与待验
 
 | 项 | 为什么没验 | 什么时候补 |
 | --- | --- | --- |
 | 扫描件 PDF | 用户明确跳过 | 需要 OCR 时 |
 | 5 万字上限拒绝 | 没造出真实超长文档，仅代码审阅 | 有真实长讲义时 |
-| 出题重问分支（2-8） | 首轮出题时没有 `FAIL` 题 | 阶段 4 复习流程跑起来后 |
-| 交错题（`REVIEW` 的 1 道混排） | 阶段 4 才实现 | 阶段 4 验收 |
-| 待办三类与进度三指标 | 阶段 4 才实现 | 阶段 4 验收 |
+| 重复点复习的去重 | 现状是「放弃的复习仍欠着」，重复点会复制题（见 6-8、观察 1） | 拍板后再决定是前端禁用按钮还是服务端拦截 |
+| 阶段 5 引导实践 | 还没实现 | 阶段 5 验收 |

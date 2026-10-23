@@ -1400,29 +1400,19 @@ public class QuizController {
     public record GenerateRequest(@NotNull(message = "knowledgeItemId 不能为空") UUID knowledgeItemId) {
     }
 
-    public record QuestionView(long questionId, String kind, String target, String text) {
-    }
-
-    public record GenerateResponse(UUID conversationId, List<QuestionView> questions) {
-    }
-
     @PostMapping("/generate")
-    public GenerateResponse generate(@Valid @RequestBody GenerateRequest req,
-                                     HttpServletRequest request) {
+    public QuizResponse generate(@Valid @RequestBody GenerateRequest req,
+                                 HttpServletRequest request) {
         UUID userId = currentUserResolver.requireUserId(request);
-        return toResponse(quizService.generate(userId, req.knowledgeItemId()));
-    }
-
-    /** 复习（`TodoController`）也用这个响应形状，抽出来避免同一个响应在两处拼。 */
-    static GenerateResponse toResponse(QuizStore.CreatedQuiz quiz) {
-        List<QuestionView> views = new ArrayList<>(quiz.questions().size());
-        for (QuizStore.CreatedQuestion q : quiz.questions()) {
-            views.add(new QuestionView(q.id(), q.kind(), q.target(), q.text()));
-        }
-        return new GenerateResponse(quiz.conversationId(), views);
+        return QuizResponse.of(quizService.generate(userId, req.knowledgeItemId()));
     }
 }
 ```
+
+> 响应形状**不放进 `QuizController`**：阶段 4 的 `/review/start` 要返回同一个形状，两个 Controller 共用
+> `model.QuizResponse`（`record` + 静态 `of(CreatedQuiz)`），而不是让 `TodoController` 去依赖 `QuizController`
+> ——那是 web 层里 Controller 反向依赖 Controller，改一个接口的响应会悄悄改到另一个。
+> 恢复接口 `GET /quiz/conversations/{conversationId}` 比这个形状多一个 `verdict`，形状不同，单独定义（见 7.8）。
 
 > 阶段 3 往这个类追加 `attempt` 接口时，顶部再补三个 import（`NotBlank` / `Size` / `OffsetDateTime`）；
 > 阶段 4 追加 `conversation` 接口时，再补 `QuestionRepository`。文件是逐步长大的，不要一次全写完。
@@ -2175,15 +2165,49 @@ public class TodoRepository {
                         rs.getString("verdict")),
                 conversationId);
     }
+
+    /** 复习幂等：这一轮还没作答的题（按 id 升序）。空 = 这一轮已经做完。 */
+    public List<QuestionRow> findUnanswered(UUID conversationId) {
+        return jdbcTemplate.query("""
+                        select q.id, q.kind, q.target, m.content as text, null::text as verdict
+                          from t_question q
+                          join t_message m on m.id = q.message_id
+                         where m.conversation_id = ?
+                           and not exists (select 1 from t_test_record tr where tr.question_id = q.id)
+                         order by q.id
+                        """,
+                (rs, rowNum) -> new QuestionRow(
+                        rs.getLong("id"),
+                        rs.getString("kind"),
+                        rs.getString("target"),
+                        rs.getString("text"),
+                        rs.getString("verdict")),
+                conversationId);
+    }
+```
+
+### 7.3b `ConversationRepository` 追加「最新一轮某种模式的会话」
+
+```java
+    /** 复习幂等用：只认最新一条，避免几个月前没答完的那轮一直劫持「开始复习」。 */
+    public Optional<UUID> findLatestIdByMode(UUID userId, String mode) {
+        return jdbcTemplate.query(
+                        "select id from t_conversation where user_id = ? and mode = ? " +
+                                "order by created_at desc limit 1",
+                        (rs, i) -> rs.getObject("id", UUID.class), userId, mode)
+                .stream().findFirst();
+    }
 ```
 
 ### 7.4 `service/QuizService` 追加复习与恢复
 
 ```java
-    // 追加依赖（连同顶部三个 import：KnowledgeItemRepository / ReviewScheduleRepository / BadRequestException）
+    // 追加依赖（连同顶部 import：KnowledgeItemRepository / ReviewScheduleRepository /
+    // ConversationRepository / model.ConversationMode / BadRequestException）
     private final ConversationService conversationService;
     private final KnowledgeItemRepository knowledgeItemRepository;
     private final ReviewScheduleRepository reviewScheduleRepository;
+    private final ConversationRepository conversationRepository;
 
     public List<QuestionRepository.QuestionRow> listByConversation(UUID userId, UUID conversationId) {
         conversationService.assertOwned(conversationId, userId);
@@ -2195,6 +2219,19 @@ public class TodoRepository {
      * 也是"知识网络"能落地的最小形态。拿不到交错题就全用到期题（最多 3 道）。
      */
     public QuizStore.CreatedQuiz startReview(UUID userId) {
+        // 幂等：最近一轮复习没答完，就回到那一轮，不新建、不复制题
+        Optional<UUID> latest = conversationRepository.findLatestIdByMode(
+                userId, ConversationMode.REVIEW.name());
+        if (latest.isPresent()) {
+            List<QuestionRepository.QuestionRow> rest = questionRepository.findUnanswered(latest.get());
+            if (!rest.isEmpty()) {
+                List<QuizStore.CreatedQuestion> questions = rest.stream()
+                        .map(r -> new QuizStore.CreatedQuestion(r.id(), r.kind(), r.target(), r.text()))
+                        .toList();
+                return new QuizStore.CreatedQuiz(latest.get(), questions);
+            }
+        }
+
         List<ReviewScheduleRepository.DueItem> due =
                 reviewScheduleRepository.findDue(userId, 3);
         if (due.isEmpty()) {
@@ -2222,7 +2259,8 @@ public class TodoRepository {
     }
 ```
 
-> `reviewScheduleRepository` 需要作为字段注入到 `QuizService`（第 4.5 节已经建好这个类）。
+> `reviewScheduleRepository`、`conversationRepository` 需要作为字段注入到 `QuizService`（第 4.5 节已经建好这两个类）。
+> 幂等分支必须放在「查到到期题」之前：先回同一轮，才轮得到判断「有没有到期项」。
 
 ### 7.5 `service/TodoService.java`
 
@@ -2472,15 +2510,14 @@ public class TodoController {
     }
 
     @PostMapping("/review/start")
-    public QuizController.GenerateResponse startReview(HttpServletRequest request) {
+    public QuizResponse startReview(HttpServletRequest request) {
         UUID userId = currentUserResolver.requireUserId(request);
-        QuizStore.CreatedQuiz quiz = quizService.startReview(userId);
-        return QuizController.toResponse(quiz);
+        return QuizResponse.of(quizService.startReview(userId));
     }
 }
 ```
 
-> `QuizController.toResponse`（第 4.8 节已经写好）在这里直接复用，不要复制第二份。
+> 这里用 `QuizResponse.of(...)`，与 `QuizController.generate` 是同一个形状、同一份代码，见 4.8 的说明。
 
 `QuizController` 再追加恢复接口：
 
@@ -2564,7 +2601,14 @@ curl.exe -i -b "JSESSIONID=<你的>" -X POST http://localhost:8123/api/review/st
 # 期望：200；2 道来自到期项（题面与原来相同）+ 1 道新题（来自另一份资料）；
 #       查库：该排期行只有一条，question_id 已迁到新题，status 仍是 PENDING（未作答就算欠着）
 
-# 3) 没有到期项时再点
+# 3) 已有未答完的复习时再点：应当回到同一轮（幂等），不新增行
+curl.exe -i -b "JSESSIONID=<你的>" -X POST http://localhost:8123/api/review/start
+# 期望：200；conversationId 与第 2 步相同，返回的全是「还没作答」的题；
+#       查库：select count(*) from t_question; 行数不变
+
+# 3b) 没有到期项、且最新一轮复习已答完 → 400
+#     前置：把第 2 步这一轮的题全部答完（答完排期自动推到未来），
+#     注意只把 due_at 推后拿不到 400：幂等分支先于到期判断，仍会返回同一轮未答题
 curl.exe -i -b "JSESSIONID=<你的>" -X POST http://localhost:8123/api/review/start
 # 期望：400 {"message":"现在没有到期需要复习的题"}
 
@@ -3904,10 +3948,12 @@ select name, status from t_knowledge_point where user_id = '<你的 userId>';
 | 23 | `t_ai_call` 只记生成调用，不记 RAG 的 embedding 调用 | embedding 走 `EmbeddingModel`，没有 `ChatResponse`，要单独埋点；且按字符计费、单次很便宜 | 需要把成本算到「每一分钱」时 |
 | 24 | 不引入 `com.itextpdf:bouncy-castle-adapter`，**带权限加密的 PDF 一律解析失败** | 目标场景是「用户自己整理好的讲义」，优先控制依赖体积；失败文案已覆盖（`PDF 解析失败，请确认文件未加密且格式正常`）。代价是出版社导出的、用阅读器能正常打开但带权限密码的 PDF 会被挡下。日志里 `BouncyCastleFactoryCreator` 的 ERROR 属于这一分支，不是崩溃 | 真实用户开始上传讲义并反馈被拒时，加 `bouncy-castle-adapter:9.1.0`（约 9 MB）即可解决 |
 | 25 | `gaps` 可能把答案说出来：`GradingService.SYSTEM_PROMPT` 只约束了 `feedback`，实测 `gaps` 出现过「如 2m 这一常见设置」 | **已修（2026-10-22）**：第 2 条改为「只描述缺了哪一环或哪一步没说清，可以给思考方向，不得出现数值、公式、术语定义、结论，也不要举例」；口径依据见 `product-spec.md` 第 6 节 | 每轮改提示词后，人工看一条 `FAIL` 响应的 `gaps` |
+| 26 | 「放弃的那一轮复习」没有出口：幂等分支只认最新一条 `REVIEW` 会话，只要其中有未作答题，`POST /review/start` 就一直返回那一轮，用户没法跳过 | 断网重试不丢题的价值更高，跳过会带来「到期题被无限推迟」的新问题；先接受「必须答完当前一轮」 | 用户抱怨被一道题卡住时，加「放弃本轮」（把该轮未答题的排期状态改掉，或给会话加 `abandoned_at`） |
 
 > 第 15、16 条是同一个取舍的两面：**排期在「点开复习」时就跟着题走了，而不是等答完再走**。
-> 好处是答完能正确递进、放弃不会丢账；代价是重复触发会留下重复题。要彻底解决，需要给
-> `t_review_schedule` 加「已并入哪次复习」的状态，那会让状态机从 3 态变 5 态 —— 本轮不做。
+> 好处是答完能正确递进、放弃不会丢账。原先的代价是重复触发会留下重复题，已用幂等解决：
+> `QuizService.startReview` 先查最新一条 `mode='REVIEW'` 会话，其中有未作答题就原样返回那批题。
+> 剩余代价是**放弃的那一轮没有出口**——必须把那批题答完才能开新一轮（见第 26 条）。
 
 ***
 
