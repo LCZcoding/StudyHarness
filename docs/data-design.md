@@ -3,6 +3,7 @@
 > 本文件放表设计的过程版（v0）与执行版（v1），以及建表验证记录。
 > v0 刻意保留错误与评审过程——**错的记录比对的结论更能说明为什么这么设计**。
 > **v2 之后（5 张学习闭环新表）在 [`mvp-backend-guide.md` 第 2 节](./mvp-backend-guide.md) 的建表 SQL 里，本文件不再追更。**
+> 例外：2026-10-23 的「文档 / 章节」两列是本文件直接定的，见文末。
 > 返回 [决策日志索引](./decision-log.md) ｜ 相关：[纵切实施记录](./impl-log.md) ｜ [产品说明书](./product-spec.md)
 
 ***
@@ -149,3 +150,41 @@ CREATE TABLE t_message (
 - 验证第 ⑤ 步「插消息」意外报 `[23503]`：原因是**手抄 UUID 粘错**（引用了不存在的会话 id），不是 DDL 问题。
 - 教训：**真实代码里不手抄 UUID**——用 `INSERT ... RETURNING id` 拿值传参，或在同一条 SQL 里用子查询取 `conversation_id`。
 - 顺带成为「物理外键 vs 逻辑外键」取舍的一条实证素材：物理外键在验证阶段就抓到了一次真实的引用错误。
+
+***
+
+## 文档与章节（2026-10-23 追加）
+
+产品形态从「一份资料 = 一个学习单元」改成「文档 → 章节」。表结构只加两列，**不新建 `t_document`**。
+
+```sql
+ALTER TABLE t_knowledge_item
+    ADD COLUMN IF NOT EXISTS doc_title  VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS section_no INT;
+```
+
+| 列 | 含义 | 约束与说明 |
+| --- | --- | --- |
+| `doc_title` | 文档名。`doc_title` 相同的多行属于同一份文档 | 允许 `NULL`（只给历史行）；同名由应用层拒绝，不建唯一约束 |
+| `section_no` | 章内序号，从 1 开始 | 允许 `NULL`（只给历史行）；同一 `doc_title` 内由业务保证不重复 |
+
+三条取舍：
+
+1. **不建 `t_document`**：文档没有独立字段，只有名字和章节集合。单独建表就要维护外键、删除顺序和「没有章节的空文档」，
+   而文档的其余信息全部是章节的聚合。代价是「文档」这个概念只存在于 `doc_title` 字符串里，分组规则必须在代码中收口到一处
+   （`KnowledgeService.listDocuments`）。
+2. **不加 `UNIQUE (user_id, doc_title)`**：`title` 原本就没有唯一约束，历史行回填后可能出现重名，加约束会让上线卡住。
+   同名检查放在 `KnowledgeService` 里，并发重复上传的概率在个人项目里可忽略。
+3. **不删历史数据**：回填成「单章文档」，已完成和进行中的成绩全部保留。
+
+历史数据回填（一次性执行）：
+
+```sql
+UPDATE t_knowledge_item
+   SET doc_title  = COALESCE(doc_title, title),
+       section_no = COALESCE(section_no, 1)
+ WHERE doc_title IS NULL OR section_no IS NULL;
+```
+
+**不新增索引**：资料页查询是 `where user_id = ? order by doc_title, section_no`，
+先用现有 `idx_knowledge_item_user` 过滤到几十到几百行再排序，排序成本可忽略。

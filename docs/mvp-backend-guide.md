@@ -23,17 +23,17 @@
 
 ### 0.1 协作工作流（节奏就按这张表走）
 
-| 步 | 你做 | 我做 | 交接时你给我什么 |
-| --- | --- | --- | --- |
-| 1 | 阶段 0 建表 | 不动 | `\d t_question` 的输出 |
-| 2 | 阶段 1 资料接入 | 读你的代码 → 写 `/materials` 页 | 3 条真实响应 JSON：粘贴 201、上传 PDF 201、非法扩展名 400 |
-| 3 | 阶段 2 出题 | 等（不写前端） | 1 条出题的响应 JSON |
-| 4 | 跑评测集（第 5 节） | 等 | 通过率数字 |
-| 5 | 阶段 3 作答判分 | 测验页一次写完（出题 / 作答 / 反馈 / 补讲四态） | 1 条作答的响应 JSON |
-| 6 | 阶段 4 待办 + 复习 + 进度 | 待办侧栏、`/review` 页、`/progress` 页 | 3 条 JSON：`/todos`、`/review/start`、`/progress` |
-| 7 | 阶段 5 引导实践 | 资料页「怎么练」按钮 + 练习对话页 | 1 条 JSON：`/practice/guide` |
-| 8 | 阶段 6 工具 + RAG + 观测 | 聊天框两个开关 + 观测面板 | 3 条 JSON：`useRag` 开/关各一条、`/metrics/summary` 一条 |
-| 9 | 阶段 7 真实闭环 | 收口文档 + 台账回填 | 一句话「闭环跑通了」 |
+| 步  | 你做                      | 我做                                            | 交接时你给我什么                                          |
+| --- | ------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1   | 阶段 0 建表               | 不动                                            | `\d t_question` 的输出                                    |
+| 2   | 阶段 1 资料接入           | 读你的代码 → 写 `/materials` 页                 | 3 条真实响应 JSON：粘贴 201、上传 PDF 201、非法扩展名 400 |
+| 3   | 阶段 2 出题               | 等（不写前端）                                  | 1 条出题的响应 JSON                                       |
+| 4   | 跑评测集（第 5 节）       | 等                                              | 通过率数字                                                |
+| 5   | 阶段 3 作答判分           | 测验页一次写完（出题 / 作答 / 反馈 / 补讲四态） | 1 条作答的响应 JSON                                       |
+| 6   | 阶段 4 待办 + 复习 + 进度 | 待办侧栏、`/review` 页、`/progress` 页          | 3 条 JSON：`/todos`、`/review/start`、`/progress`         |
+| 7   | 阶段 5 引导实践           | 资料页「怎么练」按钮 + 练习对话页               | 1 条 JSON：`/practice/guide`                              |
+| 8   | 阶段 6 工具 + RAG + 观测  | 聊天框两个开关 + 观测面板                       | 3 条 JSON：`useRag` 开/关各一条、`/metrics/summary` 一条  |
+| 9   | 阶段 7 真实闭环           | 收口文档 + 台账回填                             | 一句话「闭环跑通了」                                      |
 
 **五条规则**
 
@@ -52,20 +52,20 @@
 
 ### 1.1 保留什么、不做什么
 
-| 能力 | MVP 形态 | product-spec 对应 |
-| --- | --- | --- |
-| 资料接入 | 粘贴文本 + 上传 `.md` / `.txt` / `.pdf`（仅文字层），上传时生成 200 字摘要 | 第 10 节 |
-| 出题 | 一次 3 个任务，类型 `FACT` / `EXPLAIN`，每题带 `target` | 第 5 节 |
-| 作答判分 | `PASS` / `PARTIAL` / `FAIL`，返回漏洞清单，`PARTIAL` 允许补讲 1 次 | 第 6 节 |
-| 复习 | 1 / 3 / 7 天递进，`REVIEW` 会话 = 2 道到期题 + 1 道交错题 | 第 7 节 |
-| 待办 | `GET /todos` 三类：到期复习 / 需要重讲 / 还没测过 | 第 7 节 |
-| 知识点 | `CANDIDATE` → `VERIFIED`，出题时注入最近 5 个 `VERIFIED` 做类比 | 第 8 节 |
-| 引导实践 | `PRACTICE` 会话，提示词产出练习指引，**不判分、不进闭环** | 第 4、5 节 |
-| 进度 | 已掌握资料数 / 连续学习天数 / 待复习数 + 近 8 周讲解次数 | 第 9 节 |
-| 自由问答 | 保留 RAG（按 `userId` 过滤自己的资料）与工具（联网搜索等） | 第 4 节 |
-| 运行观测 | 每次模型调用落一行：场景 / 延迟 / 首 token / token 数 / 成败；`GET /metrics/summary` 按场景汇总 | 第 12 节 |
-| 上下文预算 | 聊天历史按字符预算裁剪，超预算从最旧的消息丢 | 第 12 节 |
-| 离线评测 | 出题 / 判分 / RAG 三套评测，数字抄进 `impl-log.md` | 第 12 节 |
+| 能力       | MVP 形态                                                                                        | product-spec 对应 |
+| ---------- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| 资料接入   | 粘贴文本 + 上传 `.md` / `.txt` / `.pdf`（仅文字层），上传时生成 200 字摘要                      | 第 10 节          |
+| 出题       | 一次 3 个任务，类型 `FACT` / `EXPLAIN`，每题带 `target`                                         | 第 5 节           |
+| 作答判分   | `PASS` / `PARTIAL` / `FAIL`，返回漏洞清单，`PARTIAL` 允许补讲 1 次                              | 第 6 节           |
+| 复习       | 1 / 3 / 7 天递进，`REVIEW` 会话 = 2 道到期题 + 1 道交错题                                       | 第 7 节           |
+| 待办       | `GET /todos` 三类：到期复习 / 需要重讲 / 还没测过                                               | 第 7 节           |
+| 知识点     | `CANDIDATE` → `VERIFIED`，出题时注入最近 5 个 `VERIFIED` 做类比                                 | 第 8 节           |
+| 引导实践   | `PRACTICE` 会话，提示词产出练习指引，**不判分、不进闭环**                                       | 第 4、5 节        |
+| 进度       | 已掌握资料数 / 连续学习天数 / 待复习数 + 近 8 周讲解次数                                        | 第 9 节           |
+| 自由问答   | 保留 RAG（按 `userId` 过滤自己的资料）与工具（联网搜索等）                                      | 第 4 节           |
+| 运行观测   | 每次模型调用落一行：场景 / 延迟 / 首 token / token 数 / 成败；`GET /metrics/summary` 按场景汇总 | 第 12 节          |
+| 上下文预算 | 聊天历史按字符预算裁剪，超预算从最旧的消息丢                                                    | 第 12 节          |
+| 离线评测   | 出题 / 判分 / RAG 三套评测，数字抄进 `impl-log.md`                                              | 第 12 节          |
 
 **不做**：网页抓取导入、知识图谱可视化、积分徽章排行榜、SM-2 / FSRS 拟合、OCR、语音、JWT、多用户协作。
 理由见 [product-spec.md 第 11 节](./product-spec.md)。
@@ -96,18 +96,18 @@ t_user 1 ─ n t_knowledge_item 1 ─ n t_question n ─ 1 t_message
 统一规则：**被 `WHERE` / `JOIN` / `ORDER BY` 用到的外键列建索引；找不到具名查询的不建。**
 每条索引在下表都能对上一条本手册里真实存在的 SQL。 
 
-| 索引 / 约束 | 服务的查询 | 出现在 |
-| --- | --- | --- |
-| `idx_conversation_user_updated` | 左侧会话列表：`where user_id = ? order by updated_at desc` | 已完成（基线） |
-| `idx_message_conversation` | 历史消息：`where conversation_id = ? order by id` | 已完成（基线） |
-| `idx_knowledge_item_user` | `where user_id = ?`（资料列表 / 进度分母） | 阶段 1、4 |
-| `uq_knowledge_point_user_name` | `on conflict (user_id, name)` 的冲突目标；`where user_id = ?` 也用它的左前缀 | 阶段 2 |
-| `t_question.message_id UNIQUE` | 一题对应一条消息；按消息回查题目 | 阶段 2、3 |
-| `idx_question_item` | `where knowledge_item_id = ?`（该资料下答错过的题 / 还没测过） | 阶段 2、4 |
-| `idx_test_record_question` | `distinct on (question_id) ... order by question_id, id desc` | 阶段 3、4 |
-| `idx_test_record_user_time` | 连续天数、近 8 周统计：`where user_id = ?` | 阶段 4 |
-| `t_review_schedule.question_id UNIQUE` | `on conflict (question_id)`；按题查当前排期 | 阶段 3、4 |
-| `idx_review_due`（部分索引） | 到期待办与复习：`where user_id = ? and status='PENDING' and due_at <= now()` | 阶段 3、4 |
+| 索引 / 约束                            | 服务的查询                                                                   | 出现在         |
+| -------------------------------------- | ---------------------------------------------------------------------------- | -------------- |
+| `idx_conversation_user_updated`        | 左侧会话列表：`where user_id = ? order by updated_at desc`                   | 已完成（基线） |
+| `idx_message_conversation`             | 历史消息：`where conversation_id = ? order by id`                            | 已完成（基线） |
+| `idx_knowledge_item_user`              | `where user_id = ?`（资料列表 / 进度分母）                                   | 阶段 1、4      |
+| `uq_knowledge_point_user_name`         | `on conflict (user_id, name)` 的冲突目标；`where user_id = ?` 也用它的左前缀 | 阶段 2         |
+| `t_question.message_id UNIQUE`         | 一题对应一条消息；按消息回查题目                                             | 阶段 2、3      |
+| `idx_question_item`                    | `where knowledge_item_id = ?`（该资料下答错过的题 / 还没测过）               | 阶段 2、4      |
+| `idx_test_record_question`             | `distinct on (question_id) ... order by question_id, id desc`                | 阶段 3、4      |
+| `idx_test_record_user_time`            | 连续天数、近 8 周统计：`where user_id = ?`                                   | 阶段 4         |
+| `t_review_schedule.question_id UNIQUE` | `on conflict (question_id)`；按题查当前排期                                  | 阶段 3、4      |
+| `idx_review_due`（部分索引）           | 到期待办与复习：`where user_id = ? and status='PENDING' and due_at <= now()` | 阶段 3、4      |
 
 **不建**：`t_knowledge_point.knowledge_point_id` 反向索引、`t_test_record.verdict` 索引、`t_conversation.mode` 索引。
 这些都找不到高频具名查询，建了只会拖慢写入。
@@ -233,17 +233,17 @@ CREATE INDEX IF NOT EXISTS idx_ai_call_user_time ON t_ai_call(user_id, created_a
 
 ### 2.2 为什么这么设计（面试会被问的九处）
 
-| 设计 | 理由 |
-| --- | --- |
-| `t_conversation` 不存 `title` | 标题取该会话首条 `USER` 消息的前 50 个字符，一条子查询就能算出来。存一列就要在每条消息写入时维护，改一次消息还得回头改标题，必然出现不一致 |
-| 资料归属放 `t_question.knowledge_item_id`，不放 `t_conversation` | `REVIEW` 会话按「2 道到期题 + 1 道其他资料的题」混排，同一会话天然跨资料。挂在会话上会让资料 A 的掌握度虚高、资料 B 永远「没测过」。挂在题目上，每次判分都能回溯到准确的资料 |
-| 复习排期用 `question_id` 唯一，不用 `test_record_id` | 一题可以被答多次（首答 + 补讲 + 复习）。按成绩建排期会「答一次排三条、补讲再排三条」；按题建排期一行就够，重答时 `ON CONFLICT (question_id) DO UPDATE` 原地改期 |
-| 知识点一题一个（`t_question.knowledge_point_id`） | `product-spec.md` 定义每题只有一个 `target`。用关联表是一对多建模，多出来的灵活性本轮用不上，反而要多维护一张表 |
-| `summary` 允许为空 | 摘要是一次额外模型调用。调用失败不能阻断「资料已保存」；列表没摘要也能显示标题，出题仍用 `content` |
-| `t_test_record.user_id` 是冗余列（可从题目反查） | 连续天数、近 8 周统计每次都要 `where user_id`，走三表 JOIN 才能拿到人，会拖慢进度页。这一列**写入一次、永不修改**，不存在与题目归属不一致的可能 |
-| 求助记在 `t_question.help_used`，不在 `t_test_record` 再存一份 | 求助可能发生在**作答之前**（那时还没有成绩行），挂成绩上就记不到。一题一个布尔值足够表达「这题被求助过，复习时优先重问」 |
-| `t_ai_call` 的 token 列允许 `null` | 流式调用能不能拿到 usage 由模型服务端决定（DeepSeek 需要 `stream_options.include_usage`）。拿不到就存 `null`，前端显示「未返回」；**估算出来的 token 是假数据**，不能拿去写简历 |
-| `t_ai_call` 不建 `scene` 索引 | 查询永远带 `user_id` + 时间窗，`idx_ai_call_user_time` 已经能筛到很少的行；`scene` 只是 `group by` 维度，单独建索引等于白付写入成本 |
+| 设计                                                             | 理由                                                                                                                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `t_conversation` 不存 `title`                                    | 标题取该会话首条 `USER` 消息的前 50 个字符，一条子查询就能算出来。存一列就要在每条消息写入时维护，改一次消息还得回头改标题，必然出现不一致                                      |
+| 资料归属放 `t_question.knowledge_item_id`，不放 `t_conversation` | `REVIEW` 会话按「2 道到期题 + 1 道其他资料的题」混排，同一会话天然跨资料。挂在会话上会让资料 A 的掌握度虚高、资料 B 永远「没测过」。挂在题目上，每次判分都能回溯到准确的资料    |
+| 复习排期用 `question_id` 唯一，不用 `test_record_id`             | 一题可以被答多次（首答 + 补讲 + 复习）。按成绩建排期会「答一次排三条、补讲再排三条」；按题建排期一行就够，重答时 `ON CONFLICT (question_id) DO UPDATE` 原地改期                 |
+| 知识点一题一个（`t_question.knowledge_point_id`）                | `product-spec.md` 定义每题只有一个 `target`。用关联表是一对多建模，多出来的灵活性本轮用不上，反而要多维护一张表                                                                 |
+| `summary` 允许为空                                               | 摘要是一次额外模型调用。调用失败不能阻断「资料已保存」；列表没摘要也能显示标题，出题仍用 `content`                                                                              |
+| `t_test_record.user_id` 是冗余列（可从题目反查）                 | 连续天数、近 8 周统计每次都要 `where user_id`，走三表 JOIN 才能拿到人，会拖慢进度页。这一列**写入一次、永不修改**，不存在与题目归属不一致的可能                                 |
+| 求助记在 `t_question.help_used`，不在 `t_test_record` 再存一份   | 求助可能发生在**作答之前**（那时还没有成绩行），挂成绩上就记不到。一题一个布尔值足够表达「这题被求助过，复习时优先重问」                                                        |
+| `t_ai_call` 的 token 列允许 `null`                               | 流式调用能不能拿到 usage 由模型服务端决定（DeepSeek 需要 `stream_options.include_usage`）。拿不到就存 `null`，前端显示「未返回」；**估算出来的 token 是假数据**，不能拿去写简历 |
+| `t_ai_call` 不建 `scene` 索引                                    | 查询永远带 `user_id` + 时间窗，`idx_ai_call_user_time` 已经能筛到很少的行；`scene` 只是 `group by` 维度，单独建索引等于白付写入成本                                             |
 
 ### 2.3 验收
 
@@ -271,12 +271,12 @@ select conrelid::regclass as tbl, conname, pg_get_constraintdef(oid) as def
 
 **四条断言**：
 
-| 断言 | 验的是什么 |
-| --- | --- |
-| 第二次执行 `\i` 无报错 | 全是 `CREATE ... IF NOT EXISTS`，重放会跳过；**但跳过不等于升级结构**，缺列仍需手工 `ALTER` |
-| `t_question` 有 `kind` 的 `CHECK (kind IN ('FACT','EXPLAIN'))` | 任务类型在数据库层兜底 |
-| `t_review_schedule` 有 `question_id` 的 `UNIQUE` | 一题一行排期，`ON CONFLICT (question_id)` 才成立 |
-| `t_ai_call` 有 `scene` 的 `CHECK` | 场景枚举在数据库层兜底，脏字符串进不来 |
+| 断言                                                           | 验的是什么                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 第二次执行 `\i` 无报错                                         | 全是 `CREATE ... IF NOT EXISTS`，重放会跳过；**但跳过不等于升级结构**，缺列仍需手工 `ALTER` |
+| `t_question` 有 `kind` 的 `CHECK (kind IN ('FACT','EXPLAIN'))` | 任务类型在数据库层兜底                                                                      |
+| `t_review_schedule` 有 `question_id` 的 `UNIQUE`               | 一题一行排期，`ON CONFLICT (question_id)` 才成立                                            |
+| `t_ai_call` 有 `scene` 的 `CHECK`                              | 场景枚举在数据库层兜底，脏字符串进不来                                                      |
 
 > 不要用「插入一条非法 stage 看是否报 23514」来验收：没有题目行时外键会先报 23503，
 > 分不清是 CHECK 还是 FK 拦的。直接看 `pg_get_constraintdef` 更准。
@@ -286,34 +286,37 @@ select conrelid::regclass as tbl, conname, pg_get_constraintdef(oid) as def
 ## 3. 阶段 1：资料接入（第一层）
 
 > 对应 [product-spec.md 第 10 节](./product-spec.md)。
+>
+> **2026-10-23 变更**：产品形态改为「文档 → 章节」。3.1 ~ 3.7 记录的是**改之前**的实现（你已经写完的版本，原样保留）；
+> 要动手改的地方全部列在 [3.8 增量改动](#38-增量改动文档--章节2026-10-23)，先看那一节。
 
 ### 3.1 契约
 
-| 方法 | 路径 | 请求 | 成功 | 失败 |
-| --- | --- | --- | --- | --- |
-| POST | `/knowledge-items` | `{"title":"...", "content":"..."}` | `201` + `Location` + `{"knowledgeItemId","preview","summary"}` | 401 / 400 字段为空或超长 |
-| POST | `/knowledge-items/upload` | `multipart/form-data`：`file` + `title`（可省略） | 同上 | 401 / 400 扩展名不支持、没有可提取的文字、文档太长、文件过大 |
-| GET | `/knowledge-items` | — | `200 [{"knowledgeItemId","title","sourceUrl","summary","createdAt"}]` | 401 |
+| 方法 | 路径                      | 请求                                              | 成功                                                                  | 失败                                                         |
+| ---- | ------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ |
+| POST | `/knowledge-items`        | `{"title":"...", "content":"..."}`                | `201` + `Location` + `{"knowledgeItemId","preview","summary"}`        | 401 / 400 字段为空或超长                                     |
+| POST | `/knowledge-items/upload` | `multipart/form-data`：`file` + `title`（可省略） | 同上                                                                  | 401 / 400 扩展名不支持、没有可提取的文字、文档太长、文件过大 |
+| GET  | `/knowledge-items`        | —                                                 | `200 [{"knowledgeItemId","title","sourceUrl","summary","createdAt"}]` | 401                                                          |
 
 `preview` = 正文前 200 字符，给用户一眼确认「抽出来的文字是不是乱的」；
 `summary` = 一句话摘要（≤200 字），给列表展示；摘要生成失败时为 `null`，不阻断保存。
 
 **支持的文件类型（按扩展名判断，不看 MIME —— 浏览器给的 MIME 不可靠）**
 
-| 扩展名 | 处理 |
-| --- | --- |
-| `.md` / `.txt` | 字节按 UTF-8 解码成正文 |
-| `.pdf` | `PdfTextExtractor` 逐页抽文字（只支持**有文字层**的 PDF） |
-| 其他 | 400「只支持 .md / .txt / .pdf」 |
+| 扩展名         | 处理                                                      |
+| -------------- | --------------------------------------------------------- |
+| `.md` / `.txt` | 字节按 UTF-8 解码成正文                                   |
+| `.pdf`         | `PdfTextExtractor` 逐页抽文字（只支持**有文字层**的 PDF） |
+| 其他           | 400「只支持 .md / .txt / .pdf」                           |
 
 **四条硬约束（不满足就 400，不静默放行）**
 
-| 约束 | 阈值 | 不满足时的文案 |
-| --- | --- | --- |
-| 文件大小 | ≤ 5MB（`multipart` 限制） | 「文件太大，请控制在 5MB 以内」 |
-| 抽取后正文非空 | ≥ 100 字符 | 「这个文件没有可提取的文字（PDF 可能是扫描件），请换成文字版或转成 .md」 |
-| 抽取后正文不太长 | ≤ 50000 字符 | 「文档太长（约 N 字），请拆分后分次导入」 |
-| 粘贴正文 | ≤ 20000 字符（DTO 的 `@Size`） | 「正文最多 20000 字」 |
+| 约束             | 阈值                           | 不满足时的文案                                                           |
+| ---------------- | ------------------------------ | ------------------------------------------------------------------------ |
+| 文件大小         | ≤ 5MB（`multipart` 限制）      | 「文件太大，请控制在 5MB 以内」                                          |
+| 抽取后正文非空   | ≥ 100 字符                     | 「这个文件没有可提取的文字（PDF 可能是扫描件），请换成文字版或转成 .md」 |
+| 抽取后正文不太长 | ≤ 50000 字符                   | 「文档太长（约 N 字），请拆分后分次导入」                                |
+| 粘贴正文         | ≤ 20000 字符（DTO 的 `@Size`） | 「正文最多 20000 字」                                                    |
 
 `application.yml` 的 `spring` 节点下加：
 
@@ -784,37 +787,773 @@ curl.exe -i -b "JSESSIONID=<你的>" -F "title=讲义第 1 章" -F "file=@讲义
 
 **四条断言，缺一条就不算验收**：
 
-| 断言 | 验的是什么 |
-| --- | --- |
-| `.md` 与 `.pdf` 都能 201 | 主路径通 |
-| `preview` 里的文字**是人类可读的** | PDF 抽取出的是正文，不是乱码 |
-| 6a / 6b 返回 400 且文案对上 | 拒绝在入口处，不是落到下游 500 |
-| 未登录 401 | 身份校验没被上传接口漏掉 |
+| 断言                               | 验的是什么                     |
+| ---------------------------------- | ------------------------------ |
+| `.md` 与 `.pdf` 都能 201           | 主路径通                       |
+| `preview` 里的文字**是人类可读的** | PDF 抽取出的是正文，不是乱码   |
+| 6a / 6b 返回 400 且文案对上        | 拒绝在入口处，不是落到下游 500 |
+| 未登录 401                         | 身份校验没被上传接口漏掉       |
 
 **交接给我**：把「创建成功」「上传 `.pdf` 成功」「6a 的 400」这三条响应的 **JSON 原文**发我（字段名以你实际返回为准），
 我再写 `/materials` 页。
 
 **实测结果（2026-10-22，后端 8123 实跑）**
 
-| # | 实测 | 结论 |
-| --- | --- | --- |
-| 1 | `201` + `Location: /knowledge-items/2887a8b4-...` + `preview`/`summary` | 通过 |
-| 2 | `200`，列表 3 条，`sourceUrl` 粘贴为 `null`、上传为文件名 | 通过 |
-| 3 | `201`，`title` 自动取 `hnsw`，`sourceUrl = hnsw.md` | 通过 |
-| 4 | `201`，`preview` 为完整英文正文（iText 现场生成的 781 字符 PDF） | 通过 |
-| 5 | `400 {"message":"只支持 .md / .txt / .pdf"}` | 通过 |
-| 6 | `400 {"message":"文件太大，请控制在 5MB 以内"}` | 通过 |
-| + | 未登录 `GET` → `401 {"message":"未登录"}` | 通过 |
+| #   | 实测                                                                    | 结论 |
+| --- | ----------------------------------------------------------------------- | ---- |
+| 1   | `201` + `Location: /knowledge-items/2887a8b4-...` + `preview`/`summary` | 通过 |
+| 2   | `200`，列表 3 条，`sourceUrl` 粘贴为 `null`、上传为文件名               | 通过 |
+| 3   | `201`，`title` 自动取 `hnsw`，`sourceUrl = hnsw.md`                     | 通过 |
+| 4   | `201`，`preview` 为完整英文正文（iText 现场生成的 781 字符 PDF）        | 通过 |
+| 5   | `400 {"message":"只支持 .md / .txt / .pdf"}`                            | 通过 |
+| 6   | `400 {"message":"文件太大，请控制在 5MB 以内"}`                         | 通过 |
+| +   | 未登录 `GET` → `401 {"message":"未登录"}`                               | 通过 |
 
 两条**不是 bug** 的坑，以后别再误判：
 
 - `tmp/pdf` 下 4 份 PDF 抽出来只有 1 个换行符 —— `PDFGenerationTool` 生成的 PDF 缺 ToUnicode 映射，
   不是 `DocumentTextExtractor` 的问题。验收要用真实讲义，或现场用 iText 生成带拉丁字体的样本。
 - 加密 PDF 会走到 `PDF 解析失败，请确认文件未加密且格式正常`。这条文案与「扫描件」文案是两条不同分支，
-  加密的归加密、抽不出字的归扫描件，不要合并。
+  、加密的归加密、抽不出字的归扫描件，不要合并。
 
 **已知文案边界（有意不改）**：正文 <100 字时，`.md` 与 `.pdf` 共用「没有可提取的文字（PDF 可能是扫描件）」这条文案。
 `DocumentTextExtractor` 不按扩展名分支，**由前端在提交前拦住并提示「至少 100 字」**。
+
+***
+
+### 3.8 增量改动：文档 → 章节（2026-10-23）
+
+**读法**：3.1 ~ 3.7 是你已经写完的代码，**一个字都不改**。这一节只列要动的 8 处，
+按「数据库 → 新文件 → 改文件 → 验收」的顺序做；每处都给「改成什么」，不给「整段重写」。
+产品口径见 [product-spec.md 第 10 节](./product-spec.md)，两列的取舍见 [data-design.md](./data-design.md) 文末。
+
+**改动总览（8 处，其中 2 处只新增不改旧代码）**
+
+| #   | 位置                                    | 现状                                                            | 要变成                                                           | 工作量                           |
+| --- | --------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- |
+| 1   | `t_knowledge_item`                      | 5 列，一行 = 一份资料                                           | 加 `doc_title` / `section_no`，一行 = 一个章节                   | 2 条 `ALTER` + 1 条回填 `UPDATE` |
+| 2   | `service/DocumentSplitter.java`         | 不存在                                                          | 新增，纯函数，整篇 → 章节列表                                    | 新文件                           |
+| 3   | `DocumentTextExtractor.extract`         | 三条拒绝（含 `MAX_CHARS = 50_000`）                             | 删掉 `MAX_CHARS` 那两处，长度交给切分器                          | 删 3 行                          |
+| 4   | `KnowledgeItemRepository`               | `create` / `findAllByUserId` / `findById` / `findAnotherItemId` | 改名 1 个、改 SQL 2 个、改 1 个参数、新增 2 个方法               | 5 段片段                         |
+| 5   | `KnowledgeService`                      | `create` 建 1 条、`list` 直接返回                               | 改名 `createDocument` 建 N 条、新增 `listDocuments` + `statusOf` | 3 段片段                         |
+| 6   | `KnowledgeItemController`               | 返回 `{knowledgeItemId,preview,summary}`，3 个方法              | 返回 `{docTitle,sections[]}`，4 个方法（多一个 `GET /{id}`）     | 3 段片段                         |
+| 7   | `ProgressRepository.countMasteredItems` | 统计该资料下所有题                                              | 只统计 `SELF_TEST` 题（阶段 4 的文件）                           | 1 段片段                         |
+| 8   | `GlobalExceptionHandler`                | 已有 `MaxUploadSizeExceededException`                           | 再加 `MultipartException` → 400                                  | **你已在 2026-10-23 做完**，跳过 |
+
+**改动 1：加两列 + 回填**
+
+```sql
+ALTER TABLE t_knowledge_item ADD COLUMN IF NOT EXISTS doc_title  VARCHAR(100);
+ALTER TABLE t_knowledge_item ADD COLUMN IF NOT EXISTS section_no INT;
+
+-- 历史 3 条资料回填成"单章文档"，否则资料页会出现 doc_title 为空的分组
+UPDATE t_knowledge_item
+   SET doc_title  = COALESCE(doc_title, title),
+       section_no = COALESCE(section_no, 1)
+ WHERE doc_title IS NULL OR section_no IS NULL;
+```
+
+不建 `t_document`，不加唯一约束，原因见 `data-design.md`。
+
+**改动 2：新增 `service/DocumentSplitter.java`**
+
+规则：每章 8000~12000 字（上限对齐 `QuizService.MATERIAL_LIMIT = 12000`）、
+不足 3000 字的末段并入前一段、有 `#` / `##` 就按标题切、没有就按空行段落切、
+代码块内不切、单份文档最多 30 章。**纯函数，先写单元测试再接 Controller。**
+
+```java
+package com.lcz.aiagentstudy.service;
+
+import com.lcz.aiagentstudy.exception.BadRequestException;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 整篇文档 -> 有序章节。纯函数：文本进、章节列表出，不碰数据库、不调模型。
+ * 有 `#` / `##` 就按标题切；完全没有这类标题就按空行段落切。
+ */
+@Component
+public class DocumentSplitter {
+
+    /** 段内正文到这个量级就可以断开。 */
+    static final int TARGET_MIN = 8_000;
+    /** 单章硬上限，对齐 QuizService.MATERIAL_LIMIT。 */
+    static final int SECTION_MAX = 12_000;
+    /** 末尾残段小于这个值就并进前一段。 */
+    static final int TAIL_MIN = 3_000;
+    static final int MAX_SECTIONS = 30;
+
+    private static final int TITLE_MAX = 100;
+    private static final int TITLE_PROBE = 30;
+    private static final int TITLE_PROBE_MIN = 10;
+    private static final String SENTENCE_MARKS = "。！？；.!?;\n";
+
+    public record Section(String title, String content) {
+    }
+
+    public List<Section> split(String docTitle, String text) {
+        List<Section> packed = pack(toUnits(text));
+
+        if (packed.size() > MAX_SECTIONS) {
+            throw new BadRequestException("文档切分后超过 " + MAX_SECTIONS + " 章（当前 "
+                    + packed.size() + " 章），请拆分后分次上传");
+        }
+        if (packed.size() == 1) {
+            // 单章文档不编标题，直接用文档名
+            return List.of(new Section(truncate(docTitle, TITLE_MAX), packed.get(0).content()));
+        }
+
+        List<Section> result = new ArrayList<>(packed.size());
+        for (int i = 0; i < packed.size(); i++) {
+            Section section = packed.get(i);
+            String title = section.title() == null || section.title().isBlank()
+                    ? fallbackTitle(section.content(), i + 1)
+                    : section.title();
+            result.add(new Section(truncate(title, TITLE_MAX), section.content()));
+        }
+        return result;
+    }
+
+    // ---------------- 第一步：原文 -> 小块 ----------------
+
+    /** 中间态。标题可能为 null：段落模式下没有标题可用。 */
+    private record Unit(String title, String content) {
+    }
+
+    private List<Unit> toUnits(String text) {
+        List<String> lines = List.of(text.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1));
+        boolean byHeading = hasLevel12Heading(lines);
+
+        List<Unit> units = new ArrayList<>();
+        StringBuilder body = new StringBuilder();
+        String parentTitle = null;
+        String title = null;
+        boolean inFence = false;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            boolean fence = trimmed.startsWith("```");
+
+            if (byHeading && !inFence && !fence && isLevel12Heading(trimmed)) {
+                flush(units, title, body);
+                String heading = cleanHeading(trimmed);
+                if (headingLevel(trimmed) == 1) {
+                    parentTitle = heading;
+                    title = heading;
+                } else {
+                    // 二级标题带上父级标题，避免「第 2 节」在列表里重名
+                    title = parentTitle == null ? heading : parentTitle + " · " + heading;
+                }
+            }
+            body.append(line).append('\n');
+
+            if (fence) {
+                inFence = !inFence;
+            } else if (!byHeading && !inFence && trimmed.isEmpty()) {
+                // 段落模式：空行即边界。代码块里的空行不算
+                flush(units, null, body);
+            }
+        }
+        flush(units, title, body);
+        return hardCut(units);
+    }
+
+    private boolean hasLevel12Heading(List<String> lines) {
+        boolean inFence = false;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("```")) {
+                inFence = !inFence;
+            } else if (!inFence && isLevel12Heading(trimmed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int headingLevel(String line) {
+        int level = 0;
+        while (level < line.length() && line.charAt(level) == '#') {
+            level++;
+        }
+        return level;
+    }
+
+    /** 只认 `# 标题` 与 `## 标题`；`###` 及更深留在正文里，不切段。 */
+    private boolean isLevel12Heading(String line) {
+        int level = headingLevel(line);
+        if (level < 1 || level > 2 || level >= line.length()) {
+            return false;
+        }
+        char sep = line.charAt(level);
+        return sep == ' ' || sep == '\t';
+    }
+
+    private String cleanHeading(String line) {
+        return line.substring(headingLevel(line)).strip();
+    }
+
+    private void flush(List<Unit> units, String title, StringBuilder body) {
+        String content = body.toString().strip();
+        body.setLength(0);
+        if (!content.isEmpty()) {
+            units.add(new Unit(title, content));
+        }
+    }
+
+    /** 单个块超过 SECTION_MAX（超长代码块、表格、没有空行的长段落）时按句子边界硬切。 */
+    private List<Unit> hardCut(List<Unit> units) {
+        List<Unit> result = new ArrayList<>(units.size());
+        for (Unit unit : units) {
+            List<String> chunks = chunks(unit.content());
+            for (int i = 0; i < chunks.size(); i++) {
+                String title = unit.title();
+                if (title != null && chunks.size() > 1) {
+                    title = title + "（" + (i + 1) + "）";
+                }
+                result.add(new Unit(title, chunks.get(i)));
+            }
+        }
+        return result;
+    }
+
+    private List<String> chunks(String content) {
+        List<String> chunks = new ArrayList<>();
+        String rest = content.strip();
+        while (rest.length() > SECTION_MAX) {
+            int cut = lastSentenceEnd(rest);
+            if (cut <= 0) {
+                cut = SECTION_MAX;   // 整段没有句末标点，只能按字符切
+            }
+            chunks.add(rest.substring(0, cut).strip());
+            rest = rest.substring(cut).strip();
+        }
+        if (!rest.isEmpty()) {
+            chunks.add(rest);
+        }
+        return chunks;
+    }
+
+    /** 从 SECTION_MAX 往前找最近的句末标点；找不到返回 -1。 */
+    private int lastSentenceEnd(String text) {
+        int floor = SECTION_MAX / 2;
+        for (int i = SECTION_MAX - 1; i >= floor; i--) {
+            if (SENTENCE_MARKS.indexOf(text.charAt(i)) >= 0) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    // ---------------- 第二步：小块 -> 章节 ----------------
+
+    private List<Section> pack(List<Unit> units) {
+        List<Unit> merged = new ArrayList<>();
+        StringBuilder body = new StringBuilder();
+        String title = null;
+
+        for (Unit unit : units) {
+            // 两条断开条件：装不下（硬上限）优先，其次才看"够不够长（TARGET_MIN）"
+            boolean overflow = body.length() + unit.content().length() > SECTION_MAX;
+            boolean longEnough = body.length() >= TARGET_MIN;
+
+            if (body.length() > 0 && (overflow || longEnough)) {
+                merged.add(new Unit(title, body.toString().strip()));
+                body.setLength(0);
+                title = null;
+            }
+            if (title == null) {
+                title = unit.title();
+            }
+            if (body.length() > 0) {
+                body.append("\n\n");
+            }
+            body.append(unit.content());
+        }
+        if (body.length() > 0) {
+            merged.add(new Unit(title, body.toString().strip()));
+        }
+
+        // 末尾残段：放得下并进前一段，放不下就自己成一章（宁可短，不要超 12000）
+        if (merged.size() > 1) {
+            Unit last = merged.get(merged.size() - 1);
+            Unit prev = merged.get(merged.size() - 2);
+            if (last.content().length() < TAIL_MIN
+                    && prev.content().length() + last.content().length() <= SECTION_MAX) {
+                merged.remove(merged.size() - 1);
+                merged.remove(merged.size() - 1);
+                merged.add(new Unit(prev.title(), prev.content() + "\n\n" + last.content()));
+            }
+        }
+        return merged.stream().map(u -> new Section(u.title(), u.content())).toList();
+    }
+
+    /** 没有标题的段落：取首行前 30 字；太短或为空时回退成「第 N 部分」。 */
+    private String fallbackTitle(String content, int sectionNo) {
+        String firstLine = content.lines()
+                .map(String::strip)
+                .filter(line -> !line.isEmpty())
+                .findFirst()
+                .orElse("")
+                .replaceFirst("^#+\\s*", "");
+        String probe = truncate(firstLine, TITLE_PROBE);
+        return probe.length() < TITLE_PROBE_MIN ? "第 " + sectionNo + " 部分" : probe;
+    }
+
+    private String truncate(String text, int max) {
+        String flat = text == null ? "" : text.strip();
+        return flat.length() <= max ? flat : flat.substring(0, max);
+    }
+}
+```
+
+三个容易写错的地方：代码块里的 `#` 不是标题（`inFence` 必须在判标题之前生效）；
+`MAX_SECTIONS` 要在 `pack` 之后判（按小块数量判没有意义）；`flush` 里先 `strip` 再判空（全空行不能产出空章节）。
+
+单元测试五条（不依赖数据库与模型，先跑通这个再接 Controller）：
+
+| 输入                                       | 断言                                                        |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| 12 个 `##` 小节、每节 1200 字              | 切成 2 章左右，每章 ≤ 12000 字，标题取该章第一个小节标题    |
+| 一段 30000 字、无空行、无标题              | 切成 3 章，每章 ≤ 12000 字，标题为「第 N 部分」             |
+| 只有 1 个 `#` 标题、正文 100 字            | 1 章，标题 = 文档名                                         |
+| 含 ```` ``` ```` 代码块，块内出现 `# 注释` | 代码块不被切开，`# 注释` 不产生新章节                       |
+| 30 个 `#` 标题                             | 30 章；31 个标题 → 抛 `BadRequestException`，文案带实际章数 |
+
+**改动 2 补充（2026-10-23 实测后必改）**：上面 `hardCut` 里 `chunks()` 的切法是「每次切满 12000」，
+实测一份 31 节 × 12100 字的文档被切成 62 章，其中一半是 100 字左右的残段（验收记录 1-12）。
+改成**按段数均分**，每个切块长度接近，就不会出现碎片章：
+
+```java
+    private List<String> chunks(String content) {
+        List<String> chunks = new ArrayList<>();
+        String rest = content.strip();
+        while (rest.length() > SECTION_MAX) {
+            // 先算这一节一共要分成几段，再按均分长度下刀，避免切出几十字的残段
+            int pieces = (rest.length() + SECTION_MAX - 1) / SECTION_MAX;
+            int target = rest.length() / pieces;
+            int cut = lastSentenceEnd(rest, target);
+            if (cut <= 0) {
+                cut = target;   // 均分位置附近没有句末标点，只能按字符切
+            }
+            chunks.add(rest.substring(0, cut).strip());
+            rest = rest.substring(cut).strip();
+        }
+        if (!rest.isEmpty()) {
+            chunks.add(rest);
+        }
+        return chunks;
+    }
+
+    /** 从 target 往前找最近的句末标点；找不到返回 -1。 */
+    private int lastSentenceEnd(String text, int target) {
+        int floor = Math.max(1, target / 2);
+        for (int i = Math.min(target, text.length()) - 1; i >= floor; i--) {
+            if (SENTENCE_MARKS.indexOf(text.charAt(i)) >= 0) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+```
+
+原来那个无参 `lastSentenceEnd(String text)` 删掉（被上面带 `target` 的版本取代）。
+改完 31 × 12100 字仍然得到 62 章 —— **这是对的**：一节 12100 字超过单章上限，本来就需要两章，
+文案报的章数就是真实章节数。要区别的是每章约 6050 字，而不是 12000 + 100。
+
+**改动 3：`DocumentTextExtractor` 删掉长度限制**
+
+只删这两处，其余不动：
+
+```java
+    private static final int MAX_CHARS = 50_000;     // ← 删掉这一行
+```
+
+```java
+        if (text.length() > MAX_CHARS) {              // ← 删掉这 3 行
+            throw new BadRequestException("文档太长（约 " + text.length() + " 字），请拆分后分次导入");
+        }
+```
+
+同时把类注释里的「三条边界……太长」改成「两条边界：扩展名不支持、抽不出字。长度上限交给 `DocumentSplitter`」。
+
+**改动 4：`KnowledgeItemRepository` 五段**
+
+4a. `create` → `createSection`（多两个参数，列多两列）：
+
+```java
+    public UUID createSection(UUID userId, String docTitle, int sectionNo, String title,
+                              String sourceUrl, String content, String summary) {
+        return jdbcTemplate.queryForObject("""
+                        insert into t_knowledge_item
+                            (user_id, doc_title, section_no, title, source_url, content, summary)
+                        values (?, ?, ?, ?, ?, ?, ?) returning id
+                        """,
+                UUID.class, userId, docTitle, sectionNo, title, sourceUrl, content, summary);
+    }
+```
+
+4b. 新增同名检查：
+
+```java
+    /** 同名检查：同一用户下 doc_title 不能重复。历史行 doc_title 为空，用 title 兜底。 */
+    public boolean existsDocTitle(UUID userId, String docTitle) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+                        select exists(
+                            select 1 from t_knowledge_item
+                             where user_id = ? and coalesce(doc_title, title) = ?)
+                        """,
+                Boolean.class, userId, docTitle));
+    }
+```
+
+4c. `findAllByUserId` 换成带计数的查询（原来只查元数据，现在要算三态，**必须在这里一次算完**，
+否则 Service 里要 N+1 次查询）：
+
+```java
+    /** 资料页列表的一行：章节元数据 + 出题/作答计数，三态由 Service 推导。 */
+    public record SectionRow(UUID id, String docTitle, int sectionNo, String title, String sourceUrl,
+                             String summary, int chars, int quizCount, int answeredCount,
+                             boolean allPassed, OffsetDateTime createdAt) {
+    }
+
+    /**
+     * 列表不取 content。quizCount / answeredCount / allPassed 只统计 SELF_TEST 会话产生的题，
+     * REVIEW 会话产生的题不参与章节三态（product-spec.md 10.5）。
+     */
+    public List<SectionRow> findAllByUserId(UUID userId) {
+        return jdbcTemplate.query("""
+                        with quiz as (
+                            select q.id as question_id, q.knowledge_item_id
+                              from t_question q
+                              join t_message m      on m.id = q.message_id
+                              join t_conversation c on c.id = m.conversation_id
+                             where c.mode = 'SELF_TEST'
+                        ),
+                        latest as (
+                            select distinct on (tr.question_id) tr.question_id, tr.verdict
+                              from t_test_record tr
+                             order by tr.question_id, tr.id desc
+                        )
+                        select ki.id,
+                               coalesce(ki.doc_title, ki.title) as doc_title,
+                               coalesce(ki.section_no, 1)       as section_no,
+                               ki.title, ki.source_url, ki.summary, ki.created_at,
+                               length(ki.content)    as chars,
+                               count(qz.question_id) as quiz_count,
+                               count(l.question_id)  as answered_count,
+                               coalesce(bool_and(l.verdict = 'PASS'), false) as all_passed
+                          from t_knowledge_item ki
+                          left join quiz qz  on qz.knowledge_item_id = ki.id
+                          left join latest l on l.question_id = qz.question_id
+                         where ki.user_id = ?
+                         group by ki.id
+                         order by max(ki.created_at) over (partition by coalesce(ki.doc_title, ki.title)) desc,
+                                  doc_title, section_no
+                        """,
+                (rs, rowNum) -> new SectionRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("doc_title"),
+                        rs.getInt("section_no"),
+                        rs.getString("title"),
+                        rs.getString("source_url"),
+                        rs.getString("summary"),
+                        rs.getInt("chars"),
+                        rs.getInt("quiz_count"),
+                        rs.getInt("answered_count"),
+                        rs.getBoolean("all_passed"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                userId);
+    }
+```
+
+排序先按「文档最近创建时间」倒序（新传的文档排最前），文档内按 `section_no` 升序 —— 章节必须按阅读顺序排，
+不能按创建时间。
+
+4d. `findById` 多查两列（`coalesce` 兜历史行，避免 `getInt` 拿到 `null` 变成 0）：
+
+```java
+        List<KnowledgeItemRow> rows = jdbcTemplate.query("""
+                        select id,
+                               coalesce(doc_title, title) as doc_title,
+                               coalesce(section_no, 1)    as section_no,
+                               title, source_url, content, summary, created_at
+                          from t_knowledge_item
+                         where id = ?
+                        """,
+                (rs, rowNum) -> new KnowledgeItemRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("doc_title"),
+                        rs.getInt("section_no"),
+                        rs.getString("title"),
+                        rs.getString("source_url"),
+                        rs.getString("content"),
+                        rs.getString("summary"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                id);
+```
+
+4e. `findAnotherItemId` 改成「排除同一份文档」（原来是排除同一条资料，切章后同文档的兄弟章节会被当成交错题）：
+
+```java
+    // 交错复习用：从"另一份文档"的章节里随机取一条；只有一份文档时返回空
+    public Optional<UUID> findAnotherItemId(UUID userId, UUID excludeItemId) {
+        List<UUID> rows = jdbcTemplate.query("""
+                        select id from t_knowledge_item
+                         where user_id = ?
+                           and coalesce(doc_title, title) <> (
+                               select coalesce(doc_title, title)
+                                 from t_knowledge_item
+                                where id = ?)
+                         order by random()
+                         limit 1
+                        """,
+                (rs, rowNum) -> rs.getObject("id", UUID.class),
+                userId, excludeItemId);
+        return rows.stream().findFirst();
+    }
+```
+
+参数签名不变（仍是 `excludeItemId`），**调用方 `QuizService` 不用改**。
+
+**改动 5：`KnowledgeService` 三段**
+
+5a. `CreatedItem create` → 两个 record + `createDocument`：
+
+```java
+    public record CreatedSection(UUID id, int sectionNo, String title, int chars, String summary) {
+    }
+
+    public record CreatedDocument(String docTitle, List<CreatedSection> sections) {
+    }
+
+    /**
+     * 粘贴与上传共用：一份文档 -> N 个章节。
+     * 同名文档抛 400；切分超过 30 章也抛 400；某章摘要失败只把该章 summary 置空，不阻断落库。
+     */
+    public CreatedDocument createDocument(UUID userId, String docTitle, String sourceUrl, String content) {
+        if (knowledgeItemRepository.existsDocTitle(userId, docTitle)) {
+            throw new BadRequestException("已存在同名文档，请改名后重新上传");
+        }
+
+        List<DocumentSplitter.Section> sections = documentSplitter.split(docTitle, content);
+        List<CreatedSection> created = new ArrayList<>(sections.size());
+
+        for (int i = 0; i < sections.size(); i++) {
+            DocumentSplitter.Section section = sections.get(i);
+            int sectionNo = i + 1;
+            // 每章一次模型调用。失败只让这一章没有摘要，不影响其他章节
+            String summary = summarizeQuietly(section.content());
+            UUID id = knowledgeItemRepository.createSection(
+                    userId, docTitle, sectionNo, section.title(), sourceUrl, section.content(), summary);
+            indexQuietly(id, userId, section.title(), section.content());
+            created.add(new CreatedSection(id, sectionNo, section.title(), section.content().length(), summary));
+        }
+        return new CreatedDocument(docTitle, created);
+    }
+```
+
+5b. `list` → `listDocuments` + `statusOf`：
+
+```java
+    public record SectionView(UUID id, int sectionNo, String title, int chars,
+                              String summary, String status) {
+    }
+
+    public record DocumentGroup(String docTitle, int sectionCount, int passedCount,
+                                List<SectionView> sections) {
+    }
+
+    /**
+     * 资料页：按文档分组只在这里做一次。进度页与交错复习复用同一套分组口径，
+     * 前端不再按 docTitle 二次分组。
+     */
+    public List<DocumentGroup> listDocuments(UUID userId) {
+        Map<String, List<KnowledgeItemRepository.SectionRow>> grouped = new LinkedHashMap<>();
+        for (KnowledgeItemRepository.SectionRow row : knowledgeItemRepository.findAllByUserId(userId)) {
+            grouped.computeIfAbsent(row.docTitle(), key -> new ArrayList<>()).add(row);
+        }
+
+        List<DocumentGroup> result = new ArrayList<>(grouped.size());
+        grouped.forEach((docTitle, rows) -> {
+            List<SectionView> sections = rows.stream()
+                    .map(row -> new SectionView(row.id(), row.sectionNo(), row.title(),
+                            row.chars(), row.summary(), statusOf(row)))
+                    .toList();
+            int passed = (int) sections.stream().filter(s -> "PASSED".equals(s.status())).count();
+            result.add(new DocumentGroup(docTitle, sections.size(), passed, sections));
+        });
+        return result;
+    }
+
+    /** 三态判定只写这一处：未开始 / 进行中 / 已通过。规则见 product-spec.md 10.5。 */
+    private String statusOf(KnowledgeItemRepository.SectionRow row) {
+        if (row.quizCount() == 0) {
+            return "NOT_STARTED";
+        }
+        return row.answeredCount() == row.quizCount() && row.allPassed() ? "PASSED" : "IN_PROGRESS";
+    }
+```
+
+5c. 依赖与 import：字段加 `private final DocumentSplitter documentSplitter;`；
+import 加 `BadRequestException`、`ArrayList`、`LinkedHashMap`、`Map`；`KnowledgeItemRow` 保留（`requireOwned` 还在用）。
+
+`summarizeQuietly` 的提示词从「概括这份学习材料」改成「概括这一章讲什么」，其余（失败返回 `null`、截 300 字）不动。
+
+**改动 6：`KnowledgeItemController` 三段**
+
+6a. 三个 record 换成四个（`CreateRequest` 只改 `content` 的 `@Size` 上限）：
+
+```java
+    public record CreateRequest(
+            @NotBlank(message = "title 不能为空")
+            @Size(max = 100, message = "文档名过长") String title,
+            @NotBlank(message = "content 不能为空")
+            @Size(max = 200000, message = "正文最多 20 万字") String content) {
+    }
+
+    public record SectionView(UUID knowledgeItemId, int sectionNo, String title, int chars, String summary) {
+    }
+
+    public record CreateResponse(String docTitle, List<SectionView> sections) {
+    }
+
+    public record SectionItem(UUID knowledgeItemId, int sectionNo, String title, int chars,
+                              String summary, String status) {
+    }
+
+    public record DocumentView(String docTitle, int sectionCount, int passedCount, List<SectionItem> sections) {
+    }
+
+    public record SectionDetail(UUID knowledgeItemId, String docTitle, int sectionNo, String title,
+                                int chars, String content) {
+    }
+```
+
+6b. `create` / `upload` 的返回体（`Location` 指向**第一章**，一份文档只给一个 `Location`）：
+
+```java
+    @PostMapping
+    public ResponseEntity<CreateResponse> create(@Valid @RequestBody CreateRequest req,
+                                                 HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        KnowledgeService.CreatedDocument created =
+                knowledgeService.createDocument(userId, req.title(), null, req.content());
+        return ResponseEntity.created(URI.create("/knowledge-items/" + created.sections().get(0).id()))
+                .body(toResponse(created));
+    }
+```
+
+`upload` 同样只换两行：`knowledgeService.create(...)` → `createDocument(...)`；返回体 → `toResponse(created)`。
+`documentTextExtractor.extract(...)` 那行不动。
+
+6c. `list` 换返回类型，并新增正文接口：
+
+```java
+    @GetMapping
+    public List<DocumentView> list(HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        return knowledgeService.listDocuments(userId).stream()
+                .map(doc -> new DocumentView(doc.docTitle(), doc.sectionCount(), doc.passedCount(),
+                        doc.sections().stream()
+                                .map(s -> new SectionItem(s.id(), s.sectionNo(), s.title(),
+                                        s.chars(), s.summary(), s.status()))
+                                .toList()))
+                .toList();
+    }
+
+    /** 章节正文。阅读页与"直接检测"之前都走这里。 */
+    @GetMapping("/{knowledgeItemId}")
+    public SectionDetail detail(@PathVariable UUID knowledgeItemId, HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        KnowledgeItemRow row = knowledgeService.requireOwned(knowledgeItemId, userId);
+        return new SectionDetail(row.id(), row.docTitle(), row.sectionNo(), row.title(),
+                row.content().length(), row.content());
+    }
+
+    private static CreateResponse toResponse(KnowledgeService.CreatedDocument created) {
+        return new CreateResponse(created.docTitle(), created.sections().stream()
+                .map(s -> new SectionView(s.id(), s.sectionNo(), s.title(), s.chars(), s.summary()))
+                .toList());
+    }
+```
+
+同时删掉 `PREVIEW_CHARS` 常量与 `preview(...)` 方法，`defaultTitle` 里的兜底文案「未命名资料」改成「未命名文档」。
+import 加 `com.lcz.aiagentstudy.model.KnowledgeItemRow`，删 `java.time.OffsetDateTime`。
+
+`/{knowledgeItemId}` 传非 UUID 时由已有的 `MethodArgumentTypeMismatchException` 处理器返回
+`400 {"message":"knowledgeItemId 不合法"}`，与 `/conversations/{id}/messages` 同一口径，不用额外写。
+
+**改动 7：`ProgressRepository.countMasteredItems` 换口径**（阶段 4 的文件）
+
+```java
+    /**
+     * 已掌握章节 = 该章节由主动测验（SELF_TEST）出的题"全部答过且最近一次都是 PASS"。
+     * 两道口径都不能省：
+     * - 只要有一道没答，就不是已掌握，否则资料页说「已通过」、待办说「还没测过」，两边打架；
+     * - REVIEW 会话复制出的题不参与，否则到期复习抽中已通过的章节，进度会周期性下降。
+     */
+    public int countMasteredItems(UUID userId) {
+        Integer n = jdbcTemplate.queryForObject("""
+                        with latest as (
+                            select distinct on (tr.question_id) tr.question_id, tr.verdict
+                              from t_test_record tr
+                             where tr.user_id = ?
+                             order by tr.question_id, tr.id desc
+                        ),
+                        quiz as (
+                            select q.id as question_id, q.knowledge_item_id
+                              from t_question q
+                              join t_message m      on m.id = q.message_id
+                              join t_conversation c on c.id = m.conversation_id
+                             where c.mode = 'SELF_TEST'
+                        ),
+                        per_item as (
+                            select qz.knowledge_item_id,
+                                   count(*) as total,
+                                   count(*) filter (where l.verdict = 'PASS') as passed
+                              from quiz qz
+                              join t_knowledge_item ki on ki.id = qz.knowledge_item_id
+                              left join latest l on l.question_id = qz.question_id
+                             where ki.user_id = ?
+                             group by qz.knowledge_item_id
+                        )
+                        select count(*) from per_item where total > 0 and total = passed
+                        """,
+                Integer.class, userId, userId);
+        return n == null ? 0 : n;
+    }
+```
+
+**改动 8：验收**
+
+新建 10 条用例已写进 [acceptance-log.md 阶段 1](./acceptance-log.md) 的 **1-10 ~ 1-19**，照着跑。
+跑之前必须先执行改动 1 的回填 `UPDATE`，否则 1-15 会看到 `doc_title` 为空的分组。
+
+**改完的自检顺序**（错了按这个顺序排查，不要跳）：
+
+```
+1. DocumentSplitterTest 5 条全绿            → 切分逻辑对不对
+2. 粘贴一份带 ## 的文档，看 201 响应的 sections  → 切分器接进 Controller 了没
+3. GET /knowledge-items 看分组与 status     → 计数 SQL 对不对
+4. GET /knowledge-items/{id}                 → 正文接口通不通
+5. 同名再传 → 400                            → 同名检查生效
+6. 跑一条 /quiz/generate（阶段 2 的代码没改） → 出题链路没被切章改动打断
+```
+
+第 6 步是关键：`QuizService`、`GradingService`、`AttemptStore`、`TodoService`、`ConversationService`
+**一行都不用改**，它们的回归就靠这一步一次确认。
+
+**本节之外还有 4 处仍按旧形态写**（技术债第 5 / 11 / 12 条已于 2026-10-23 随验收一并改掉）：
+
+| 位置                     | 旧写法                                         | 何时改            |
+| ------------------------ | ---------------------------------------------- | ----------------- |
+| 11 前端清单 ①            | `MaterialsView` 弹 `preview`、卡片上「考考我」 | 写前端前          |
+| 13.3 接口总表阶段 1 四行 | 少一个 `GET /knowledge-items/{id}`             | 阶段 1 验收通过后 |
+| 13.4 手工清理 SQL        | 按 `<资料id>` 删                               | 需要清库时        |
+| 10 阶段 7 第 1 步        | 「`preview` 可读」                             | 跑闭环前          |
 
 ***
 
@@ -824,8 +1563,8 @@ curl.exe -i -b "JSESSIONID=<你的>" -F "title=讲义第 1 章" -F "file=@讲义
 
 ### 4.1 契约
 
-| 方法 | 路径 | 请求 | 成功 |
-| --- | --- | --- | --- |
+| 方法 | 路径             | 请求                           | 成功                                                                                                                    |
+| ---- | ---------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | POST | `/quiz/generate` | `{"knowledgeItemId":"<uuid>"}` | `200 {"conversationId":"<uuid>","questions":[{"questionId":123,"kind":"FACT","target":"HNSW 的 m 参数","text":"..."}]}` |
 
 规则：
@@ -1452,16 +2191,16 @@ select name, status from t_knowledge_point
  {"questionId":3,"kind":"EXPLAIN","target":"HNSW 查询复杂度为何接近对数级","text":"假设听众只会 Python、没听过向量检索，请用自己的话讲清楚：为什么 HNSW 的查询在数据量大时接近对数级别，而不是线性扫描？"}]}
 ```
 
-| # | 断言 | 实测 |
-| --- | --- | --- |
-| 1 | `200`，3 个任务，至少 1 个 `EXPLAIN` | 通过（2 `FACT` + 1 `EXPLAIN`） |
-| 2 | `t_question` 3 行，`kind` 正确，`knowledge_item_id` 指向本资料 | 通过（id 1~3，全部指向 `12dda403-...`） |
-| 3 | `t_knowledge_point` 3 行 `CANDIDATE` | 通过 |
-| 4 | 会话 `mode = SELF_TEST`，消息 1 条 `USER` + 3 条 `ASSISTANT/QUESTION` | 通过（消息 id 54~57） |
-| 5 | 别人的资料或根本不存在的资料 → `403` | 通过：`403 {"message":"资料不存在或无权访问"}` |
-| 6 | 非法 UUID → `400` | 通过：`400 {"message":"请求体不合法"}` |
-| 7 | 未登录 → `401` | 通过 |
-| 8 | 人工看题：不泄露答案、不跑出材料、`EXPLAIN` 有听众设定 | 通过（3 题全部命中材料里的 m / ef_construction / 对数级复杂度） |
+| #   | 断言                                                                  | 实测                                                            |
+| --- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1   | `200`，3 个任务，至少 1 个 `EXPLAIN`                                  | 通过（2 `FACT` + 1 `EXPLAIN`）                                  |
+| 2   | `t_question` 3 行，`kind` 正确，`knowledge_item_id` 指向本资料        | 通过（id 1~3，全部指向 `12dda403-...`）                         |
+| 3   | `t_knowledge_point` 3 行 `CANDIDATE`                                  | 通过                                                            |
+| 4   | 会话 `mode = SELF_TEST`，消息 1 条 `USER` + 3 条 `ASSISTANT/QUESTION` | 通过（消息 id 54~57）                                           |
+| 5   | 别人的资料或根本不存在的资料 → `403`                                  | 通过：`403 {"message":"资料不存在或无权访问"}`                  |
+| 6   | 非法 UUID → `400`                                                     | 通过：`400 {"message":"请求体不合法"}`                          |
+| 7   | 未登录 → `401`                                                        | 通过                                                            |
+| 8   | 人工看题：不泄露答案、不跑出材料、`EXPLAIN` 有听众设定                | 通过（3 题全部命中材料里的 m / ef_construction / 对数级复杂度） |
 
 **本轮验不到的**：`retry` 重问分支（需要先有一道 `FAIL`/`PARTIAL`，阶段 3 才有判分）、
 注入最近 5 个 `VERIFIED` 知识点做类比（当前知识点全是 `CANDIDATE`）。这两条等阶段 3 跑完再补验。
@@ -1476,11 +2215,11 @@ select name, status from t_knowledge_point
 
 ### 5.1 三层结构
 
-| 层 | 判什么 | 谁来判 | 是否阻断 |
-| --- | --- | --- | --- |
-| 规则层 | 题数 = 3、字段非空、`kind` 合法、至少 1 个 `EXPLAIN`、`target` ≤40 字且不重复 | 代码 | 是（失败 ≤1 份材料） |
-| 语义层 | 题面是否泄露答案、是否超纲、`EXPLAIN` 是否给了听众 | AI 裁判（`dashScopeChatModel` 判 `deepSeekChatModel` 出的题） | 否，只写报告 |
-| 人工复审 | 确认 AI 判定是真泄露还是误报 | 人 | 决定改提示词还是改裁判 rubric |
+| 层       | 判什么                                                                        | 谁来判                                                        | 是否阻断                      |
+| -------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------- |
+| 规则层   | 题数 = 3、字段非空、`kind` 合法、至少 1 个 `EXPLAIN`、`target` ≤40 字且不重复 | 代码                                                          | 是（失败 ≤1 份材料）          |
+| 语义层   | 题面是否泄露答案、是否超纲、`EXPLAIN` 是否给了听众                            | AI 裁判（`dashScopeChatModel` 判 `deepSeekChatModel` 出的题） | 否，只写报告                  |
+| 人工复审 | 确认 AI 判定是真泄露还是误报                                                  | 人                                                            | 决定改提示词还是改裁判 rubric |
 
 **为什么不再用字符串锚点**：2026-10-22 第一版用 `answerAnchors` + `text.contains(anchor)` 判泄露，
 10 份材料只过 5/10，其中 3 条是误报 —— 锚点写的是**术语**（`Proxy`、`布隆过滤器`、`预主密钥`），
@@ -1544,10 +2283,10 @@ mvn -Dtest=QuizPromptEvalTest test
 
 ### 5.5 2026-10-22 实测（两轮）
 
-| 轮次 | 规则层 | 泄露 | 超纲 | 缺听众 | 说明 |
-| --- | --- | --- | --- | --- | --- |
-| 第一轮 | 10/10 | 6 | 1 | 1 | 裁判把「给出前提 / 反事实提问」也算泄露，人工复审判为口径错误 |
-| 第二轮 | 10/10 | 0 | 0 | 0 | 按「是否替用户说出答案主体」重写 rubric，同一批题全部合格 |
+| 轮次   | 规则层 | 泄露 | 超纲 | 缺听众 | 说明                                                          |
+| ------ | ------ | ---- | ---- | ------ | ------------------------------------------------------------- |
+| 第一轮 | 10/10  | 6    | 1    | 1      | 裁判把「给出前提 / 反事实提问」也算泄露，人工复审判为口径错误 |
+| 第二轮 | 10/10  | 0    | 0    | 0      | 按「是否替用户说出答案主体」重写 rubric，同一批题全部合格     |
 
 **人工复审的结论（口径修正）**：这个产品的唯一目的是让用户自己输出所学内容，
 题面给出前提、现象、反事实**不算泄露**；只有替用户说出「要输出的那个结论/数值/选择」才算泄露。
@@ -1567,10 +2306,10 @@ mvn -Dtest=QuizPromptEvalTest test
 
 ### 6.1 契约
 
-| 方法 | 路径 | 请求 | 成功 |
-| --- | --- | --- | --- |
-| POST | `/quiz/{questionId}/attempt` | `{"answer":"..."}` | `200 {"verdict","feedback","gaps","retryAllowed","stage","nextDueAt","attemptNo"}` |
-| POST | `/quiz/{questionId}/help` | `{"question":"我还是没懂 m 和 ef_construction 的区别"}` | `200 {"answer":"..."}` |
+| 方法 | 路径                         | 请求                                                    | 成功                                                                               |
+| ---- | ---------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| POST | `/quiz/{questionId}/attempt` | `{"answer":"..."}`                                      | `200 {"verdict","feedback","gaps","retryAllowed","stage","nextDueAt","attemptNo"}` |
+| POST | `/quiz/{questionId}/help`    | `{"question":"我还是没懂 m 和 ef_construction 的区别"}` | `200 {"answer":"..."}`                                                             |
 
 规则：
 
@@ -1583,14 +2322,14 @@ mvn -Dtest=QuizPromptEvalTest test
    作答接口不再接收 `askedForHelp` —— 前端不必自己维护标记，服务端以库为准。
 6. 排期规则：
 
-| verdict | 现有排期 | 新排期 |
-| --- | --- | --- |
-| `FAIL` | 任意 | 1 天后，`stage = 1`（重置阶梯） |
-| `PARTIAL` | 任意 | 3 天后，`stage = 1`（重置阶梯） |
-| `PASS` | 没有 / 已 `DONE` | 1 天后，`stage = 1` |
-| `PASS` | `stage = 1` | 3 天后，`stage = 3` |
-| `PASS` | `stage = 3` | 7 天后，`stage = 7` |
-| `PASS` | `stage = 7` | 不再排期（`status = 'DONE'`） |
+| verdict   | 现有排期         | 新排期                          |
+| --------- | ---------------- | ------------------------------- |
+| `FAIL`    | 任意             | 1 天后，`stage = 1`（重置阶梯） |
+| `PARTIAL` | 任意             | 3 天后，`stage = 1`（重置阶梯） |
+| `PASS`    | 没有 / 已 `DONE` | 1 天后，`stage = 1`             |
+| `PASS`    | `stage = 1`      | 3 天后，`stage = 3`             |
+| `PASS`    | `stage = 3`      | 7 天后，`stage = 7`             |
+| `PASS`    | `stage = 7`      | 不再排期（`status = 'DONE'`）   |
 
 **为什么不直接给答案**：`feedback` 和 `gaps` 只描述「缺了什么、哪一步跳了」，
 绝不复述正确答案。用户必须自己补上讲 —— 这是费曼式复述的核心，也是本产品与「AI 讲题」的分界线。
@@ -2002,30 +2741,30 @@ select name, status from t_knowledge_point where id = '<该题的 knowledge_poin
 
 **断言（这六条缺一条就是假验收）**：
 
-| 断言 | 验的是什么 |
-| --- | --- |
-| 糊答案拿到 `PARTIAL` / `FAIL`，且 `gaps` 非空 | 判分不是走过场；漏洞清单有内容 |
-| `feedback` 里**没有正确答案** | 「只挑漏洞、不给答案」这条产品承诺真的成立 |
-| 第二次作答 `attemptNo = 2` 且 `retryAllowed = false` | 补讲上限 1 次 |
-| 第三次作答返回 `400` 且提示「已经补讲过了」 | 上限是服务端强制的，不只是前端藏按钮 |
-| 同一 `question_id` 在 `t_review_schedule` 只有 1 行 | `ON CONFLICT (question_id)` 生效，没有「答一次排三条」 |
-| `/help` 后 `t_question.help_used = true`，且 `verdict` 不变 | 求助只记事实，不污染判分 |
+| 断言                                                        | 验的是什么                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------ |
+| 糊答案拿到 `PARTIAL` / `FAIL`，且 `gaps` 非空               | 判分不是走过场；漏洞清单有内容                         |
+| `feedback` 里**没有正确答案**                               | 「只挑漏洞、不给答案」这条产品承诺真的成立             |
+| 第二次作答 `attemptNo = 2` 且 `retryAllowed = false`        | 补讲上限 1 次                                          |
+| 第三次作答返回 `400` 且提示「已经补讲过了」                 | 上限是服务端强制的，不只是前端藏按钮                   |
+| 同一 `question_id` 在 `t_review_schedule` 只有 1 行         | `ON CONFLICT (question_id)` 生效，没有「答一次排三条」 |
+| `/help` 后 `t_question.help_used = true`，且 `verdict` 不变 | 求助只记事实，不污染判分                               |
 
 ### 6.9 2026-10-22 实测（`questionId = 1`，后端 8123）
 
-| 断言 | 实测 | 结论 |
-| --- | --- | --- |
-| 糊答案被判 `PARTIAL` / `FAIL`，`gaps` 非空 | `FAIL`，`gaps` 3 条，`retryAllowed=true`，`nextDueAt` = 次日 | 通过 |
-| `feedback` / `gaps` 里没有正确答案 | 首测 `gaps` 第 3 条写了「如 2m 这一常见设置」；改提示词后复测（`questionId=2`）4 条全部只描述缺口，无数值、无术语定义 | 首测不通过，**复测通过** |
-| 第二次作答 `attemptNo = 2`、`retryAllowed = false` | `PASS`，`stage=3`，`nextDueAt` = 3 天后 | 通过 |
-| 第三次作答 `400` | `400 {"message":"这道题已经补讲过了，等下次复习再讲"}` | 通过 |
-| `t_review_schedule` 一题一行 | 每题 1 行，`stage=3`、`status=PENDING` | 通过 |
-| `/help` 后 `help_used=true` 且不产生成绩 | `help_used=t`；`t_test_record` 里没有该题的行；知识点仍为 `CANDIDATE` | 通过 |
-| 空作答 | `400 {"message":"answer 不能为空"}` | 通过 |
-| 别人的题 | `403 {"message":"题目不存在或无权访问"}` | 通过 |
-| 未登录 | `401 {"message":"未登录"}` | 通过 |
-| `PASS` 把知识点升为 `VERIFIED` | 「HNSW 第 0 层邻居数」「ef_construction 的作用」两行变 `VERIFIED` | 通过 |
-| `VERIFIED` 注入下一次出题 | 新会话第 2 题：「假设听众只了解你已掌握的 **ef_construction** 和 **HNSW 第 0 层邻居数**，请用它们做类比」 | 通过 |
+| 断言                                               | 实测                                                                                                                  | 结论                     |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| 糊答案被判 `PARTIAL` / `FAIL`，`gaps` 非空         | `FAIL`，`gaps` 3 条，`retryAllowed=true`，`nextDueAt` = 次日                                                          | 通过                     |
+| `feedback` / `gaps` 里没有正确答案                 | 首测 `gaps` 第 3 条写了「如 2m 这一常见设置」；改提示词后复测（`questionId=2`）4 条全部只描述缺口，无数值、无术语定义 | 首测不通过，**复测通过** |
+| 第二次作答 `attemptNo = 2`、`retryAllowed = false` | `PASS`，`stage=3`，`nextDueAt` = 3 天后                                                                               | 通过                     |
+| 第三次作答 `400`                                   | `400 {"message":"这道题已经补讲过了，等下次复习再讲"}`                                                                | 通过                     |
+| `t_review_schedule` 一题一行                       | 每题 1 行，`stage=3`、`status=PENDING`                                                                                | 通过                     |
+| `/help` 后 `help_used=true` 且不产生成绩           | `help_used=t`；`t_test_record` 里没有该题的行；知识点仍为 `CANDIDATE`                                                 | 通过                     |
+| 空作答                                             | `400 {"message":"answer 不能为空"}`                                                                                   | 通过                     |
+| 别人的题                                           | `403 {"message":"题目不存在或无权访问"}`                                                                              | 通过                     |
+| 未登录                                             | `401 {"message":"未登录"}`                                                                                            | 通过                     |
+| `PASS` 把知识点升为 `VERIFIED`                     | 「HNSW 第 0 层邻居数」「ef_construction 的作用」两行变 `VERIFIED`                                                     | 通过                     |
+| `VERIFIED` 注入下一次出题                          | 新会话第 2 题：「假设听众只了解你已掌握的 **ef_construction** 和 **HNSW 第 0 层邻居数**，请用它们做类比」             | 通过                     |
 
 **已修缺陷（技术债第 25 条）**：`GradingService.SYSTEM_PROMPT` 原先只约束了 `feedback` 不给答案，
 `gaps` 可以把答案说出来。第 2 条已改为：
@@ -2043,20 +2782,20 @@ select name, status from t_knowledge_point where id = '<该题的 knowledge_poin
 
 ### 7.1 契约
 
-| 方法 | 路径 | 成功响应 |
-| --- | --- | --- |
-| GET | `/todos` | `200 {"items":[...]}`，见下 |
-| POST | `/review/start` | `200 {"conversationId","questions":[...]}`，与 `/quiz/generate` 同形 |
-| GET | `/progress` | `200 {"masteredItems","totalItems","streakDays","dueCount","weeks":[...]}` |
-| GET | `/quiz/conversations/{conversationId}` | `200 {"conversationId","questions":[{"questionId","kind","target","text","verdict"}]}` |
+| 方法 | 路径                                   | 成功响应                                                                               |
+| ---- | -------------------------------------- | -------------------------------------------------------------------------------------- |
+| GET  | `/todos`                               | `200 {"items":[...]}`，见下                                                            |
+| POST | `/review/start`                        | `200 {"conversationId","questions":[...]}`，与 `/quiz/generate` 同形                   |
+| GET  | `/progress`                            | `200 {"masteredItems","totalItems","streakDays","dueCount","weeks":[...]}`             |
+| GET  | `/quiz/conversations/{conversationId}` | `200 {"conversationId","questions":[{"questionId","kind","target","text","verdict"}]}` |
 
 **`/todos` 只返回三类，且只返回「现在能做的」**：
 
-| `type` | 含义 | `count` | `knowledgeItemId` | `conversationId` |
-| --- | --- | --- | --- | --- |
-| `REVIEW` | 已到期需要复习的题 | 到期题数 | `null`（一条汇总项） | `null` |
-| `RETRY` | 上次 `PARTIAL` / `FAIL`、没补讲、复习还没到期的题 | 题数 | 有 | `null`（点进去重新出题） |
-| `UNTESTED` | 已经出了但还没作答的题 | 题数 | 有 | 有（点进去继续那次测验） |
+| `type`     | 含义                                              | `count`  | `knowledgeItemId`    | `conversationId`         |
+| ---------- | ------------------------------------------------- | -------- | -------------------- | ------------------------ |
+| `REVIEW`   | 已到期需要复习的题                                | 到期题数 | `null`（一条汇总项） | `null`                   |
+| `RETRY`    | 上次 `PARTIAL` / `FAIL`、没补讲、复习还没到期的题 | 题数     | 有                   | `null`（点进去重新出题） |
+| `UNTESTED` | 已经出了但还没作答的题                            | 题数     | 有                   | 有（点进去继续那次测验） |
 
 - **没有资料的「开始学习」不在这里**。那是资料页的事；待办列表只列「已经欠下的动作」。
 - 到期复习**优先**：`REVIEW` 排第一。产品规则「到期了就别再练新题」靠前端把第一项置顶来体现。
@@ -2592,10 +3331,12 @@ curl.exe -b "JSESSIONID=<你的>" http://localhost:8123/api/todos
 
 # 2) 到期复习：先把某条排期改成已到期
 ```
+
 ```sql
 update t_review_schedule set due_at = now() - interval '1 day'
  where question_id = <questionId>;
 ```
+
 ```powershell
 curl.exe -i -b "JSESSIONID=<你的>" -X POST http://localhost:8123/api/review/start
 # 期望：200；2 道来自到期项（题面与原来相同）+ 1 道新题（来自另一份资料）；
@@ -2623,14 +3364,14 @@ curl.exe -b "JSESSIONID=<你的>" http://localhost:8123/api/quiz/conversations/<
 
 **断言**：
 
-| 断言 | 验的是什么 |
-| --- | --- |
-| `REVIEW` 只出现一条、`count = 到期题数` | 待办不是「按题罗列」，用户一眼知道欠多少 |
-| 复习会话里旧题的题面与新题**完全一致** | 「重问」是真的重问，不是重新生成一道相近的题 |
-| 旧排期行**只有一条**，且 `question_id` 已迁到新题 | 排期跟着题走，不产生重复排期 |
-| 复习答对后 `stage` 从 1 变 3 | 启动复习时没有把 `stage` 一起作废（所以不能提前标 `DONE`） |
-| `weeks` 长度恒为 8 | 前端不用处理缺周 |
-| 没有到期项时 `POST /review/start` 返回 400 | 不静默造一次空复习 |
+| 断言                                              | 验的是什么                                                 |
+| ------------------------------------------------- | ---------------------------------------------------------- |
+| `REVIEW` 只出现一条、`count = 到期题数`           | 待办不是「按题罗列」，用户一眼知道欠多少                   |
+| 复习会话里旧题的题面与新题**完全一致**            | 「重问」是真的重问，不是重新生成一道相近的题               |
+| 旧排期行**只有一条**，且 `question_id` 已迁到新题 | 排期跟着题走，不产生重复排期                               |
+| 复习答对后 `stage` 从 1 变 3                      | 启动复习时没有把 `stage` 一起作废（所以不能提前标 `DONE`） |
+| `weeks` 长度恒为 8                                | 前端不用处理缺周                                           |
+| 没有到期项时 `POST /review/start` 返回 400        | 不静默造一次空复习                                         |
 
 ***
 
@@ -2640,8 +3381,8 @@ curl.exe -b "JSESSIONID=<你的>" http://localhost:8123/api/quiz/conversations/<
 
 ### 8.1 契约
 
-| 方法 | 路径 | 请求 | 成功 |
-| --- | --- | --- | --- |
+| 方法 | 路径              | 请求                                                                        | 成功                               |
+| ---- | ----------------- | --------------------------------------------------------------------------- | ---------------------------------- |
 | POST | `/practice/guide` | `{"knowledgeItemId":"<uuid>","goal":"我想用它做个小工具"}`（`goal` 可省略） | `200 {"conversationId","content"}` |
 
 `content` 是一份**可执行的练习指引**：一个小任务、验收标准、常见坑、材料里对应的章节。
@@ -2831,10 +3572,10 @@ POST /ai/chat/stream
 {"conversationId":"...","message":"...","useRag":true,"useTools":false}
 ```
 
-| 字段 | 默认 | 作用 |
-| --- | --- | --- |
-| `useRag` | `false` | 检索该用户自己的资料（按 `userId` 元数据过滤），拼进上下文 |
-| `useTools` | `false` | 允许调用**安全工具集**（联网搜索 / 网页抓取 / 当前时间） |
+| 字段       | 默认    | 作用                                                       |
+| ---------- | ------- | ---------------------------------------------------------- |
+| `useRag`   | `false` | 检索该用户自己的资料（按 `userId` 元数据过滤），拼进上下文 |
+| `useTools` | `false` | 允许调用**安全工具集**（联网搜索 / 网页抓取 / 当前时间）   |
 
 **两个开关默认关**：默认路径仍是纯对话，成本最低、行为最可预测。前端把用户的选择记在本地。
 
@@ -2961,11 +3702,11 @@ import java.util.UUID;
 
 三个字段的边界：
 
-| 字段 | 谁能填 | 说明 |
-| --- | --- | --- |
-| `latency_ms` | 所有调用 | 必填，非流式 = 整次调用耗时；流式 = 从发请求到最后一个 chunk |
-| `first_token_ms` | 只有流式 | 首 token 到达时间，这是用户真正感知的「卡不卡」 |
-| `prompt_tokens` / `completion_tokens` | 能拿到 usage 的调用 | 拿不到就写 `NULL`，**不估算** |
+| 字段                                  | 谁能填              | 说明                                                         |
+| ------------------------------------- | ------------------- | ------------------------------------------------------------ |
+| `latency_ms`                          | 所有调用            | 必填，非流式 = 整次调用耗时；流式 = 从发请求到最后一个 chunk |
+| `first_token_ms`                      | 只有流式            | 首 token 到达时间，这是用户真正感知的「卡不卡」              |
+| `prompt_tokens` / `completion_tokens` | 能拿到 usage 的调用 | 拿不到就写 `NULL`，**不估算**                                |
 
 ### 9.7 `repository/AiCallRepository.java` + `service/AiCallRecorder.java`
 
@@ -3126,14 +3867,14 @@ public class AiCallRecorder {
 每个文件先加一个依赖字段 `private final AiCallRecorder aiCallRecorder;`（`@RequiredArgsConstructor` 会自动进构造器），
 再按下表改调用。**`entity()` 必须换成 `responseEntity()`**，否则拿不到 usage。
 
-| 文件 | 场景名 | 改法 |
-| --- | --- | --- |
-| [GradingService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `GRADE` | `grade(...)` 增加 `UUID userId` 首参；`entity` → `responseEntity` |
-| [HelpService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `HELP` | `answer(...)` 增加 `UUID userId` 首参；`content()` → `chatResponse()` |
-| [QuizService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `QUIZ_GENERATE` | `draft` / `draftOne` 增加 `UUID userId` 首参；`entity` → `responseEntity` |
-| [KnowledgeService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `SUMMARY` | `summarizeQuietly` 增加 `UUID userId` 首参；`content()` → `chatResponse()` |
-| [PracticeService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `PRACTICE` | `guide` 里 `content()` → `chatResponse()` |
-| [ChatService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `CHAT` | 流式：记首 token 与总时长 |
+| 文件                                                                              | 场景名          | 改法                                                                       |
+| --------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------- |
+| [GradingService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md)   | `GRADE`         | `grade(...)` 增加 `UUID userId` 首参；`entity` → `responseEntity`          |
+| [HelpService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md)      | `HELP`          | `answer(...)` 增加 `UUID userId` 首参；`content()` → `chatResponse()`      |
+| [QuizService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md)      | `QUIZ_GENERATE` | `draft` / `draftOne` 增加 `UUID userId` 首参；`entity` → `responseEntity`  |
+| [KnowledgeService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md) | `SUMMARY`       | `summarizeQuietly` 增加 `UUID userId` 首参；`content()` → `chatResponse()` |
+| [PracticeService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md)  | `PRACTICE`      | `guide` 里 `content()` → `chatResponse()`                                  |
+| [ChatService](file:///d:/code/Java/ai-agent-study/docs/mvp-backend-guide.md)      | `CHAT`          | 流式：记首 token 与总时长                                                  |
 
 **① `GradingService.grade` 换掉整段方法**
 
@@ -3810,20 +4551,20 @@ mvn -Dtest=RagEvalTest test
 
 **断言**：
 
-| 断言 | 验的是什么 |
-| --- | --- |
-| 开关全关时行为与改动前一致 | 没有破坏 ④格已验收的流式落库 |
-| `useRag=true` 的回答能引用材料原话 | 过滤表达式与元数据 key 对得上（`userId`） |
-| B 账号检索不到 A 的资料 | 用户隔离，向量库不是公共库 |
-| `useTools=true` 能答出当前时间 | 安全工具集真的被注册进去了 |
-| 只有 3 个工具（`chatTools`） | 服务器上能执行命令的 `TerminalOperationTool` 没被暴露 |
-| `t_ai_call` 里六种 `scene` 都能出现至少一次 | 六处调用点全接上了，没有漏 |
-| `CHAT` 行的 `first_token_ms` 有值 | 首 token 计时真的触发在第一个 chunk |
-| 流式行 `prompt_tokens` 为 `NULL` 时 `callsWithoutUsage` 会计数 | 没 usage 就是没 usage，没有拿估算值充数 |
-| 观测写库失败不影响聊天 | `AiCallRecorder.record` 吞异常只打日志 |
-| 预算调到 500 后保留条数明显变少 | 裁剪逻辑真的执行，配置真的注入 |
-| `GradingEvalTest` 稳定 ≥ 5/6、一致 ≥ 4/6 | 判分不是「每次说的都不一样」 |
-| `RagEvalTest` 命中 ≥ 4/5 | 检索链路（embedding → 检索 → 过滤）可用 |
+| 断言                                                           | 验的是什么                                            |
+| -------------------------------------------------------------- | ----------------------------------------------------- |
+| 开关全关时行为与改动前一致                                     | 没有破坏 ④格已验收的流式落库                          |
+| `useRag=true` 的回答能引用材料原话                             | 过滤表达式与元数据 key 对得上（`userId`）             |
+| B 账号检索不到 A 的资料                                        | 用户隔离，向量库不是公共库                            |
+| `useTools=true` 能答出当前时间                                 | 安全工具集真的被注册进去了                            |
+| 只有 3 个工具（`chatTools`）                                   | 服务器上能执行命令的 `TerminalOperationTool` 没被暴露 |
+| `t_ai_call` 里六种 `scene` 都能出现至少一次                    | 六处调用点全接上了，没有漏                            |
+| `CHAT` 行的 `first_token_ms` 有值                              | 首 token 计时真的触发在第一个 chunk                   |
+| 流式行 `prompt_tokens` 为 `NULL` 时 `callsWithoutUsage` 会计数 | 没 usage 就是没 usage，没有拿估算值充数               |
+| 观测写库失败不影响聊天                                         | `AiCallRecorder.record` 吞异常只打日志                |
+| 预算调到 500 后保留条数明显变少                                | 裁剪逻辑真的执行，配置真的注入                        |
+| `GradingEvalTest` 稳定 ≥ 5/6、一致 ≥ 4/6                       | 判分不是「每次说的都不一样」                          |
+| `RagEvalTest` 命中 ≥ 4/5                                       | 检索链路（embedding → 检索 → 过滤）可用               |
 
 ***
 
@@ -3834,18 +4575,18 @@ mvn -Dtest=RagEvalTest test
 
 ### 10.1 脚本（按顺序做，不要跳）
 
-| 步 | 动作 | 看什么 |
-| --- | --- | --- |
-| 1 | 上传一份你真的想学的材料（`.md` / `.pdf`） | `preview` 可读；`summary` 说得像人话 |
-| 2 | `POST /quiz/generate` | 3 个任务、至少 1 个 `EXPLAIN`；题面**没有答案** |
-| 3 | 第 1 题**故意答糊**（只说结论、跳过因果） | `verdict` = `PARTIAL` / `FAIL`；`gaps` 指出缺口而不是给答案 |
-| 4 | 对同一题**补讲一次**（把因果讲清） | `attemptNo = 2`；`retryAllowed = false`；`verdict` 上升 |
-| 5 | 把该题排期改成已到期（SQL） | 见 10.2 |
-| 6 | `GET /todos` | 出现 `REVIEW`，`count` 与到期题数一致 |
-| 7 | `POST /review/start` | 2 道重问的题面与第 3 步**逐字相同** + 1 道交错题 |
-| 8 | 答对复习题 | `stage` 从 1 → 3，`nextDueAt` ≈ 3 天后 |
-| 9 | `GET /progress` | `masteredItems` 只有在该资料下所有题都 PASS 后才 +1 |
-| 10 | `GET /metrics/summary` | 六种 `scene` 都出现；`CHAT` 有 `p95FirstTokenMs` |
+| 步  | 动作                                       | 看什么                                                      |
+| --- | ------------------------------------------ | ----------------------------------------------------------- |
+| 1   | 上传一份你真的想学的材料（`.md` / `.pdf`） | `preview` 可读；`summary` 说得像人话                        |
+| 2   | `POST /quiz/generate`                      | 3 个任务、至少 1 个 `EXPLAIN`；题面**没有答案**             |
+| 3   | 第 1 题**故意答糊**（只说结论、跳过因果）  | `verdict` = `PARTIAL` / `FAIL`；`gaps` 指出缺口而不是给答案 |
+| 4   | 对同一题**补讲一次**（把因果讲清）         | `attemptNo = 2`；`retryAllowed = false`；`verdict` 上升     |
+| 5   | 把该题排期改成已到期（SQL）                | 见 10.2                                                     |
+| 6   | `GET /todos`                               | 出现 `REVIEW`，`count` 与到期题数一致                       |
+| 7   | `POST /review/start`                       | 2 道重问的题面与第 3 步**逐字相同** + 1 道交错题            |
+| 8   | 答对复习题                                 | `stage` 从 1 → 3，`nextDueAt` ≈ 3 天后                      |
+| 9   | `GET /progress`                            | `masteredItems` 只有在该资料下所有题都 PASS 后才 +1         |
+| 10  | `GET /metrics/summary`                     | 六种 `scene` 都出现；`CHAT` 有 `p95FirstTokenMs`            |
 
 ### 10.2 改排期到期（模拟「过了 3 天」）
 
@@ -3901,14 +4642,14 @@ select name, status from t_knowledge_point where user_id = '<你的 userId>';
 
 按依赖顺序，每块前端只依赖它上面那一阶段的接口。**不要同时开三块**。
 
-| # | 页面 / 组件 | 路由 | 依赖接口 | 关键交互 |
-| --- | --- | --- | --- | --- |
-| ① | `MaterialsView.vue` | `/materials` | `GET /knowledge-items`、`POST /knowledge-items`、`POST /knowledge-items/upload` | 粘贴框 + 拖拽上传（`.md`/`.txt`/`.pdf`）；创建成功后弹出 `preview` 前 200 字，让用户确认「抽出来的字对不对」；**上传前前端先拦一次 <100 字与 >5 MB**（后端同文案见 3.2，别让用户传完才被打回）；卡片上两个按钮：「考考我」→ `/quiz/generate`、「怎么练」→ `/practice/guide` |
-| ② | `QuizView.vue` | `/quiz/:conversationId` | `GET /quiz/conversations/{id}`、`POST /quiz/{questionId}/attempt`、`POST /quiz/{questionId}/help` | 一屏一题；`EXPLAIN` 题显示听众设定；作答框下方「我卡住了，给点提示」→ 弹输入框调 `/help` 拿回答（不把答案塞进作答框）；提交后展示 `feedback` + `gaps` 清单；`retryAllowed` 为真时出现「我再讲一遍」 |
-| ③ | `TodoSidebar.vue` | 挂在 `/guide` 左侧栏，会话列表上方 | `GET /todos` | 三类分组；`REVIEW` 置顶且高亮；点 `REVIEW` → `/review`，点 `RETRY` → 调 `/quiz/generate`，点 `UNTESTED` → `/quiz/{conversationId}` |
-| ④ | `ProgressView.vue` | `/progress` | `GET /progress` | 三个数字卡 + 近 8 周柱状图；不做徽章、不做排行榜 |
-| ⑤ | `ChatRoom.vue` 改造 | `/guide/:conversationId` | `POST /ai/chat/stream` 加两个字段 | 输入框上方两个开关（检索我的资料 / 联网搜索），状态存 `localStorage`；请求体带上 `useRag` / `useTools` |
-| ⑥ | `MetricsView.vue` | `/metrics` | `GET /metrics/summary?days=7` | 六行场景表：调用次数 / 平均延迟 / P95 延迟 / P95 首 token / token 消耗 / 失败数；`callsWithoutUsage > 0` 的区域标注「流式调用未返回用量」；不做图表 |
+| #   | 页面 / 组件         | 路由                               | 依赖接口                                                                                          | 关键交互                                                                                                                                                                                                                                                                    |
+| --- | ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | `MaterialsView.vue` | `/materials`                       | `GET /knowledge-items`、`POST /knowledge-items`、`POST /knowledge-items/upload`                   | 粘贴框 + 拖拽上传（`.md`/`.txt`/`.pdf`）；创建成功后弹出 `preview` 前 200 字，让用户确认「抽出来的字对不对」；**上传前前端先拦一次 <100 字与 >5 MB**（后端同文案见 3.2，别让用户传完才被打回）；卡片上两个按钮：「考考我」→ `/quiz/generate`、「怎么练」→ `/practice/guide` |
+| ②   | `QuizView.vue`      | `/quiz/:conversationId`            | `GET /quiz/conversations/{id}`、`POST /quiz/{questionId}/attempt`、`POST /quiz/{questionId}/help` | 一屏一题；`EXPLAIN` 题显示听众设定；作答框下方「我卡住了，给点提示」→ 弹输入框调 `/help` 拿回答（不把答案塞进作答框）；提交后展示 `feedback` + `gaps` 清单；`retryAllowed` 为真时出现「我再讲一遍」                                                                         |
+| ③   | `TodoSidebar.vue`   | 挂在 `/guide` 左侧栏，会话列表上方 | `GET /todos`                                                                                      | 三类分组；`REVIEW` 置顶且高亮；点 `REVIEW` → `/review`，点 `RETRY` → 调 `/quiz/generate`，点 `UNTESTED` → `/quiz/{conversationId}`                                                                                                                                          |
+| ④   | `ProgressView.vue`  | `/progress`                        | `GET /progress`                                                                                   | 三个数字卡 + 近 8 周柱状图；不做徽章、不做排行榜                                                                                                                                                                                                                            |
+| ⑤   | `ChatRoom.vue` 改造 | `/guide/:conversationId`           | `POST /ai/chat/stream` 加两个字段                                                                 | 输入框上方两个开关（检索我的资料 / 联网搜索），状态存 `localStorage`；请求体带上 `useRag` / `useTools`                                                                                                                                                                      |
+| ⑥   | `MetricsView.vue`   | `/metrics`                         | `GET /metrics/summary?days=7`                                                                     | 六行场景表：调用次数 / 平均延迟 / P95 延迟 / P95 首 token / token 消耗 / 失败数；`callsWithoutUsage > 0` 的区域标注「流式调用未返回用量」；不做图表                                                                                                                         |
 
 **交接物只有一件事**：把每个接口**真实返回的 JSON 原文**发我（至少 1 条）。
 我按你的字段名写前端，不按本文档的命名猜 —— 你手敲时把 `retryAllowed` 写成 `canRetry` 都行，我照抄。
@@ -3921,34 +4662,35 @@ select name, status from t_knowledge_point where user_id = '<你的 userId>';
 
 ## 12. 技术债（明知不做，写在这里防止面试被问倒）
 
-| # | 债 | 为什么现在不还 | 触发还债的条件 |
-| --- | --- | --- | --- |
-| 1 | 出题与判分依赖 `entity()` 结构化输出，解析失败直接 500 | 先跑通、先有通过率数字 | 评测集通过率 < 70%，或线上出现 3 次解析失败 |
-| 2 | 流式 + 工具调用（`useTools=true`）未验证兼容性 | DeepSeek 的分片 `tool_calls` 行为要先实测 | 实测流不完整 → 改同步调用后转发 |
-| 3 | 一道题只记一个主知识点 | 产品上 `target` 就是一个名词短语 | 出现「一题多考点」的真实场景 |
-| 4 | 知识点只升不降：`FAIL` 不把 `VERIFIED` 降回 `CANDIDATE` | 降级会让「已掌握」反复跳变，误导用户 | 需要更细的掌握度分数时 |
-| 5 | PDF 正文不修排版（双栏 / 页眉页脚 / 公式都会留噪声） | 修排版是另一个量级的工作 | `preview` 显示明显不可读且用户真实反馈 |
-| 6 | 扫描件 PDF 不支持（无 OCR） | OCR 要额外依赖与模型 | 用户真的只有扫描件 |
-| 7 | 超长文档直接拒绝，不分片 | 分片涉及重叠、边界、去重 | 用户真实材料超过 5 万字 |
-| 8 | 上传的原文件不落盘，`source_url` 只存文件名 | 只存抽取后的文本已够出题 | 需要「下载原文」或「重新解析」 |
-| 9 | RAG 固定 `topK=5`，无重排、无相似度阈值调优 | 无评测集，调参等于凭感觉 | 有一个「检索命中」评测集 |
-| 10 | 复习一次只取 2 道到期题，其余顺延 | 产品规则就是一次 3 题 / 降认知负荷 | 用户积压严重时给「一次清空」 |
-| 11 | 交错题只出 1 道，且「另一份资料」是随机取的 | 知识网络的最小形态，不求准 | 需要按知识点距离选交错材料 |
-| 12 | 进度里的「已掌握资料」= 该资料下所有已出过的题都 `PASS` | 题只有 3 道，答对 3 道就点亮 | 每份材料题目数 > 5 时再校准 |
-| 13 | `PRACTICE` 会话的后续追问走通用聊天提示词 | 引导语只在首轮注入 | 用户反馈「练着练着又变成讲知识」 |
-| 14 | 出题会话的标题是「请考考我：<资料名>」，来自首条 USER 消息 | 复用既有派生标题逻辑，不新增字段 | 左侧列表的测验会话与聊天会话混得看不清 |
-| 15 | 连点两次「开始复习」会生成两套同一批题（排期行仍是 `PENDING`，会被再取一次） | 前端在请求返回前禁用按钮就能挡住正常用户 | 出现真实的重复复习数据 |
-| 16 | 复习会话中途放弃，排期行已迁到新题、`due_at` 仍停在过去 | 这样待办不会假装「已复习」，是诚实的状态 | 同一题被复制超过 3 次 |
-| 17 | 作答与判分只存 `t_test_record`，不写进 `t_message`（`ANSWER` / `FEEDBACK` 两个枚举值暂时没人用） | 测验页有自己的恢复接口 `/quiz/conversations/{id}`，不需要混进聊天记录；写进去反而会让左侧会话列表的聊天流里混着问答 | 需要在同一个会话里连续看到「题 → 答 → 判分」的完整时间线 |
-| 18 | 没有删除资料 / 作废题目的接口 | 个人项目，上传错材料或不想做的题直接跑 SQL 清理（见 13.4） | 要给别人用、或数据量大了再补接口 |
-| 19 | 流式聊天的 token 用量可能拿不到（DeepSeek 需 `stream_options.include_usage`），于是 `t_ai_call` 里 `CHAT` 行的 token 为 `NULL` | 不估算、不造假；延迟和首 token 仍然准确 | 需要精确按 token 计费时，改用非流式或直连 HTTP 客户端补参数 |
-| 20 | 上下文按「字符」而非「token」裁剪，`max-history-chars=8000` 只是近似 | 引入分词器要多一个依赖，收益在本项目规模下不明显 | 出现「明明没超预算却超上下文」的错误 |
-| 21 | 不做滚动摘要：早期对话直接被裁掉，不做压缩留存 | 每次压缩都要多一次模型调用，与降成本目标冲突 | 用户抱怨「AI 忘了很久以前说过的设定」 |
-| 22 | 评测只测「稳定性」和「检索命中」，不测回答正确性 | 判分没有客观标准答案，只能靠人工标注做参照 | 有第二个人愿意一起标注时才扩展 |
-| 23 | `t_ai_call` 只记生成调用，不记 RAG 的 embedding 调用 | embedding 走 `EmbeddingModel`，没有 `ChatResponse`，要单独埋点；且按字符计费、单次很便宜 | 需要把成本算到「每一分钱」时 |
-| 24 | 不引入 `com.itextpdf:bouncy-castle-adapter`，**带权限加密的 PDF 一律解析失败** | 目标场景是「用户自己整理好的讲义」，优先控制依赖体积；失败文案已覆盖（`PDF 解析失败，请确认文件未加密且格式正常`）。代价是出版社导出的、用阅读器能正常打开但带权限密码的 PDF 会被挡下。日志里 `BouncyCastleFactoryCreator` 的 ERROR 属于这一分支，不是崩溃 | 真实用户开始上传讲义并反馈被拒时，加 `bouncy-castle-adapter:9.1.0`（约 9 MB）即可解决 |
-| 25 | `gaps` 可能把答案说出来：`GradingService.SYSTEM_PROMPT` 只约束了 `feedback`，实测 `gaps` 出现过「如 2m 这一常见设置」 | **已修（2026-10-22）**：第 2 条改为「只描述缺了哪一环或哪一步没说清，可以给思考方向，不得出现数值、公式、术语定义、结论，也不要举例」；口径依据见 `product-spec.md` 第 6 节 | 每轮改提示词后，人工看一条 `FAIL` 响应的 `gaps` |
-| 26 | 「放弃的那一轮复习」没有出口：幂等分支只认最新一条 `REVIEW` 会话，只要其中有未作答题，`POST /review/start` 就一直返回那一轮，用户没法跳过 | 断网重试不丢题的价值更高，跳过会带来「到期题被无限推迟」的新问题；先接受「必须答完当前一轮」 | 用户抱怨被一道题卡住时，加「放弃本轮」（把该轮未答题的排期状态改掉，或给会话加 `abandoned_at`） |
+| #   | 债                                                                                                                                        | 为什么现在不还                                                                                                                                                                                                                                             | 触发还债的条件                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | 出题与判分依赖 `entity()` 结构化输出，解析失败直接 500                                                                                    | 先跑通、先有通过率数字                                                                                                                                                                                                                                     | 评测集通过率 < 70%，或线上出现 3 次解析失败                                                     |
+| 2   | 流式 + 工具调用（`useTools=true`）未验证兼容性                                                                                            | DeepSeek 的分片 `tool_calls` 行为要先实测                                                                                                                                                                                                                  | 实测流不完整 → 改同步调用后转发                                                                 |
+| 3   | 一道题只记一个主知识点                                                                                                                    | 产品上 `target` 就是一个名词短语                                                                                                                                                                                                                           | 出现「一题多考点」的真实场景                                                                    |
+| 4   | 知识点只升不降：`FAIL` 不把 `VERIFIED` 降回 `CANDIDATE`                                                                                   | 降级会让「已掌握」反复跳变，误导用户                                                                                                                                                                                                                       | 需要更细的掌握度分数时                                                                          |
+| 5   | PDF 正文不修排版（双栏 / 页眉页脚 / 公式都会留噪声）                                                                                      | 修排版是另一个量级的工作                                                                                                                                                                                                                                   | 章节摘要与阅读页明显不可读且用户真实反馈                                                        |
+| 6   | 扫描件 PDF 不支持（无 OCR）                                                                                                               | OCR 要额外依赖与模型                                                                                                                                                                                                                                       | 用户真的只有扫描件                                                                              |
+| 7   | 单节正文超过 12000 字时按句末标点硬切成多个章节，可能把一个论证切断                                                                       | 保「每章 ≤ 12000 字」优先，规则再细就要引入语义分段                                                                                                                                                                                                        | 用户反馈「题目考的是后半段，但前半段没读完」                                                    |
+| 8   | 上传的原文件不落盘，`source_url` 只存文件名                                                                                               | 只存抽取后的文本已够出题                                                                                                                                                                                                                                   | 需要「下载原文」或「重新解析」                                                                  |
+| 9   | RAG 固定 `topK=5`，无重排、无相似度阈值调优                                                                                               | 无评测集，调参等于凭感觉                                                                                                                                                                                                                                   | 有一个「检索命中」评测集                                                                        |
+| 10  | 复习一次只取 2 道到期题，其余顺延                                                                                                         | 产品规则就是一次 3 题 / 降认知负荷                                                                                                                                                                                                                         | 用户积压严重时给「一次清空」                                                                    |
+| 11  | 交错题只出 1 道，且「另一份文档」是随机取的                                                                                               | 知识网络的最小形态，不求准                                                                                                                                                                                                                                 | 需要按知识点距离选交错章节                                                                      |
+| 12  | 进度里的「已掌握章节」= 该章 `SELF_TEST` 题全部答过且最近一次全 `PASS`                                                                    | 一章只有 3 道题，口径已经比「答对一题就点亮」严得多                                                                                                                                                                                                         | 单章题目数 > 5 时再校准                                                                         |
+| 13  | `PRACTICE` 会话的后续追问走通用聊天提示词                                                                                                 | 引导语只在首轮注入                                                                                                                                                                                                                                         | 用户反馈「练着练着又变成讲知识」                                                                |
+| 14  | 出题会话的标题是「请考考我：<资料名>」，来自首条 USER 消息                                                                                | 复用既有派生标题逻辑，不新增字段                                                                                                                                                                                                                           | 左侧列表的测验会话与聊天会话混得看不清                                                          |
+| 15  | 连点两次「开始复习」会生成两套同一批题（排期行仍是 `PENDING`，会被再取一次）                                                              | 前端在请求返回前禁用按钮就能挡住正常用户                                                                                                                                                                                                                   | 出现真实的重复复习数据                                                                          |
+| 16  | 复习会话中途放弃，排期行已迁到新题、`due_at` 仍停在过去                                                                                   | 这样待办不会假装「已复习」，是诚实的状态                                                                                                                                                                                                                   | 同一题被复制超过 3 次                                                                           |
+| 17  | 作答与判分只存 `t_test_record`，不写进 `t_message`（`ANSWER` / `FEEDBACK` 两个枚举值暂时没人用）                                          | 测验页有自己的恢复接口 `/quiz/conversations/{id}`，不需要混进聊天记录；写进去反而会让左侧会话列表的聊天流里混着问答                                                                                                                                        | 需要在同一个会话里连续看到「题 → 答 → 判分」的完整时间线                                        |
+| 18  | 没有删除资料 / 作废题目的接口                                                                                                             | 个人项目，上传错材料或不想做的题直接跑 SQL 清理（见 13.4）                                                                                                                                                                                                 | 要给别人用、或数据量大了再补接口                                                                |
+| 19  | 流式聊天的 token 用量可能拿不到（DeepSeek 需 `stream_options.include_usage`），于是 `t_ai_call` 里 `CHAT` 行的 token 为 `NULL`            | 不估算、不造假；延迟和首 token 仍然准确                                                                                                                                                                                                                    | 需要精确按 token 计费时，改用非流式或直连 HTTP 客户端补参数                                     |
+| 20  | 上下文按「字符」而非「token」裁剪，`max-history-chars=8000` 只是近似                                                                      | 引入分词器要多一个依赖，收益在本项目规模下不明显                                                                                                                                                                                                           | 出现「明明没超预算却超上下文」的错误                                                            |
+| 21  | 不做滚动摘要：早期对话直接被裁掉，不做压缩留存                                                                                            | 每次压缩都要多一次模型调用，与降成本目标冲突                                                                                                                                                                                                               | 用户抱怨「AI 忘了很久以前说过的设定」                                                           |
+| 22  | 评测只测「稳定性」和「检索命中」，不测回答正确性                                                                                          | 判分没有客观标准答案，只能靠人工标注做参照                                                                                                                                                                                                                 | 有第二个人愿意一起标注时才扩展                                                                  |
+| 23  | `t_ai_call` 只记生成调用，不记 RAG 的 embedding 调用                                                                                      | embedding 走 `EmbeddingModel`，没有 `ChatResponse`，要单独埋点；且按字符计费、单次很便宜                                                                                                                                                                   | 需要把成本算到「每一分钱」时                                                                    |
+| 24  | 不引入 `com.itextpdf:bouncy-castle-adapter`，**带权限加密的 PDF 一律解析失败**                                                            | 目标场景是「用户自己整理好的讲义」，优先控制依赖体积；失败文案已覆盖（`PDF 解析失败，请确认文件未加密且格式正常`）。代价是出版社导出的、用阅读器能正常打开但带权限密码的 PDF 会被挡下。日志里 `BouncyCastleFactoryCreator` 的 ERROR 属于这一分支，不是崩溃 | 真实用户开始上传讲义并反馈被拒时，加 `bouncy-castle-adapter:9.1.0`（约 9 MB）即可解决           |
+| 25  | `gaps` 可能把答案说出来：`GradingService.SYSTEM_PROMPT` 只约束了 `feedback`，实测 `gaps` 出现过「如 2m 这一常见设置」                     | **已修（2026-10-22）**：第 2 条改为「只描述缺了哪一环或哪一步没说清，可以给思考方向，不得出现数值、公式、术语定义、结论，也不要举例」；口径依据见 `product-spec.md` 第 6 节                                                                                | 每轮改提示词后，人工看一条 `FAIL` 响应的 `gaps`                                                 |
+| 26  | 「放弃的那一轮复习」没有出口：幂等分支只认最新一条 `REVIEW` 会话，只要其中有未作答题，`POST /review/start` 就一直返回那一轮，用户没法跳过 | 断网重试不丢题的价值更高，跳过会带来「到期题被无限推迟」的新问题；先接受「必须答完当前一轮」                                                                                                                                                               | 用户抱怨被一道题卡住时，加「放弃本轮」（把该轮未答题的排期状态改掉，或给会话加 `abandoned_at`） |
+| 27  | `DocumentSplitter.chunks()` 每次切满 `SECTION_MAX`（12000），超长单节的尾块可能只有几十字，单独成一章；实测 31 节 × 12100 字被算成 62 章，整份文档因此撞上「30 章」上限被 `400` 拒绝 | 真实材料里单节超过 12000 字的情况很少（12100 字只出现在专为造超限而拼的测试文档里），为一个边界重启后端不划算；尾块本身不影响出题正确性                                                                                                                                                                     | 出现真实材料因碎片章被拒时，按 3.8「改动 2 补充」改 `chunks()`（3 行版：尾块 < `SECTION_MIN` 就并回上一块；严格版：按段数均分） |
 
 > 第 15、16 条是同一个取舍的两面：**排期在「点开复习」时就跟着题走了，而不是等答完再走**。
 > 好处是答完能正确递进、放弃不会丢账。原先的代价是重复触发会留下重复题，已用幂等解决：
@@ -3961,43 +4703,43 @@ select name, status from t_knowledge_point where user_id = '<你的 userId>';
 
 ### 13.1 接口总表
 
-| 阶段 | 方法 | 路径 | 一句话 |
-| --- | --- | --- | --- |
-| 1 | POST | `/knowledge-items` | 粘贴导入 |
-| 1 | POST | `/knowledge-items/upload` | 上传 `.md` / `.txt` / `.pdf` |
-| 1 | GET | `/knowledge-items` | 我的资料列表 |
-| 2 | POST | `/quiz/generate` | 从资料出 3 道题 |
-| 3 | POST | `/quiz/{questionId}/attempt` | 交作答、拿判分 |
-| 3 | POST | `/quiz/{questionId}/help` | 卡住时先答疑（记 `help_used`，不改判分） |
-| 4 | GET | `/todos` | 三类待办 |
-| 4 | POST | `/review/start` | 开始一次复习 |
-| 4 | GET | `/quiz/conversations/{conversationId}` | 测验页刷新恢复 |
-| 4 | GET | `/progress` | 三个数字 + 近 8 周 |
-| 5 | POST | `/practice/guide` | 生成练习指引（不判分） |
-| 6 | POST | `/ai/chat/stream` | 自由问答（`useRag` / `useTools`） |
-| 6 | GET | `/metrics/summary` | 近 N 天调用次数 / 延迟 / token |
+| 阶段 | 方法 | 路径                                   | 一句话                                   |
+| ---- | ---- | -------------------------------------- | ---------------------------------------- |
+| 1    | POST | `/knowledge-items`                     | 粘贴导入                                 |
+| 1    | POST | `/knowledge-items/upload`              | 上传 `.md` / `.txt` / `.pdf`             |
+| 1    | GET  | `/knowledge-items`                     | 我的资料列表                             |
+| 2    | POST | `/quiz/generate`                       | 从资料出 3 道题                          |
+| 3    | POST | `/quiz/{questionId}/attempt`           | 交作答、拿判分                           |
+| 3    | POST | `/quiz/{questionId}/help`              | 卡住时先答疑（记 `help_used`，不改判分） |
+| 4    | GET  | `/todos`                               | 三类待办                                 |
+| 4    | POST | `/review/start`                        | 开始一次复习                             |
+| 4    | GET  | `/quiz/conversations/{conversationId}` | 测验页刷新恢复                           |
+| 4    | GET  | `/progress`                            | 三个数字 + 近 8 周                       |
+| 5    | POST | `/practice/guide`                      | 生成练习指引（不判分）                   |
+| 6    | POST | `/ai/chat/stream`                      | 自由问答（`useRag` / `useTools`）        |
+| 6    | GET  | `/metrics/summary`                     | 近 N 天调用次数 / 延迟 / token           |
 
 ### 13.2 九张表各管一件事
 
-| 表 | 一行代表 | 谁写入 |
-| --- | --- | --- |
-| `t_knowledge_item` | 一份材料 | 阶段 1 |
-| `t_knowledge_point` | 一个知识点的掌握状态 | 阶段 2 建、阶段 3 升级 |
-| `t_question` | 一道题（含它取材于哪份材料） | 阶段 2、阶段 4 复习复制 |
-| `t_test_record` | 一次作答 + 结论 | 阶段 3 |
-| `t_review_schedule` | 一道题的下次复习时间 | 阶段 3 写、阶段 4 消耗 |
-| `t_ai_call` | 一次模型调用的耗时与用量 | 阶段 6（六处调用点） |
-| `t_conversation` / `t_message` | 一次会话 / 一条消息 | 已有实现 |
+| 表                             | 一行代表                     | 谁写入                  |
+| ------------------------------ | ---------------------------- | ----------------------- |
+| `t_knowledge_item`             | 一份材料                     | 阶段 1                  |
+| `t_knowledge_point`            | 一个知识点的掌握状态         | 阶段 2 建、阶段 3 升级  |
+| `t_question`                   | 一道题（含它取材于哪份材料） | 阶段 2、阶段 4 复习复制 |
+| `t_test_record`                | 一次作答 + 结论              | 阶段 3                  |
+| `t_review_schedule`            | 一道题的下次复习时间         | 阶段 3 写、阶段 4 消耗  |
+| `t_ai_call`                    | 一次模型调用的耗时与用量     | 阶段 6（六处调用点）    |
+| `t_conversation` / `t_message` | 一次会话 / 一条消息          | 已有实现                |
 
 ### 13.3 与其它文档的关系
 
-| 想知道 | 看 |
-| --- | --- |
-| 产品为什么这么设计、哪些不做 | [product-spec.md](./product-spec.md) |
-| 产品决策的来龙去脉、版本化修订 | [decision-log.md](./decision-log.md) |
-| 表设计的过程与（更早的）讨论 | [data-design.md](./data-design.md) |
-| 已完成 5 格纵切的实施细节 | [impl-log.md](./impl-log.md) |
-| 简历怎么写 | [resume-assets.md](./resume-assets.md) |
+| 想知道                         | 看                                     |
+| ------------------------------ | -------------------------------------- |
+| 产品为什么这么设计、哪些不做   | [product-spec.md](./product-spec.md)   |
+| 产品决策的来龙去脉、版本化修订 | [decision-log.md](./decision-log.md)   |
+| 表设计的过程与（更早的）讨论   | [data-design.md](./data-design.md)     |
+| 已完成 5 格纵切的实施细节      | [impl-log.md](./impl-log.md)           |
+| 简历怎么写                     | [resume-assets.md](./resume-assets.md) |
 
 > 9 张表里 `t_user` 不算在「各管一件事」的清单里，因为 `t_user` 只管账号本身，不参与学习闭环。
 
