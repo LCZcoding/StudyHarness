@@ -23,8 +23,10 @@ public class ProgressRepository {
     }
 
     /**
-     * 已掌握 = 该资料下"所有已出过的题，最近一次都是 PASS"。
-     * 用"全部通过"而不是"有一道通过"：后者答对一题就点亮整份资料，是不可信的进度。
+     * 已掌握章节 = 该章节由主动测验（SELF_TEST）出的题"全部答过且最近一次都是 PASS"。
+     * 两道口径都不能省：
+     * - 只要有一道没答，就不是已掌握，否则资料页说「已通过」、待办说「还没测过」，两边打架；
+     * - REVIEW 会话复制出的题不参与，否则到期复习抽中已通过的章节，进度会周期性下降。
      */
     public int countMasteredItems(UUID userId) {
         Integer n = jdbcTemplate.queryForObject("""
@@ -34,15 +36,22 @@ public class ProgressRepository {
                              where tr.user_id = ?
                              order by tr.question_id, tr.id desc
                         ),
+                        quiz as (
+                            select q.id as question_id, q.knowledge_item_id
+                              from t_question q
+                              join t_message m      on m.id = q.message_id
+                              join t_conversation c on c.id = m.conversation_id
+                             where c.mode = 'SELF_TEST'
+                        ),
                         per_item as (
-                            select q.knowledge_item_id,
+                            select qz.knowledge_item_id,
                                    count(*) as total,
                                    count(*) filter (where l.verdict = 'PASS') as passed
-                              from t_question q
-                              join t_knowledge_item ki on ki.id = q.knowledge_item_id
-                              left join latest l on l.question_id = q.id
+                              from quiz qz
+                              join t_knowledge_item ki on ki.id = qz.knowledge_item_id
+                              left join latest l on l.question_id = qz.question_id
                              where ki.user_id = ?
-                             group by q.knowledge_item_id
+                             group by qz.knowledge_item_id
                         )
                         select count(*) from per_item where total > 0 and total = passed
                         """,

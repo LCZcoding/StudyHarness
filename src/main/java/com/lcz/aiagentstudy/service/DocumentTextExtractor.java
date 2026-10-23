@@ -12,13 +12,13 @@ import java.util.Locale;
 
 /**
  * 把上传的文件转成纯文本。只管「字节 -> 文本」，不碰数据库、不碰 session。
- * 三条边界都在这里拒绝：扩展名不支持、抽不出字、太长。
+ * 两条边界：扩展名不支持、抽不出字。长度上限交给 `DocumentSplitter`」。
  */
 @Component
 public class DocumentTextExtractor {
 
     private static final int MIN_CHARS = 100;
-    private static final int MAX_CHARS = 50_000;
+//    private static final int MAX_CHARS = 50_000;
 
     public String extract(String filename, byte[] bytes) {
         String lower = (filename == null ? "" : filename).toLowerCase(Locale.ROOT);
@@ -36,9 +36,9 @@ public class DocumentTextExtractor {
             // 扫描件 PDF 抽出来是空串；这个判断同时兜住"传了个空文件"
             throw new BadRequestException("这个文件没有可提取的文字（PDF 可能是扫描件），请换成文字版或转成 .md");
         }
-        if (text.length() > MAX_CHARS) {
-            throw new BadRequestException("文档太长（约 " + text.length() + " 字），请拆分后分次导入");
-        }
+//        if (text.length() > MAX_CHARS) {
+//            throw new BadRequestException("文档太长（约 " + text.length() + " 字），请拆分后分次导入");
+//        }
         return text;
     }
 
