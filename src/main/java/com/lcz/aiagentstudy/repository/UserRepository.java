@@ -26,4 +26,11 @@ public class UserRepository {
 
     }
 
+    public UUID create(String username, String passwordHash) {
+        return jdbcTemplate.queryForObject("""
+                        insert into t_user (username, password_hash) values (?, ?) returning id
+                        """,
+                UUID.class, username, passwordHash);
+    }
+
 }

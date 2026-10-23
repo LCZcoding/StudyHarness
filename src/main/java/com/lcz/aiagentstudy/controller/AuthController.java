@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,4 +55,17 @@ public class AuthController {
         return ResponseEntity.noContent().build();  // 204
     }
 
+    public record RegisterRequest(
+            @NotBlank(message = "username 不能为空")
+            @Size(min = 2, max = 50, message = "用户名需 2~50 个字符") String username,
+            @NotBlank(message = "password 不能为空")
+            @Size(min = 6, max = 72, message = "密码需 6~72 个字符") String password) {}
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req, HttpSession session) {
+        UUID userId = authService.register(req.username(), req.password());
+        // 注册即登录：直接写 session，前端不用再调一次 /auth/login
+        session.setAttribute(SessionKeys.USER_ID, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("userId", userId.toString()));
+    }
 }
