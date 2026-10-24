@@ -2310,6 +2310,7 @@ mvn -Dtest=QuizPromptEvalTest test
 | ---- | ---------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | POST | `/quiz/{questionId}/attempt` | `{"answer":"..."}`                                      | `200 {"verdict","feedback","gaps","retryAllowed","stage","nextDueAt","attemptNo"}` |
 | POST | `/quiz/{questionId}/help`    | `{"question":"我还是没懂 m 和 ef_construction 的区别"}` | `200 {"answer":"..."}`                                                             |
+| POST | `/quiz/{questionId}/skip`    | 无请求体                                                | `200 {"nextDueAt":"..."}`（自测题无排期时该字段为 `null`）                          |
 
 规则：
 
@@ -2320,7 +2321,10 @@ mvn -Dtest=QuizPromptEvalTest test
 4. 判分成功且非 `FAIL` → 该题的知识点升为 `VERIFIED`。
 5. **求助先回答**（`/help`），回答后把 `t_question.help_used` 置 `true`；该题在复习队列里排前面。
    作答接口不再接收 `askedForHelp` —— 前端不必自己维护标记，服务端以库为准。
-6. 排期规则：
+6. **跳过**（`/skip`）：把 `t_question.skipped` 置 `true`，不写 `t_test_record`；该题不再出现在本轮未答列表里。
+   若该题有 `PENDING` 排期，`due_at` 推后 1 天（仍 `PENDING`，不标 `DONE`）；没有排期的自测题只跳过、返回 `nextDueAt=null`。
+   已作答的题跳过返回 `400 {"message":"这道题已经作答，不能跳过"}`。
+7. 排期规则：
 
 | verdict   | 现有排期         | 新排期                          |
 | --------- | ---------------- | ------------------------------- |
@@ -4009,11 +4013,13 @@ String answer = helpService.answer(userId, question.material(), question.text(),
 
 **④ `KnowledgeService.summarizeQuietly`**
 
+> `create(...)` 已在阶段 1 切章时废弃（现在只剩注释），真正调用摘要的是 `createDocument`。
+> 所以这一步只改 `summarizeQuietly` 的签名与内部，不改 `create`。
+
 ```java
-    public CreatedItem create(UUID userId, String title, String sourceUrl, String content) {
-        String summary = summarizeQuietly(userId, content);
-        // ……原逻辑不变
-    }
+    // 调用处（createDocument 循环里）：把 userId 往下传
+    String summary = summarizeQuietly(userId, section.content());
+    // ……其余原逻辑不变
 
     private String summarizeQuietly(UUID userId, String content) {
         long startedAt = aiCallRecorder.start();
@@ -4044,7 +4050,12 @@ String answer = helpService.answer(userId, question.material(), question.text(),
 > 注意：`recordCall` 要在 `return` 之前执行。如果摘要为空直接 `return null`，这一行已经记过了，
 > 不能把「模型正常返回空串」误记成失败。
 
-**⑤ `PracticeService.guide` 里换掉调用两行**
+**⑤ `PracticeService.guide`：把 `.call().content()` 拆成计时 + 调用 + 记账 + 取文本**
+
+> 只改一处：现在第 47 行那一句 `String content = client.prompt()... .call().content();`。
+> `.content()` 是快捷方法，取完文本就把 `ChatResponse` 丢了；换成 `.chatResponse()` 才能拿到 usage，
+> 代价是文本要自己从 `response.getResult().getOutput().getText()` 取（也就是下面第 ⑤ 步）。
+> `userId` 不用新加参数，`guide(UUID userId, ...)` 本来就有。
 
 ```java
         long startedAt = aiCallRecorder.start();

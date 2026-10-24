@@ -68,6 +68,8 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 1-17 | 越权读章节正文 | 第二个账号 `user2` 取第一个账号的章节 id `f1e0d203-d1e1-424a-ab43-3832cee678b6` | `403 {"message":"资料不存在或无权访问"}`；`user2` 自己的 `GET /knowledge-items` 返回 `[]` | 同上 | `403 {"message":"资料不存在或无权访问"}` | `curl.exe -s -w " %{http_code}" -b "$d\c2.txt" $B/knowledge-items/f1e0d203-d1e1-424a-ab43-3832cee678b6` | 通过（注册接口上线后可验，`user2` 为手工注册账号） |
 | 1-18 | 章节 id 不是 UUID | `/knowledge-items/abc` | `400 {"message":"knowledgeItemId 不合法"}` | 同上 | `400`，不是 `500` | `curl.exe -s -w " %{http_code}" -b "$d\cookies.txt" $B/knowledge-items/abc` | 通过 |
 | 1-19 | 历史资料回填 | 回填 SQL 已执行 | 列表里历史 3 条（`hnsw` / `HNSW 参数` / `TCP 三次握手`）各自成为单章文档，没有 `doc_title` 为空的分组 | 查库 | 原各行 `doc_title=title`、`section_no=1` | 跑 1-15 观察分组 | API 层通过（库内两列是否真回填未验：本次无 `psql` 凭据，`findAllByUserId` 用 `coalesce` 兜底，空列也不会暴露） |
+| 1-20 | 三态 `PASSED`（补 1-15 未覆盖项） | 《JUC》第 1 章 `7a7acf52…`（704 字）出 3 题（25/26/27），3 题各答一次 | `POST /quiz/generate` 返回题 25/26/27；三次 `POST /quiz/{id}/attempt` 均 `PASS`、`attemptNo=1`、`gaps=[]`；`GET /knowledge-items` 中该章 `PASSED`、`passedCount=1`；同文档第 7 章因 3 题未答为 `IN_PROGRESS` | `GET /knowledge-items` | 3 题全 `PASS` 后章节为 `PASSED` 且 `passedCount` 加 1 | 出题→逐题作答→查列表 | 通过（三态 `NOT_STARTED` / `IN_PROGRESS` / `PASSED` 全部覆盖） |
+| 1-21 | 超长单节均分切块（复测 1-12） | 2 节 × 12220 字、31 节 × 12220 字的上传各一次 | 两节版 `201`，切出 4 章：`6106 / 6136 / 6097 / 6136`，不再有 100~200 字残段；31 节版 `400 {"message":"文档切分后超过 30 章（当前 62 章），请拆分后分次上传"}` | `POST /knowledge-items/upload` | 均分切块后无碎片章，超 30 章仍拒绝 | 改 `DocumentSplitter.chunks()` 后重启；`-F "file=@splitA.md"` / `-F "file=@splitB.md"` | 通过（修复前同样输入切出 `11999 + 234`，说明必须重启才生效） |
 
 **阶段 2 / 阶段 4 回归（切章改动后同批跑，确认没打断旧链路）**
 
@@ -166,6 +168,7 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 6-17 | 幂等复测：连点两次 | `POST /review/start` 连续两次（q10~q12 均未作答，`due_at` 已被推到未来） | 两次都返回 `conversationId=2c2aae00`、`questionId` 10/11/12；`t_question` 15 行不变、`REVIEW` 会话 2 条不变；耗时 0.74s / 0.38s（无模型调用） | `POST /review/start` | 同一轮、同一批题、不新增行 | 两次执行 `curl.exe -s -b "$d\cookies.txt" -X POST $B/review/start`，中间查 `select count(*) from t_question;` | 通过（已修 6-8） |
 | 6-18 | 幂等复测：答 1 道再点 | q10 答 PASS 后立刻 `POST /review/start` | 返回同一会话 `2c2aae00`，只剩 q11、q12 两道未答题 | 同上 | 只返回未答题，不复制 | 先 `--data-binary "@$d\ans10.json" $B/quiz/10/attempt`，再 POST | 通过 |
 | 6-19 | 幂等复测：答完再点 | q11、q12 也答完后 POST | `400 {"message":"现在没有到期需要复习的题"}`，`t_question` 仍 15 行 | 同上 | `400` + 该文案 | 答完 q11/q12 后 POST | 通过 |
+| 6-20 | 跳过出口（2026-10-24 新增） | 对第 1 章出 3 题（q28/q29/q30），把 q28/q29 排期改到昨天，`POST /review/start` 生成 q31/q32，然后 `POST /quiz/31/skip`、`POST /quiz/32/skip` | 两次均 `200 {"nextDueAt":"2026-10-25T07:47:3x Z"}`（排期推后 1 天、仍 `PENDING`）；`GET /quiz/conversations/20d273f7` 两题 `verdict="SKIPPED"`；再 `POST /review/start` 返回 `400 {"message":"现在没有到期需要复习的题"}`，循环被打断；已作答的 q30 跳过返回 `400 {"message":"这道题已经作答，不能跳过"}`；`user2` 跳过 q31 返回 `403 {"message":"题目不存在或无权访问"}` | `POST /quiz/{questionId}/skip` | 跳过不产生成绩、本轮不再等它、排期顺延 1 天、无权/已作答各有独立 4xx | 出题 → `psql -c "insert into t_review_schedule (user_id,question_id,stage,due_at) values (..., now()-interval '1 day');"` → `POST /review/start` → 两次 skip → 查会话 → 再 start | 通过（重复跳过返回 400 的守卫已加进 `QuizService.skip`，需重启后复测） |
 
 **6-8 为什么不一致**：`ReviewScheduleRepository.moveQuestion` 只改 `question_id`，**`due_at` 刻意不动**（该类注释写明「保持 PENDING、due_at 不动」，为了让中途放弃的题仍然算欠着）。所以刚启动复习的 q10/q11 依然「已到期」，第二次点根本走不到「没有到期项」分支。7.10 步骤 3 的期望没有错，错在缺少前置条件——必须先让到期题不再到期（答完自动重排 3 天，或手工把 `due_at` 推到未来）。
 
@@ -192,31 +195,79 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 5-6 | 非法 UUID | `{"knowledgeItemId":"abc"}` | `400 {"message":"请求体不合法"}` | 同上 | `400`，不是 `500` | `--data-binary "@$d\p6.json"` | 通过 |
 | 5-7 | 会话与消息落库 | — | 两个 `conversationId` 的 `mode` 均为 `PRACTICE`，各 2 条消息（`USER`/`ASSISTANT`，`type=CHAT`） | 查库 | 1 个会话 + 2 条消息 | `select id,mode,(select count(*) from t_message m where m.conversation_id=c.id) from t_conversation c where c.id in ('b3e60350…','d0c0d148…');` | 通过 |
 | 5-8 | 不产生成绩 | — | `t_test_record` 命中 0 行 | 查库 | 必须是 0 —— 证明「不判分」不是嘴上说说 | `select count(*) from t_test_record tr where tr.question_id in (select q.id from t_question q join t_message m on m.id=q.message_id where m.conversation_id in ('b3e60350…','d0c0d148…'));` | 通过 |
+| 5-9 | 超长材料截断分支（`MATERIAL_LIMIT=8000`） | 对 JUC 第 1 章（704 字）和第 2 章（11988 字）各跑一次 `/practice/guide` | 两次都 `200`；`t_ai_call` 里 `PRACTICE` 的 `prompt_tokens` 分别为 `679` 和 `4526`。长章是短章的 6.7 倍，而不是字数比的 17 倍；4526 ≈ 系统提示词 ~600 + 8000 字截断后的 ~3900，与「截到 8000 字」吻合（若不截断应约 6300） | `POST /practice/guide` | 长材料只送前 8000 字 | 两个章节各请求一次，再查 `select prompt_tokens from t_ai_call where scene='PRACTICE' order by id desc;` | 通过 |
 
 > 查库输出的中文在 PowerShell 控制台会显示成乱码（`鎴戞兂…`），那是 `psql` 的控制台编码问题，接口返回的 JSON 中文正常，不影响结论。
 > 5-7 / 5-8 用到的两个 `conversationId` 是 5-1、5-2 本次产生的；查库需先设 `$env:PGPASSWORD`，再执行 `"D:\PostgreSQL\bin\psql.exe" -h 72.155.89.172 -U postgres -d ai_agent_study -c "<SQL>"`。
 
 ***
 
-## 8. 模型表现记录（不是功能验收）
+## 8. 阶段 6：观测埋点与汇总
+
+验收日期 2026-10-24，账号 `lcz`。起点 `t_ai_call` 为 0 行，六种场景各触发一次。
+
+| # | 场景 / 问题 | 输入 | 实际响应 | 接口 | 期望 | 复现方法 | 结论 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 6-1 | 六种场景都落一行 | 依次跑 `PRACTICE`、`QUIZ_GENERATE`、`GRADE`、`HELP`、`SUMMARY`、`CHAT` | 6 行，`scene` 各不相同，各 1 次，`failed=0` | 六个业务接口 | 六种 `scene` 一个不缺、无重复 | `psql -c "select scene,count(*) from t_ai_call group by scene;"` | 通过 |
+| 6-2 | 非流式 usage 齐全 | 同 6-1 五条非流式调用 | 实测 `prompt/completion`：`GRADE 4412/44`、`HELP 4035/62`、`SUMMARY 3548/73`、`PRACTICE 3095/705`、`QUIZ_GENERATE 5368/160`，`calls_without_usage=0` | — | 五条都有 token 数 | 同 6-1 | 通过 |
+| 6-3 | 流式只记首 token | `POST /ai/chat/stream` 一句话 | `first_token_ms=946`、`latency_ms=2219`、`prompt_tokens=NULL` | 同上 | `first_token_ms` 有值、usage 为 `NULL` | 同 6-1 | 通过（符合技术债 19 的口径） |
+| 6-4 | 汇总接口 | `?days=7` | `totalCalls=6`、`totalPromptTokens=20458`、`totalCompletionTokens=1044`、`failedCalls=0`、`callsWithoutUsage=1`；`CHAT` 有 `p95FirstTokenMs=946`，其余五项 `null` | `GET /metrics/summary` | 六行场景 + 汇总字段与 6-1 一致 | `curl.exe -s -b "$d\cookies.txt" "$B/metrics/summary?days=7"` | 通过 |
+| 6-5 | 用户隔离 | `user2` 调汇总 | `{"scenes":[],"totalCalls":0,…}` | 同上 | 看不到 `lcz` 的 6 行 | 用 `user2` 的 Cookie 重跑 6-4 | 通过 |
+| 6-6 | 未登录 | 不带 Cookie | `401 {"message":"未登录"}` | 同上 | `401` | 不带 `-b` | 通过 |
+| 6-7 | `days` 边界 | `days=0` / `days=91` / `days=abc` | `400 days 必须在 1 到 90 之间` / 同左 / `400 days 不合法` | 同上 | 三种都 `400` 且不是 `500` | 换 `?days=` 重跑 6-4 | 通过 |
+| 6-8 | `useRag` 开关是否真的检索 | 同一问题分别以 `useRag=false` / `true` 各问一次：「我上传的《并发编程测试》第 1 节里，讲锁的部分提到哪些具体概念？只列你从我资料里看到的。」 | 两次回答含义相同，均为「看不到你上传的文件内容，无法列出」；`vector_store` 共 15 行，全部是旧 `love_app` 演示文档（`metadata` 只有 `title`/`category`/`filename`），**没有任何一行带 `userId` 元数据** | `POST /ai/chat/stream` | 开 RAG 后回答应引用章节正文 | 两个 `FREE_CHAT` 会话各发一次，再 `psql -c "select count(*) from vector_store;"` 与 `select metadata from vector_store limit 3;` | **不通过**（复测见 6-9 ~ 6-12） |
+| 6-9 | 上传即入向量库 | 上传两节小文档《RAG回归验证》 | `201`，`vector_store` 从 0 行变 1 行：`id=cd756751…`（等于 `knowledgeItemId`）、`metadata={"title":"RAG回归验证","userId":"008e1d32…"}`、`length(content)=2866` | `POST /knowledge-items` | 章节落库同时写向量，`metadata` 带 `userId` | 上传后 `psql -c "select id,metadata,length(content) from vector_store;"` | **复测通过** |
+| 6-10 | `useRag` 开与关的差别 | 同一问题：「我上传的《RAG回归验证》里，corePoolSize 和 maxPoolSize 的关系是怎么说的？只按我材料里的说法回答。」 | 关：回答「看到你提到文件名，没看到正文内容，不能编造」；开：逐字引用「**corePoolSize 决定常驻线程数量，队列满后才扩容到 maxPoolSize**」，并说明「材料里只有这一句」 | `POST /ai/chat/stream` | 开 RAG 时引用原文，关时明确说看不到 | 同一会话连发两次，只改 `useRag` | 通过 |
+| 6-11 | 跨用户隔离 | `user2` 开 `useRag` 问同一问题 | 回答「你提供的 Context 区域是空的，我没有看到《RAG回归验证》里的任何内容，所以无法按材料回答」 | 同上 | 检索不到 `lcz` 的向量行 | 用 `user2` 的 Cookie 重跑 6-10 的开启版 | 通过（`filterExpression` 生效） |
+| 6-12 | `useTools` 能拿到实时时间 | `useTools=true` 问「现在几点了？只告诉我当前时间。」 | 回答 `2026-10-24 10:42:56`，本机实际时间 `2026-10-24 10:42:57` | 同上 | 时间与当前时间一致（`DateTimeTool` 被调用） | 创建 `FREE_CHAT` 会话后发一次 | 通过 |
+| 6-13 | 聊天可见的工具只有 3 个 | 读代码 | [ToolRegistration.java:76-82](file:///d:/code/Java/ai-agent-study/src/main/java/com/lcz/aiagentstudy/tools/ToolRegistration.java#L76-L82) 的 `chatTools` 只注册 `WebSearchTool` / `WebScrapingTool` / `DateTimeTool` | — | 不含 `TerminalOperationTool` 等有副作用的工具 | 静态确认 | 通过 |
+| 6-14 | 观测写库失败不影响聊天 | `alter table t_ai_call rename to t_ai_call_bak;` 后发一条聊天 | `200`，正常流式输出「线程池的作用是：预先创建并复用一组线程…」；表恢复后 `t_ai_call` 仍是 13 行，**没有新增** | `POST /ai/chat/stream` | 聊天照常返回，观测只丢一行 | 改表名 → 发消息 → 改回表名 | 通过（`AiCallRecorder` 吞异常生效） |
+| 6-15 | 注释掉非流式 RAG 接口后仍可编译 | 注释 `LoveApp.doChatWithRag` 后 `mvn -DskipTests compile` | 无输出，退出码 0 | — | 编译通过 | `mvn -q -DskipTests compile` | 通过 |
+| 6-16 | 长章节向量化不再超 token 上限 | 前端上传《JUC》（8 章），其中 3 章分别为 `11988` / `11960` / `9596` 字 | **修复前**：这三章各报一次 `Tokens in a single document exceeds the maximum number of allowed input tokens`，资料落库但无向量；**修复后**：8 章全部入库，`vector_store` 共 71 行，每章块数恰好等于 `ceil(字数/1000)`（13/13/13/10/13/10/5/6），日志无 WARN | `POST /knowledge-items/upload` | 任何长度的章节都能完成向量化 | 上传后 `psql -c "select metadata->>'knowledgeItemId',count(*) from vector_store group by 1;"` | 通过（修法见 [KnowledgeService.java](file:///d:/code/Java/ai-agent-study/src/main/java/com/lcz/aiagentstudy/service/KnowledgeService.java#L157-L219)：1000 字一块、10 条一批、每块独立 UUID） |
+| 6-17 | RAG 召回真实章节原文 | `useRag=true` 问：「`Executors.newScheduledThreadPool` 的核心线程数默认是多少？可能带来什么风险？」 | 回答里直接引用 Context 原文：`Context（你给的材料）里对 newScheduledThreadPool 只提了一句——「核心线程数默认无界」`，并围绕该句展开引导 | `POST /ai/chat/stream` | 回答引用该章正文，而不是泛泛而谈 | 创建 `FREE_CHAT` 会话（`8962a4b4`）后发一次 | 通过（71 条向量中只有 `lcz` 自己的章节，`userId` 过滤同时生效） |
+| 6-18 | 上下文预算生效（8000） | 在 `FREE_CHAT` 会话 `c3e1f1c1` 连发 12 轮，每轮 750 字 | 日志出现 5 次 `聊天历史按预算裁剪`，最后几条为 `保留 13/14 条，7701 字符`、`保留 12/16 条，7758 字符`、`保留 11/18 条，7252 字符`、`保留 11/20 条，7436 字符`、`保留 11/22 条，7647 字符`，均 ≤ 8000 | `POST /ai/chat/stream` | 历史超过 8000 字符时裁剪，且保留量贴着预算 | 连发 12 轮后 `Select-String "$env:TEMP\aiagent-backend.log" -Pattern '聊天历史按预算裁剪'` | 通过（需要 `com.lcz.aiagentstudy.chatmemory: DEBUG`，`application.yml` 已配） |
+| 6-19 | 预算改 500 后保留条数下降 | 把 `app.ai.context.max-history-chars` 改成 `500`，重启，在新会话 `adb5c282` 发 3 轮、每轮 750 字 | 日志：`保留 1/2 条，430 字符（预算 500）`、`保留 1/4 条，276 字符（预算 500）`；保留条数从 11~13 掉到 1 | 同上 | 预算变小后保留条数明显变少，证明配置真的注入 | 改配置 → 重启 → 发 3 轮 → 查日志 | 通过（验完已改回 8000 并重启） |
+| 6-20 | 失败调用落行 `success=false` | mock `deepSeekChatModel` 抛 `RuntimeException("mock-ai-down")`，走一次真实 `PracticeService.guide` | `guide` 按预期抛出同一异常；`t_ai_call` 新增一行：`scene=PRACTICE`、`success=false`、`error_code=RuntimeException`、`prompt_tokens=null` | — | 失败必须落行且带错误类型 | `mvn -Dtest=FailedCallRecordingTest test`（`@Transactional`，跑完回滚） | 通过（`Tests run: 1, Failures: 0`） |
+
+> 6-16 / 6-17 在本次验收中重建了向量库：先 `delete from vector_store where metadata->>'userId'='008e1d32…'`、再 `delete from t_knowledge_item where doc_title='JUC'`，然后重新上传。旧版向量（整章一条）已全部清空，`vector_store` 现在只存 1000 字粒度的块。
+
+**6-8 的根因（这段是当时推断，已被 6-9 ~ 6-12 的复测修正，保留原文以便对照）**
+
+- 当时怀疑 `app.pgvector.enabled` 未生效，导致 [PgVectorStoreConfig.java](file:///d:/code/Java/ai-agent-study/src/main/java/com/lcz/aiagentstudy/rag/PgVectorStoreConfig.java#L32-L34) 的 `pgVectorStore` bean 没创建。
+- [LoveApp.java](file:///d:/code/Java/ai-agent-study/src/main/java/com/lcz/aiagentstudy/app/LoveApp.java#L168-L169) 的 `loveAppVectorStore` 是 `@Autowired(required = false)`，bean 缺失时为 `null`，`useRag && loveAppVectorStore != null` 直接短路，**不报错、不告警，静默跳过检索**。
+- [KnowledgeService.indexQuietly](file:///d:/code/Java/ai-agent-study/src/main/java/com/lcz/aiagentstudy/service/KnowledgeService.java#L162-L167) 的 `vectorStore == null` 分支与 `catch (Exception)` 分支都只打 warn，所以「没入库」和「入库失败」在接口上表现完全一样。
+- **补正**：`app.pgvector.enabled: true` 实际写在 `application.yml` 里，不是 `application-local.yml`。复测时清空旧数据、注释掉启动自动灌库并重启后，同样的上传立刻写入了带 `userId` 的向量行，因此当时更可能是**运行中的实例仍是开关打开之前启动的**（配置改了没重启），而不是键名写错。原始三行保留，用来记录「静默降级让排查只能靠查库」这件事。
+
+> 6-9 那份《RAG回归验证》写了两个 `##` 标题，但只切出 1 章（2866 字）：两节各约 1433 字，低于 3000 字下限，按 `DocumentSplitter` 的合并规则并成了一章。这是设计预期，不是切分 bug。
+
+> 6-4 的 `CHAT` 行 `promptTokens=0` 是 `coalesce(sum(...),0)` 的结果，不是「零消耗」。前端渲染时该列要显示 `—`，并靠 `callsWithoutUsage` 说明原因。
+> 代码层面已确认 `recordCall` 在取文本之前执行，所以「模型正常返回空串」不会落到 `failedCalls`；本次摘要非空，该分支未被真正触发。
+
+***
+
+## 9. 模型表现记录（不是功能验收）
 
 | # | 场景 / 问题 | 提示词 | AI 回复 | 期望 | 复现方法 | 结论 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 7-1 | 出题评测第 1 轮（10 份跨领域材料） | `QuizService.SYSTEM_PROMPT` 第 1 版 | 5/10 通过；失败 5 条里 4 条是字符串锚点误报（`Proxy`、`布隆过滤器`、`预主密钥`） | ≥7/10 | `mvn -Dtest=QuizPromptEvalTest test` | 不通过，判定为评测规则有缺陷 |
 | 7-2 | 出题评测第 2 轮（改用 AI 裁判 + 规则层） | 第 2 版提示词 | 规则层 10/10；裁判 0 条泄露、0 条超纲、0 条缺听众 | 规则层 10/10，语义告警人工复核 | 同上，报告在 `target/quiz-eval-report.md` | 通过（人工复审口径见本节末） |
 | 7-3 | 判分措辞 | `GradingService.SYSTEM_PROMPT` 第 1 版 | `gaps` 给出 `2m` | 不给数值 | 见 3-2 | 不通过，已修 |
+| 7-4 | 判分评测（`GradingEvalTest`，2026-10-24） | `GradingService.SYSTEM_PROMPT` 当前版，6 组用例各跑 3 次 | 控制台：`判分评测：稳定 5/6，与人工标注一致 4/6，不稳定=[HNSW 的分层结构 / PASS]`；`Tests run: 1, Failures: 0`，`BUILD SUCCESS` | 稳定 ≥5/6、一致 ≥4/6（测试断言阈值） | `mvn -Dtest=GradingEvalTest test` | 通过，但只到阈值下沿：一致率 4/6，`HNSW 的分层结构` 三次判分有一次跳出 `PASS`。判分稳定性是模型能力边界，不是接线问题 |
+| 7-5 | RAG 评测（`RagEvalTest`，2026-10-24） | 测试类自带的 5 条语料（HNSW / 距离度量 / 文本分片 / 重排 / IVFFlat），写入独立 `rag-eval-user`，5 个问题各查 topK=5 | 控制台：`RAG 评测：命中 5/5`；`Tests run: 1, Failures: 0`，`BUILD SUCCESS`；跑完 `vector_store` 回到 `71` 行、`1` 个用户，说明 `finally` 里的 `delete(ids)` 生效 | 命中 ≥4/5（测试断言阈值） | `mvn -Dtest=RagEvalTest test` | 通过（此前的「语料绑死 love_app」判断有误：语料在测试类里硬编码，与线上库无关） |
 
 **语义判定口径（人工复审用）**：题面是否替用户说出了「用户本来要输出的那个答案」。
 点名概念、给前提或现象、反事实提问都不算泄露；直接给出结论、数值、选择才算。
 
 ***
 
-## 9. 未覆盖与待验
+## 10. 未覆盖与待验
 
 | 项 | 为什么没验 | 什么时候补 |
 | --- | --- | --- |
 | 扫描件 PDF | 用户明确跳过 | 需要 OCR 时 |
-| `PASSED` 章节三态 | 需要同一章 3 题全部判 `PASS`，本次只验到 `NOT_STARTED` / `IN_PROGRESS` | 前端阅读页联调时一起验 |
-| 超长单节均分切块 | 3.8「改动 2 补充」尚未改 `chunks()`，1-12 的碎片章问题待复测 | 改完 `chunks()` 后复测 1-12 |
-| 阶段 5 超长材料截断 | `PracticeService.MATERIAL_LIMIT = 8000`，本次两份材料只有 404 / 90 字，没触发 `……（材料已截断）` 分支 | 拿一份超过 8000 字的章节跑一次 5-1 |
 | `PRACTICE` 会话后续追问 | 本阶段只做首轮生成，没验证「接着追问会走通用聊天提示词」（技术债 13） | 前端练习对话页联调时 |
+| P95 的分位行为 | 每个场景样本仍少，`percentile_cont(0.95)` 退化成一个普通值，等于没验分位数 | 同一场景攒够 20 行以上再抽查一次 |
+| 旧章节回填向量 | `indexQuietly` 只在写入时调用；2026-10-24 已清空全部测试资料，旧章节不必回填 | 如需导入非本次上传的历史资料，再写一次性回填 |
+
+> 2026-10-24 补齐并移出待验表的有：`PASSED` 三态（1-20）、超长单节均分切块（1-21）、
+> 阶段 5 材料截断（5-9）、上下文预算（6-18 / 6-19）、失败调用落行（6-20）、`RagEvalTest`（7-5）。

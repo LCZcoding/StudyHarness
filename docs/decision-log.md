@@ -198,6 +198,25 @@
 - **改动 7 · 进度指标改名**：「已掌握资料数」改为「已掌握章节数」，口径按改动 2。
 - **否决项留档**：不做预览切分结果再确认、不保存阅读进度、不做章节目录树、不加手动重新生成摘要的接口。
 
+**版本化修订 ④（2026-10-23）——模型调用观测的实现方式：显式 `AiCallRecorder`，不用 Spring AOP / Spring AI Advisor**
+
+> 本节是技术选型，不是产品决策；记录是为了避免阶段 6 写到一半再返工重议。
+
+- **做法**：每个调用点显式写 `long t0 = aiCallRecorder.start()` → 原调用 → `recordCall / recordFailure / recordStream`。
+- **否决 Spring AOP（`@Around` + 自定义注解）**：切面省掉的只是「计时 + 写库」两行，而观测真正需要的三样数据切面拿不到：
+  `userId`（`GradingService.grade` 的参数里没有用户，用 `args[0]` 按约定取等于把参数顺序当契约）、
+  `prompt_tokens` / `completion_tokens`（usage 在 `ChatResponse.getMetadata()` 里，切面拿到的是方法返回的
+  `Grading` / `String`，`ChatResponse` 已在方法内部丢失）、流式的首 token 与总时长（`@Around` 在方法返回 `Flux`
+  的瞬间就结束，那时还没有一个 chunk 发出）。
+- **否决 Spring AI Advisor（`CallAdvisor` / `StreamAdvisor`）**：这是与本次需求对应的框架机制
+  （项目已有 `MyLoggerAdvisor` 可参考），能直接读 usage 并包住流式，但 `scene` 与 `userId` 仍要在每个调用点
+  通过 `.advisors(a -> a.param(...))` 传入，改动量与显式写法相当，且五个 `ChatClient.builder` 都要改成带统一
+  advisor 的写法。
+- **理由**：本项目五个调用点都要改方法签名（加 `UUID userId`）并换 `responseEntity()`，显式版的改动范围已经确定；
+  面试时「调用前后各取一个纳秒时间戳」一句可讲清，切面方案会被追问切点与身份透传，解释成本更高。
+- **重议条件**：调用点增加到 10 处以上，或需要在不改方法签名的情况下跨服务统计时，再评估 Spring AI Advisor。
+- **顺带**：若只想练 AOP，用在 Controller 接口耗时日志上，与 `t_ai_call` 分开，不混入观测数据链路。
+
 ***
 
 ## 待办
