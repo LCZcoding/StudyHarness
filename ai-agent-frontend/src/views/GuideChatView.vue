@@ -29,10 +29,10 @@
     <ChatRoom
       class="room"
       theme="guide"
-      title="AI 问题引导解决助手"
-      ai-name="引导助手"
+      title="授人以渔"
+      ai-name="渔"
       user-name="我"
-      ai-avatar="AI"
+      ai-avatar="渔"
       user-avatar="我"
       stream-mode="token"
       :chat-id="chatId"
@@ -41,10 +41,10 @@
       :history-messages="historyMessages"
       :resolve-chat-id="ensureChatId"
       placeholder="说出你卡住的地方…"
-      idle-text="在线，随时为你答疑"
-      streaming-text="正在梳理思路，引导你一步步解决…"
-      greeting="你好，我是你的问题引导解决助手"
-      greeting-sub="无论是报错排查、代码问题还是概念学习，我们一起找到答案"
+      idle-text="在听，说说你卡在哪"
+      streaming-text="正在挑你思路里的漏洞…"
+      greeting="授人以鱼，不如授人以渔"
+      greeting-sub="这里不直接给答案。你把思路讲出来，讲不清的地方回原文重看。"
       :suggestions="suggestions"
       @done="onRoundDone"
     >
@@ -287,11 +287,12 @@ function formatTime(iso) {
   })
 }
 
+// 引导语刻意写成"我先讲、你来挑"，而不是"帮我做"——第一句话就定下这间屋子里的分工
 const suggestions = [
-  '我的代码报错了，帮我理一下排查思路',
-  '讲讲什么是线程池，我该从哪学起？',
-  '这个报错我不认识，该去哪查官方文档？',
-  '帮我判断这段配置哪里可能有问题'
+  '线程池核心数怎么定？我先说我的理解，你看对吗',
+  '这段报错我猜是空指针，你帮我验证这个判断',
+  '我用自己的话讲一遍 AQS，哪里讲错了直接说',
+  '这个配置我改了但没生效，帮我列排查顺序'
 ]
 </script>
 

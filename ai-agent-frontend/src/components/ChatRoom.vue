@@ -127,7 +127,7 @@ const props = defineProps({
   useTools: { type: Boolean, default: false },
   idleText: { type: String, default: '在线' },
   streamingText: { type: String, default: '正在输入…' },
-  greeting: { type: String, default: '你好，我是你的 AI 助手' },
+  greeting: { type: String, default: '说说你卡在哪' },
   greetingSub: { type: String, default: '' },
   suggestions: { type: Array, default: () => [] }
 })
