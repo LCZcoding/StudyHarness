@@ -22,7 +22,7 @@
         <div class="card-inner">
           <span class="emoji"><BrandMark /></span>
           <h2>授人以渔</h2>
-          <p>不替你答，让你自己讲。</p>
+          <p>不直接给答案，先给方向。</p>
           <ul class="feats">
             <li>把你自己的资料切成章节</li>
             <li>每章 3 道题，答完判你讲清楚没有</li>
