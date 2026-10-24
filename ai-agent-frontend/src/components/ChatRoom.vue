@@ -49,7 +49,7 @@
                     <span class="step-badge">Step {{ seg.num }}</span>
                     <span class="step-text">{{ seg.text }}</span>
                   </div>
-                  <div v-else class="text-seg">{{ seg.text }}</div>
+                  <div v-else class="text-seg md" v-html="renderMarkdown(seg.text)"></div>
                 </template>
               </template>
               <template v-else-if="m.content">{{ m.content }}</template>
@@ -93,6 +93,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { streamChat } from '../api/chatStream.js'
+import { renderMarkdown } from '../utils/markdown.js'
 
 const props = defineProps({
   // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
@@ -684,6 +685,121 @@ onBeforeUnmount(closeSource)
   white-space: pre-wrap;
   word-break: break-word;
   margin-bottom: 10px;
+}
+/* markdown 渲染后是块级元素，不能再保留 pre-wrap，否则列表与代码块的换行会多出一层 */
+.text-seg.md {
+  white-space: normal;
+  line-height: 1.78;
+}
+/* 气泡内的 markdown：只做「读得舒服」的排版，不改主题色 */
+.text-seg.md :deep(p) {
+  margin: 0 0 10px;
+}
+.text-seg.md :deep(p:last-child),
+.text-seg.md :deep(ul:last-child),
+.text-seg.md :deep(ol:last-child),
+.text-seg.md :deep(pre:last-child) {
+  margin-bottom: 0;
+}
+.text-seg.md :deep(h1),
+.text-seg.md :deep(h2),
+.text-seg.md :deep(h3),
+.text-seg.md :deep(h4) {
+  margin: 16px 0 8px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+}
+.text-seg.md :deep(h1) { font-size: 18px; }
+.text-seg.md :deep(h2) { font-size: 16.5px; }
+.text-seg.md :deep(h3) { font-size: 15px; }
+.text-seg.md :deep(h4) { font-size: 14.5px; }
+.text-seg.md :deep(h1:first-child),
+.text-seg.md :deep(h2:first-child),
+.text-seg.md :deep(h3:first-child) {
+  margin-top: 2px;
+}
+.text-seg.md :deep(strong) {
+  color: var(--text);
+  font-weight: 700;
+}
+.text-seg.md :deep(em) {
+  color: var(--muted);
+}
+.text-seg.md :deep(ul),
+.text-seg.md :deep(ol) {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.text-seg.md :deep(li) {
+  margin: 4px 0;
+}
+.text-seg.md :deep(li > p) {
+  margin: 0;
+}
+/* 行内代码与代码块分开处理：行内不能有外框，代码块才需要横向滚动 */
+.text-seg.md :deep(code) {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: rgba(148, 163, 184, 0.12);
+  font-family: 'IBM Plex Mono', 'Noto Sans SC', monospace;
+  font-size: 13px;
+}
+.text-seg.md :deep(pre) {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(8, 14, 20, 0.55);
+  overflow-x: auto;
+}
+.text-seg.md :deep(pre code) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 12.8px;
+  line-height: 1.65;
+}
+.text-seg.md :deep(blockquote) {
+  margin: 0 0 10px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+}
+.text-seg.md :deep(table) {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.text-seg.md :deep(th),
+.text-seg.md :deep(td) {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.text-seg.md :deep(th) {
+  color: var(--text);
+  font-weight: 700;
+}
+.text-seg.md :deep(hr) {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.text-seg.md :deep(a) {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text-seg.md :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
 }
 .text-seg:last-child {
   margin-bottom: 0;

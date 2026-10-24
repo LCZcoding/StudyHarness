@@ -933,3 +933,21 @@ RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md)
 两次运行 `console errors` 均为空。附带发现：对话页引用 Google Fonts，离线时 `fonts.gstatic.com` 请求失败会回退系统字体，不影响功能。
 接口契约已同步到 [`api-chat-stream.md`](./api-chat-stream.md) §2.1。
 
+**补充（同日）：AI 回答按 markdown 渲染**
+
+改前 `.text-seg` 是 `white-space: pre-wrap` 的纯文本，模型输出的 `**加粗**`、`| 表格 |`、``` 代码块 ``` 全按原文吐出来。
+
+| 位置 | 改动 |
+| --- | --- |
+| `ai-agent-frontend/src/utils/markdown.js`（新增） | `marked`（GFM + `breaks`）解析 → `DOMPurify.sanitize` 过滤；链接统一补 `target="_blank"` 与 `rel="noopener noreferrer"` |
+| [`ChatRoom.vue`](../ai-agent-frontend/src/components/ChatRoom.vue) | 文本段改 `v-html="renderMarkdown(seg.text)"`；`.text-seg.md` 去掉 `pre-wrap`，并补标题 / 列表 / 行内代码 / 代码块 / 表格 / 引用 / 分隔线样式 |
+
+安全取舍：模型输出属于不可信内容，直接 `v-html` 会把 `&lt;img onerror=...&gt;` 变成脚本；因此必须过 DOMPurify，
+不能只用 `marked` 自带的 HTML 透传。`Step N` 段落仍按纯文本渲染，保持与最终回答的视觉区分。
+
+验证（Playwright，界面提问要求输出表格 + java 代码块 + 要点）：`.text-seg.md` 内 `table` 1 个、`pre` 1 个、
+`strong` 2 个、`li` 2 个，正文不含 `**` 与 `|---` 残留；375px `scrollWidth == clientWidth == 375`；`console errors=[]`。
+
+依赖：`marked@18.1.1`、`dompurify`。`npm audit` 的两条告警来自 devDependency `vite`→`esbuild`（开发服务器跨域读取问题），
+与本轮新增依赖无关，且预览/生产构建不使用 dev server，暂不升级。
+
