@@ -2,12 +2,15 @@ package com.lcz.aiagentstudy.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -41,8 +44,11 @@ public class GradingService {
     private record GradingDraft(String verdict, String feedback, List<String> gaps) {
     }
 
-    public Grading grade(String material, String target, String kind, String question,
-                         String answer) {
+    // 只新增这一行；deepSeekChatModel 原本就有
+    private final AiCallRecorder aiCallRecorder;
+
+    public Grading grade(UUID userId, String material, String target, String kind,
+                         String question, String answer) {
         ChatClient client = ChatClient.builder(deepSeekChatModel).defaultSystem(SYSTEM_PROMPT).build();
 
         String userMessage = "材料：\n" + truncate(material)
@@ -51,7 +57,18 @@ public class GradingService {
                 + "\n题目：" + question
                 + "\n\n用户的作答：\n" + answer;
 
-        GradingDraft draft = client.prompt().user(userMessage).call().entity(GradingDraft.class);
+        long startedAt = aiCallRecorder.start();
+        ResponseEntity<ChatResponse, GradingDraft> result;
+        try {
+            result = client.prompt().user(userMessage).call().responseEntity(GradingDraft.class);
+        } catch (RuntimeException e) {
+            aiCallRecorder.recordFailure(userId, "GRADE", startedAt, e);
+            throw e;
+        }
+        aiCallRecorder.recordCall(userId, "GRADE", startedAt, result.getResponse());
+
+        GradingDraft draft = result.getEntity();
+        // ↓ 从这里开始与原来一致，不用改
         if (draft == null || draft.verdict() == null) {
             throw new IllegalStateException("判分失败，请重试");
         }

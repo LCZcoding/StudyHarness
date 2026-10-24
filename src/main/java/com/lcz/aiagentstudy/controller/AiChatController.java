@@ -31,7 +31,9 @@ public class AiChatController {
     public record StreamRequest(
             @NotNull(message = "conversationId 不能为空") UUID conversationId,
             @NotBlank(message = "message 不能为空")
-            @Size(max = 4000, message = "message 过长") String message) {
+            @Size(max = 4000, message = "message 过长") String message,
+            Boolean useRag,
+            Boolean useTools) {
     }
 
     // 身份校验(401) → 归属校验(403) → 开流
@@ -49,7 +51,10 @@ public class AiChatController {
         SseEmitter emitter = new SseEmitter(180000L); // 3分钟超时,创建一个 SSE 响应对象。
 
         // 保存 Disposable（订阅句柄），用于断连时取消订阅
-        Disposable subscription = chatService.stream(conversationId, req.message())
+        Disposable subscription = chatService.stream(
+                        conversationId, req.message(), userId,
+                        Boolean.TRUE.equals(req.useRag()),
+                        Boolean.TRUE.equals(req.useTools()))
                 .subscribe(// 订阅 Flux 数据流
                         chunk -> {// 大模型每生成一个字/词，就会触发一次。
                             try {

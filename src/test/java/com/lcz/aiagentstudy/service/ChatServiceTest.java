@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -49,12 +51,14 @@ class ChatServiceTest {
     @Test
     void stream_accumulatesChunksAndSavesOnComplete() {
         // 模型分两片吐出来；ChatService 必须把两片拼成一整句才落库
-        when(loveApp.doChatByStream(anyString(), anyString())).thenReturn(Flux.just("答", "案"));
+        when(loveApp.doChatByStream(anyString(), anyString(), any(), anyBoolean(), anyBoolean()))
+                .thenReturn(Flux.just("答", "案"));
 
-        UUID conversationId = newConversation(newUser("t-stream-" + UUID.randomUUID()));
+        UUID userId = newUser("t-stream-" + UUID.randomUUID());
+        UUID conversationId = newConversation(userId);
 
         // Flux 是懒的：不消费（不 subscribe）就一行回调都不会跑，落库也不会发生
-        chatService.stream(conversationId, "问题").collectList().block();
+        chatService.stream(conversationId, "问题", userId, false, false).collectList().block();
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT role, content FROM t_message WHERE conversation_id = ? ORDER BY id",

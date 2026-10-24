@@ -4,6 +4,7 @@ import com.lcz.aiagentstudy.model.KnowledgeItemRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class PracticeService {
     private final ChatModel deepSeekChatModel;
     private final KnowledgeService knowledgeService;
     private final PracticeStore practiceStore;
+    private final AiCallRecorder aiCallRecorder;
 
     public PracticeStore.Guide guide(UUID userId, UUID knowledgeItemId, String goal) {
         KnowledgeItemRow item = knowledgeService.requireOwned(knowledgeItemId, userId);
@@ -44,11 +46,23 @@ public class PracticeService {
         ChatClient client = ChatClient.builder(deepSeekChatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .build();
-        String content = client.prompt().user(userMessage).call().content();
+//        String content = client.prompt().user(userMessage).call().content();
+        long startedAt = aiCallRecorder.start();
+        ChatResponse response;
+        try {
+            response = client.prompt().user(userMessage).call().chatResponse();
+        } catch (RuntimeException e) {
+            aiCallRecorder.recordFailure(userId, "PRACTICE", startedAt, e);
+            throw e;
+        }
+        aiCallRecorder.recordCall(userId, "PRACTICE", startedAt, response);
+
+        String content = response == null || response.getResult() == null
+                ? null : response.getResult().getOutput().getText();
+
         if (content == null || content.isBlank()) {
             throw new IllegalStateException("生成练习指引失败，请重试");
         }
-
         String storedUserMessage = (goal == null || goal.isBlank())
                 ? "给我一个练习任务：" + item.title()
                 : "我想这样练：" + goal.trim();

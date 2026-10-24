@@ -8,6 +8,7 @@ spring:
       client:
         stdio:
           servers-configuration: classpath:mcp-servers.json
+
   servlet:
     multipart:
       max-file-size: 5MB       # PDF 带图很容易上 MB，100KB 会连正常讲义都传不进来
@@ -16,6 +17,12 @@ spring:
 #          connections:
 #            server1:
 #              url: http://localhost:8127
+app:
+  ai:
+    context:
+      max-history-chars: 8000
+  pgvector:
+    enabled: true # 开关，false表示不再自动入库，避免重启文件重复入库
 
 server:
   port: 8123
@@ -42,4 +49,5 @@ knife4j:
 logging:
   level:
     org.springframework.ai: DEBUG
+    com.lcz.aiagentstudy.chatmemory: DEBUG
 

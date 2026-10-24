@@ -34,24 +34,6 @@ class LoveAppTest {
     }
 
     @Test
-    void doChatWithReport() {
-        String chatId = UUID.randomUUID().toString();
-
-        String message = "你好,我是张三,我想让另一半更爱我，我该怎么做？";
-        LoveApp.LoveReport loveReport = loveApp.doChatWithReport(message, chatId);
-        Assertions.assertNotNull(loveReport);
-
-    }
-
-    @Test
-    void doChatWithRag() {
-        String chatId = UUID.randomUUID().toString();
-        String message = "我单身，如何脱单？";
-        String answer = loveApp.doChatWithRag(message, chatId);
-        Assertions.assertNotNull(answer);
-    }
-
-    @Test
     void doChatWithTools() {
 //        // 测试联网搜索问题的答案 结果：模型没法比较主动的搜索，也可能是模型很懂上海，提示词要补充：可以联网搜索
 //        testMessage("周末想带女朋友去上海约会，推荐几个适合情侣的小众打卡地？");

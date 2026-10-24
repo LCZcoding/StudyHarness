@@ -25,8 +25,8 @@ public class PgVectorStoreConfig {
 
     private static final Logger log = LoggerFactory.getLogger(PgVectorStoreConfig.class);
 
-    @Resource
-    private LoveAppDocumentLoader loveAppDocumentLoader;
+    // @Resource
+    // private LoveAppDocumentLoader loveAppDocumentLoader;
 
 
     @Bean
@@ -41,15 +41,15 @@ public class PgVectorStoreConfig {
                 .vectorTableName("vector_store")     // Optional: defaults to "vector_store"
                 .maxDocumentBatchSize(10000)         // Optional: defaults to 10000
                 .build();
-        //加载wiki文档
-        List<Document> documents = loveAppDocumentLoader.loadMarkdowns();
+        // //加载wiki文档
+        // List<Document> documents = loveAppDocumentLoader.loadMarkdowns();
 
-        // 分批添加
-        int batchSize = 10;
-        for(int i = 0; i < documents.size(); i += batchSize){
-            //添加文档到pg存储
-            vectorStore.add(documents.subList(i, Math.min(i + batchSize, documents.size())));
-        }
+        // // 分批添加
+        // int batchSize = 10;
+        // for(int i = 0; i < documents.size(); i += batchSize){
+        //     //添加文档到pg存储
+        //     vectorStore.add(documents.subList(i, Math.min(i + batchSize, documents.size())));
+        // }
         return vectorStore;
     }
 }

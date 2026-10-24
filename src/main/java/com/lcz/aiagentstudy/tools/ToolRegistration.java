@@ -67,4 +67,17 @@ public class ToolRegistration {
 
         return tools.toArray(new ToolCallback[0]);
     }
+
+    /**
+     * 聊天可用的安全工具集：只读外部信息，不碰服务器。
+     * 刻意不包含 TerminalOperationTool / FileOperationTool / ResourceDownloadTool / PDFGenerationTool：
+     * 这几个都会在服务器上产生副作用（执行命令、写文件），不该由一次聊天触发。
+     */
+    @Bean(name = "chatTools")
+    public ToolCallback[] chatTools() {
+        WebSearchTool webSearchTool = new WebSearchTool(tavilyApiKey);
+        WebScrapingTool webScrapingTool = new WebScrapingTool();
+        DateTimeTool dateTimeTool = new DateTimeTool();
+        return ToolCallbacks.from(webSearchTool, webScrapingTool, dateTimeTool);
+    }
 }

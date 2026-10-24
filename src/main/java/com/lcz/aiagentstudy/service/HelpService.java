@@ -3,7 +3,10 @@ package com.lcz.aiagentstudy.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,12 +24,27 @@ public class HelpService {
 
     private final ChatModel deepSeekChatModel;
 
-    public String answer(String material, String question, String userQuestion) {
+    // 只新增这一行；deepSeekChatModel 原本就有
+    private final AiCallRecorder aiCallRecorder;
+
+    public String answer(UUID userId, String material, String question, String userQuestion) {
         ChatClient client = ChatClient.builder(deepSeekChatModel).defaultSystem(SYSTEM_PROMPT).build();
         String userMessage = "材料：\n" + truncate(material)
                 + "\n\n题目：" + question
                 + "\n\n我的问题：" + userQuestion;
-        String content = client.prompt().user(userMessage).call().content();
+
+        long startedAt = aiCallRecorder.start();
+        ChatResponse response;
+        try {
+            response = client.prompt().user(userMessage).call().chatResponse();
+        } catch (RuntimeException e) {
+            aiCallRecorder.recordFailure(userId, "HELP", startedAt, e);
+            throw e;
+        }
+        aiCallRecorder.recordCall(userId, "HELP", startedAt, response);
+
+        String content = response == null || response.getResult() == null
+                ? null : response.getResult().getOutput().getText();
         if (content == null || content.isBlank()) {
             throw new IllegalStateException("求助回答生成失败，请重试");
         }
