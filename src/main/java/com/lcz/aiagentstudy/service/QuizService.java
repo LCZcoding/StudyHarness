@@ -64,6 +64,18 @@ public class QuizService {
     public QuizStore.CreatedQuiz generate(UUID userId, UUID knowledgeItemId) {
         KnowledgeItemRow item = knowledgeService.requireOwned(knowledgeItemId, userId);
 
+        // 同一份资料还有没答完的轮次就原样返回：用户中途退出再进来，看到的是上次那几道题，
+        // 已作答的结论也还在。只有全部答完（或全部跳过）才允许开新一轮。
+        Optional<UUID> unfinished =
+                questionRepository.findLatestUnfinishedSelfTest(userId, knowledgeItemId);
+        if (unfinished.isPresent()) {
+            List<QuizStore.CreatedQuestion> questions = questionRepository
+                    .findByConversation(unfinished.get()).stream()
+                    .map(r -> new QuizStore.CreatedQuestion(r.id(), r.kind(), r.target(), r.text()))
+                    .toList();
+            return new QuizStore.CreatedQuiz(unfinished.get(), questions);
+        }
+
         Optional<QuestionRepository.RetryQuestion> retry =
                 questionRepository.findRetryQuestion(userId, knowledgeItemId);
 
@@ -153,13 +165,22 @@ public class QuizService {
     private final GradingService gradingService;
     private final HelpService helpService;
     private final AttemptStore attemptStore;
+    private final HelpTurnRepository helpTurnRepository;
 
     /** 求助：先回答用户的疑问，再把这题标记为"求助过"。不改判分、不产生成绩。 */
     public String help(UUID userId, long questionId, String userQuestion) {
         QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
         String answer = helpService.answer(userId, question.material(), question.text(), userQuestion);
         questionRepository.markHelpUsed(questionId);
+        // 落库放在模型调用之后：先算出一问一答，再一次性写两行，回放时不出现「有问没答」
+        helpTurnRepository.saveTurn(questionId, userQuestion, answer);
         return answer;
+    }
+
+    /** 回放某道题的全部求助记录：刷新页面或重开抽屉时，之前的问答都还在。 */
+    public List<HelpTurnRepository.HelpTurn> helpHistory(UUID userId, long questionId) {
+        requireOwnedQuestion(userId, questionId);
+        return helpTurnRepository.findByQuestion(questionId);
     }
 
     public AttemptStore.AttemptResult attempt(UUID userId, long questionId, String answer) {

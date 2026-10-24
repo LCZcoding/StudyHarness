@@ -77,6 +77,18 @@ public class QuizController {
         return new HelpResponse(quizService.help(userId, questionId, req.question()));
     }
 
+    public record HelpTurnView(String role, String content) {
+    }
+
+    /** 回放这道题的全部求助：刷新或重开抽屉后，之前的问答还在。 */
+    @GetMapping("/{questionId}/help")
+    public List<HelpTurnView> helpHistory(@PathVariable long questionId, HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        return quizService.helpHistory(userId, questionId).stream()
+                .map(t -> new HelpTurnView(t.role(), t.content()))
+                .toList();
+    }
+
     public record SkipResponse(OffsetDateTime nextDueAt) {
     }
 

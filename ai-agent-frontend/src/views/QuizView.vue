@@ -47,19 +47,23 @@
                     <b>缺口 {{ String(i + 1).padStart(2, '0') }}</b>{{ gap }}
                   </li>
                 </ul>
-                <div v-if="stateOf(q).result" class="qrow">
+                <div class="qrow">
                   <div class="left">
                     <button
-                      v-if="stateOf(q).result.retryAllowed"
+                      v-if="stateOf(q).result?.retryAllowed"
                       type="button"
                       class="btn ghost"
                       @click="startRetry(q)"
                     >
                       补讲一次
                     </button>
+                    <!-- 恢复出来的题只有 verdict，但求助同样应该可用 -->
                     <button type="button" class="btn" @click="openHelp(q)">求助</button>
                   </div>
-                  <span :class="['quota', { warn: stateOf(q).result.retryAllowed }]">
+                  <span
+                    v-if="stateOf(q).result"
+                    :class="['quota', { warn: stateOf(q).result.retryAllowed }]"
+                  >
                     {{ stateOf(q).result.retryAllowed ? '剩余 1 次' : '已用完' }}
                   </span>
                 </div>
@@ -104,15 +108,18 @@
     <div v-if="helpOpen" class="drawer-mask" @click.self="helpOpen = false">
       <aside class="drawer">
         <h3>求助：{{ helpTarget?.target }}</h3>
-        <p class="hint">求助不产生成绩，只把这题标记为「求助过」，复习时会优先排</p>
+        <p class="hint">求助不产生成绩，只把这题标记为「求助过」，复习时会优先排。记录会保存，下次打开还在</p>
         <div class="qa">
-          <div v-for="(m, i) in helpMessages" :key="i" :class="['bubble', m.role === 'me' ? 'me' : 'ai']">
-            <span class="who">{{ m.role === 'me' ? '我' : '小思' }}</span>
-            <!-- 我手打的字原样显示；小思的回答是 markdown，要渲染 -->
-            <template v-if="m.role === 'me'">{{ m.content }}</template>
-            <div v-else class="md" v-html="renderMarkdown(m.content)"></div>
-          </div>
-          <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
+          <p v-if="helpLoading" class="drawer-empty">正在加载之前的求助记录…</p>
+          <template v-else>
+            <div v-for="(m, i) in helpMessages" :key="i" :class="['bubble', m.role === 'me' ? 'me' : 'ai']">
+              <span class="who">{{ m.role === 'me' ? '我' : '小思' }}</span>
+              <!-- 我手打的字原样显示；小思的回答是 markdown，要渲染 -->
+              <template v-if="m.role === 'me'">{{ m.content }}</template>
+              <div v-else class="md" v-html="renderMarkdown(m.content)"></div>
+            </div>
+            <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
+          </template>
         </div>
         <p v-if="helpError" class="qerror">{{ helpError }}</p>
         <div class="drawer-foot">
@@ -130,7 +137,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/PageHeader.vue'
-import { conversation, attempt, help } from '../api/quiz.js'
+import { conversation, attempt, help, helpHistory } from '../api/quiz.js'
 import { renderMarkdown } from '../utils/markdown.js'
 import { redirectOn401, messageOf } from '../utils/apiError.js'
 
@@ -233,14 +240,30 @@ const helpTarget = ref(null)
 const helpMessages = ref([])
 const helpQuestion = ref('')
 const helpSending = ref(false)
+const helpLoading = ref(false)
 const helpError = ref('')
 
-function openHelp(q) {
+// 求助记录存在服务端（t_help_turn），每次打开抽屉都先回放，关掉再开不会清空
+async function openHelp(q) {
   helpTarget.value = q
   helpMessages.value = []
   helpQuestion.value = ''
   helpError.value = ''
   helpOpen.value = true
+  helpLoading.value = true
+  try {
+    const turns = await helpHistory(q.questionId)
+    // 后端 role 是 USER / ASSISTANT，前端只区分「我」和「小思」
+    helpMessages.value = (turns || []).map((t) => ({
+      role: t.role === 'USER' ? 'me' : 'ai',
+      content: t.content
+    }))
+  } catch (e) {
+    if (redirectOn401(e, router, route)) return
+    helpError.value = messageOf(e, '历史求助加载失败，仍可继续提问')
+  } finally {
+    helpLoading.value = false
+  }
 }
 
 async function sendHelp() {
@@ -255,6 +278,9 @@ async function sendHelp() {
     helpMessages.value.push({ role: 'ai', content: data.answer })
   } catch (e) {
     if (redirectOn401(e, router, route)) return
+    // 没答上来这一问就没落库，把气泡撤掉、问题填回去，避免界面上留下服务端没有的记录
+    helpMessages.value.pop()
+    helpQuestion.value = question
     helpError.value = messageOf(e, '求助失败，请稍后重试')
   } finally {
     helpSending.value = false

@@ -146,6 +146,28 @@ public class QuestionRepository {
                 conversationId);
     }
 
+    /**
+     * 这份资料最近一轮还没答完的自测。存在就复用它，避免「退出再进」时重新出题覆盖原题。
+     * 跳过过的题不算待答；全部答完（含跳过）则返回 empty，允许开新一轮。
+     */
+    public Optional<UUID> findLatestUnfinishedSelfTest(UUID userId, UUID knowledgeItemId) {
+        List<UUID> ids = jdbcTemplate.query("""
+                        select m.conversation_id
+                          from t_question q
+                          join t_message m      on m.id = q.message_id
+                          join t_conversation c on c.id = m.conversation_id
+                         where c.user_id = ? and c.mode = 'SELF_TEST'
+                           and q.knowledge_item_id = ?
+                           and q.skipped = false
+                           and not exists (select 1 from t_test_record tr where tr.question_id = q.id)
+                         order by c.created_at desc
+                         limit 1
+                        """,
+                (rs, rowNum) -> rs.getObject("conversation_id", UUID.class),
+                userId, knowledgeItemId);
+        return ids.stream().findFirst();
+    }
+
     public List<QuestionRow> findUnanswered(UUID conversationId) {
         return jdbcTemplate.query("""
                     select q.id, q.kind, q.target, m.content as text, null::text as verdict

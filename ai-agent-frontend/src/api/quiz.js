@@ -31,6 +31,15 @@ export const help = (questionId, question) =>
   request.post(`/quiz/${questionId}/help`, { question })
 
 /**
+ * 回放这道题的全部求助（刷新、重开抽屉都不丢）
+ * GET /api/quiz/{questionId}/help
+ * 成功：200 [{ role, content }]，role ∈ USER | ASSISTANT，按提问先后排
+ * 失败：401 / 403 { message: "题目不存在或无权访问" }
+ */
+export const helpHistory = (questionId) =>
+  request.get(`/quiz/${questionId}/help`)
+
+/**
  * 恢复测验页
  * GET /api/quiz/conversations/{conversationId}
  * 成功：200 { conversationId, questions: [{ questionId, kind, target, text, verdict }] }

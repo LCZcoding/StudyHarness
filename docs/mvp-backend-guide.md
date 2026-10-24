@@ -1569,13 +1569,13 @@ import 加 `com.lcz.aiagentstudy.model.KnowledgeItemRow`，删 `java.time.Offset
 
 规则：
 
-1. 默认出 **3 个任务**，其中**至少 1 个 `EXPLAIN`**；每个任务必须带 `kind` / `target` / `text`。
-2. 如果这份资料下有「上次 `FAIL` / `PARTIAL` 且还没补讲」的题，**第 1 个任务重问那道题**，
+1. **幂等**：同一份资料还有「未作答且未跳过」的题时，直接返回那一轮的 `conversationId` 与原题，不新建会话、不重新调模型（用户中途退出再进不会覆盖原题）。
+2. 默认出 **3 个任务**，其中**至少 1 个 `EXPLAIN`**；每个任务必须带 `kind` / `target` / `text`。
+3. 如果这份资料下有「上次 `FAIL` / `PARTIAL` 且还没补讲」的题，**第 1 个任务重问那道题**，
    模型只补 2 个新任务（总数仍是 3）。
-3. 新任务的 `target` 会写入 `t_knowledge_point`（`CANDIDATE`），同一用户同名知识点只留一行。
-4. 出题时注入该用户最近 5 个 `VERIFIED` 知识点，要求模型用已掌握概念做类比。
-5. 别人的资料 → `403`，与「不存在」同一句文案。
-
+4. 新任务的 `target` 会写入 `t_knowledge_point`（`CANDIDATE`），同一用户同名知识点只留一行。
+5. 出题时注入该用户最近 5 个 `VERIFIED` 知识点，要求模型用已掌握概念做类比。
+6. 别人的资料 → `403`，与「不存在」同一句文案。
 ### 4.2 `MessageRepository` 追加一个方法
 
 ```java
@@ -2310,6 +2310,7 @@ mvn -Dtest=QuizPromptEvalTest test
 | ---- | ---------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | POST | `/quiz/{questionId}/attempt` | `{"answer":"..."}`                                      | `200 {"verdict","feedback","gaps","retryAllowed","stage","nextDueAt","attemptNo"}` |
 | POST | `/quiz/{questionId}/help`    | `{"question":"我还是没懂 m 和 ef_construction 的区别"}` | `200 {"answer":"..."}`                                                             |
+| GET  | `/quiz/{questionId}/help`    | 无                                                      | `200 [{"role":"USER","content":"..."},{"role":"ASSISTANT","content":"..."}]`      |
 | POST | `/quiz/{questionId}/skip`    | 无请求体                                                | `200 {"nextDueAt":"..."}`（自测题无排期时该字段为 `null`）                          |
 
 规则：

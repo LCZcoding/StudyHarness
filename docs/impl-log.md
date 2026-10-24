@@ -1084,3 +1084,28 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 
 验收：11-30。
 
+## 修复：求助记录与测验题目不持久
+
+现象两条：① 求助完关掉抽屉再打开，之前的问答没了；② 答到一半退出，再点「开始学习」会重新出题，原题和已答结论都没了。
+
+根因：
+
+- 求助内容**从未落库**。`QuizService.help` 只调 `HelpService.answer` 拿到回答、把 `t_question.help_used` 置 true，问答文本没有任何存储位置，关掉抽屉即丢。
+- `POST /quiz/generate` **无幂等**。每次调用都走 `QuizStore.createSelfTest` 新建 `SELF_TEST` 会话，退出再进必然是一轮新题。
+
+改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| [`db/schema.sql`](../db/schema.sql) | 新增 `t_help_turn`（`question_id` / `role` / `content`）+ `idx_help_turn_question`。单独建表而不复用 `t_message`：求助不是会话问答流的一部分，且必须按 `question_id` 精确回放 |
+| [`HelpTurnRepository`](../src/main/java/com/lcz/aiagentstudy/repository/HelpTurnRepository.java) | 新建。`saveTurn` 在一个事务里写 USER + ASSISTANT 两行（只写一半会回放出「有问没答」）；`findByQuestion` 按 id 顺序回放 |
+| [`QuestionRepository.findLatestUnfinishedSelfTest`](../src/main/java/com/lcz/aiagentstudy/repository/QuestionRepository.java) | 按「存在未作答且未跳过的题」找这份资料最近一轮未完成的自测 |
+| [`QuizService.generate`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 未完成轮次存在就直接返回它的 `conversationId` 与原题，不调模型、不建会话；全部答完（含跳过）才允许开新一轮 |
+| [`QuizService.help`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 回答生成后落库；新增 `helpHistory` 做归属校验后回放 |
+| [`QuizController`](../src/main/java/com/lcz/aiagentstudy/controller/QuizController.java) | 新增 `GET /quiz/{questionId}/help` |
+| [`QuizView.vue`](../ai-agent-frontend/src/views/QuizView.vue) | 打开抽屉先拉历史并显示「正在加载之前的求助记录…」；发送失败时撤掉乐观气泡、把问题填回输入框，避免界面留下服务端没有的记录 |
+
+顺带修复：恢复出来的题（只有 `verdict`、没有 `result`）此前不显示「求助」按钮，导致复习时点不了求助。改为求助按钮恒显示，只把「补讲一次」和剩余次数收敛到 `result` 存在时。
+
+数据库变更已在远程库执行（`CREATE TABLE` + 索引，`11 行`表清单确认）。验收记录见 `acceptance-log.md` 11-31 / 11-32。
+
