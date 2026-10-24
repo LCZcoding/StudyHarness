@@ -159,9 +159,12 @@ public class DocumentSplitter {
         List<String> chunks = new ArrayList<>();
         String rest = content.strip();
         while (rest.length() > SECTION_MAX) {
-            int cut = lastSentenceEnd(rest);
+            // 先算这一节还剩几段要分，再按均分长度下刀，避免切出几十字的残段
+            int pieces = (rest.length() + SECTION_MAX - 1) / SECTION_MAX;
+            int target = rest.length() / pieces;
+            int cut = lastSentenceEnd(rest, target);
             if (cut <= 0) {
-                cut = SECTION_MAX;   // 整段没有句末标点，只能按字符切
+                cut = target;   // 均分位置附近没有句末标点，只能按字符切
             }
             chunks.add(rest.substring(0, cut).strip());
             rest = rest.substring(cut).strip();
@@ -172,10 +175,11 @@ public class DocumentSplitter {
         return chunks;
     }
 
-    /** 从 SECTION_MAX 往前找最近的句末标点；找不到返回 -1。 */
-    private int lastSentenceEnd(String text) {
-        int floor = SECTION_MAX / 2;
-        for (int i = SECTION_MAX - 1; i >= floor; i--) {
+    /** 从 target 往前找最近的句末标点；找不到返回 -1。 */
+    private int lastSentenceEnd(String text, int target) {
+        int limit = Math.min(target, text.length());
+        int floor = Math.max(1, limit / 2);
+        for (int i = limit - 1; i >= floor; i--) {
             if (SENTENCE_MARKS.indexOf(text.charAt(i)) >= 0) {
                 return i + 1;
             }

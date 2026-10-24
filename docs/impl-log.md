@@ -770,3 +770,84 @@ ASSISTANT | ANSWER | 1053 | # 指针的别名
 7.10 步骤 3 原先的期望没错，但把「没有到期项」当成了起点；实现里刚启动的复习题仍然到期，
 于是一条命令既可能是 `200` 也可能是 `400`，取决于猜不到的历史状态。修复后 `400` 只在「这一轮答完且无到期题」时出现。
 
+***
+
+## 阶段 6 收尾：验收补测与缺陷修复（2026-10-24）
+
+### 1. 长章节向量化超 token 上限（已修）
+
+**现象**：前端上传《JUC》8 章，其中 3 章（11988 / 11960 / 9596 字）各报一次
+`Tokens in a single document exceeds the maximum number of allowed input tokens`，
+资料落库但没有任何向量（走 `KnowledgeService.indexQuietly` 的 warn 分支，接口仍返回 201）。
+
+**根因**：`indexQuietly` 把整章正文当成一个 `Document` 交给 `vectorStore.add()`。
+DashScope embedding 单条输入上限 8192 token，中文约等于 1 字 1 token，所以超过 8000 字的章节必挂。
+章节切分（8000~12000 字）服务于展示与出题，embedding 切块服务于召回，两者粒度本来就该不同。
+
+**改法**（[`KnowledgeService`](../src/main/java/com/lcz/aiagentstudy/service/KnowledgeService.java)）：新增 `toEmbeddingChunks`
+
+1. 按 1000 字一块，切点优先落在换行/空格处，避免把句子劈开。
+2. `vector_store.id` 是 uuid 列，一章多块必须各用独立 UUID，不能沿用 `knowledgeItemId`。
+3. 每块 metadata 带 `userId` / `title` / `knowledgeItemId` / `chunkSeq`：前两个供 `filterExpression` 用，
+   后两个供「按章节回溯删除/回填」用。
+4. DashScope embedding 单次请求最多 10 条文本，按 10 条一批提交。
+
+**实测**：`delete from vector_store where metadata->>'userId'='008e1d32…'`、`delete from t_knowledge_item where doc_title='JUC'`
+后重新上传 → `vector_store` 71 行，各章块数 13/13/13/10/13/10/5/6，正好等于 `ceil(字数/1000)`，无 WARN。
+RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md) 6-16 / 6-17。
+
+### 2. 两个失效测试挡住 testCompile（已修）
+
+`mvn spring-boot:run` 会先编译测试代码：`LoveAppTest` 仍在调已被注释的 `doChatWithReport` / `doChatWithRag`，
+`ChatServiceTest` 仍在用 2 参数的 `stream`，导致后端起不来。删掉两个失效用例、把 `ChatServiceTest` 改成 5 参数并同步 mock。
+这一步同时解除了 `GradingEvalTest` 的编译阻塞。
+
+### 3. 上下文预算验收（已验，6-18 / 6-19）
+
+| 预算 | 会话 | 发送量 | 日志里的裁剪结果 |
+| --- | --- | --- | --- |
+| 8000 | `c3e1f1c1` | 12 轮 × 750 字 | 裁剪 5 次：`13/14 条，7701 字符`、`12/16 条，7758`、`11/18 条，7252`、`11/20 条，7436`、`11/22 条，7647` |
+| 500 | `adb5c282` | 3 轮 × 750 字 | `1/2 条，430 字符`、`1/4 条，276 字符` |
+
+8000 下保留量贴着预算，500 下掉到 1 条，证明配置真的注入，不是恰好没触发。
+验完已把 `app.ai.context.max-history-chars` 改回 8000 并重启。裁剪日志是 `log.debug`，
+`application.yml` 里已配 `com.lcz.aiagentstudy.chatmemory: DEBUG`。
+
+### 4. 判分评测（`GradingEvalTest`）
+
+`mvn -Dtest=GradingEvalTest test`：`Tests run: 1, Failures: 0`、`BUILD SUCCESS`；
+控制台 `稳定 5/6，与人工标注一致 4/6，不稳定=[HNSW 的分层结构 / PASS]`。只到断言阈值下沿，属模型能力边界。
+
+### 5. 剩余待办（按执行顺序，完成一步即回填本节）
+
+1. ~~`PASSED` 三态~~（2026-10-24 完成）：JUC 第 1 章 `7a7acf52…`（704 字）出题 25/26/27，
+   三题各答一次全 `PASS`（`attemptNo=1`、`gaps=[]`），列表里该章 `PASSED`、JUC `passedCount=1`；
+   同文档第 7 章 3 题未答为 `IN_PROGRESS`，三态一次覆盖。见 [`acceptance-log.md`](./acceptance-log.md) 1-20。
+2. ~~`DocumentSplitter.chunks()` 均分切块~~（2026-10-24 完成）：`chunks()` 改为「先算剩余要分几段，再按均分长度找句末标点下刀」。
+   复测：两节 × 12220 字的上传从「12000 + 220 + 220 残段」变成 `6106 / 6136 / 6097 / 6136` 四章；
+   31 节 × 12220 字仍按预期 `400 文档切分后超过 30 章（当前 62 章）`。见 [`acceptance-log.md`](./acceptance-log.md) 1-21。
+   **注意**：改完必须重启后端才生效，本次第一次上传仍走旧字节码，切出了 11999 + 234。
+3. ~~阶段 5 材料截断~~（2026-10-24 完成）：JUC 第 1 章（704 字）与第 2 章（11988 字）各跑一次 `/practice/guide`，
+   `t_ai_call` 的 `prompt_tokens` 为 `679` / `4526`，长章只多 6.7 倍而非 17 倍，与 `MATERIAL_LIMIT=8000` 截断吻合。
+   见 [`acceptance-log.md`](./acceptance-log.md) 5-9。
+4. ~~失败调用落行~~（2026-10-24 完成）：新增 [`FailedCallRecordingTest`](../src/test/java/com/lcz/aiagentstudy/service/FailedCallRecordingTest.java)，
+   mock 掉 `deepSeekChatModel` 抛 `RuntimeException`，走真实 `PracticeService.guide`，
+   断言 `t_ai_call` 落 `success=false` / `error_code=RuntimeException` / `prompt_tokens=null`。`Tests run: 1, Failures: 0`。
+   踩坑：容器里有 dashScope / deepSeek / ollama 三个 `ChatModel`，`@MockitoBean` 必须写 `name = "deepSeekChatModel"` 才能选中。
+   见 [`acceptance-log.md`](./acceptance-log.md) 6-20。
+5. ~~`RagEvalTest`~~（2026-10-24 完成）：语料其实硬编码在测试类里（5 条 + 5 问），写入独立 `rag-eval-user`、跑完 `delete`，
+   与线上库无关，之前的「必须换语料」判断有误。直接跑：`RAG 评测：命中 5/5`，`BUILD SUCCESS`；跑完 `vector_store` 仍 71 行 / 1 个用户。
+   见 [`acceptance-log.md`](./acceptance-log.md) 7-5。
+6. ~~脏数据~~（2026-10-24 完成）：按 13.4 的外键顺序清空 `lcz` 名下全部测试资料：
+   `t_test_record` 12 行、`t_review_schedule` 8 行、`t_question` 27 行、`t_message` 27 行、`t_knowledge_item` 34 行、`vector_store` 71 行。
+   清完 `items=0 / vectors=0 / questions=0`，等用户重新上传《JUC》。
+7. ~~复习轮次的跳过出口~~（2026-10-24 完成）：`t_question` 加 `skipped` 列，新增 `POST /quiz/{questionId}/skip`。
+   `QuizService.skip` 校验归属 → 已作答报 400 → 已跳过报 400 → 标 `skipped` → 有排期才 `postpone` 1 天；
+   `QuestionRepository.findUnanswered` 排除 skipped，会话查询把跳过题返回 `verdict="SKIPPED"`。
+   实测：跳过 q31/q32 后本轮未答列表清空，再点 `/review/start` 得到 `400 现在没有到期需要复习的题`，
+   复习循环被打断；`user2` 跳过 `lcz` 的题 403。见 [`acceptance-log.md`](./acceptance-log.md) 6-20。
+   坑：`startReview` 会用 `moveQuestion` 把排期从旧题迁到新题，所以「跳过新题」等价于「推迟那次到期」，
+   不需要再去改源题。重复跳过守卫写完还没重启验证过。
+8. `PRACTICE` 会话后续追问走练习提示词（技术债 13，用户决定不改）。
+9. 前端资料页按「文档 → 章节」重写（等后端收尾后做）。
+

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.ObjectProvider;
@@ -29,6 +30,7 @@ public class KnowledgeService {
     private final ObjectProvider<VectorStore> vectorStoreProvider;
 
     private final DocumentSplitter documentSplitter;
+    private final AiCallRecorder aiCallRecorder;
 
     /** 创建结果带上摘要，Controller 直接回给前端，省一次列表请求。 */
     public record CreatedItem(UUID id, String summary) {
@@ -63,7 +65,7 @@ public class KnowledgeService {
             DocumentSplitter.Section section = sections.get(i);
             int sectionNo = i + 1;
             // 每章一次模型调用。失败只让这一章没有摘要，不影响其他章节
-            String summary = summarizeQuietly(section.content());
+            String summary = summarizeQuietly(userId, section.content());
             UUID id = knowledgeItemRepository.createSection(
                     userId, docTitle, sectionNo, section.title(), sourceUrl, section.content(), summary);
             indexQuietly(id, userId, section.title(), section.content());
@@ -127,28 +129,45 @@ public class KnowledgeService {
      * 一句话摘要。失败只记日志、返回 null：资料已经存下来了，列表没有摘要也能用，
      * 不该因为模型抖动就让用户重传。
      */
-    private String summarizeQuietly(String content) {
+    private String summarizeQuietly(UUID userId, String content) {
+        long startedAt = aiCallRecorder.start();
         try {
             ChatClient client = ChatClient.builder(deepSeekChatModel).build();
-            String summary = client.prompt()
+            ChatResponse response = client.prompt()
                     .system("用不超过 200 字概括这份学习材料的主题与覆盖范围，只输出摘要本身，不要加标题。")
                     .user(content)
                     .call()
-                    .content();
+                    .chatResponse();
+            aiCallRecorder.recordCall(userId, "SUMMARY", startedAt, response);
+
+            String summary = response == null || response.getResult() == null
+                    ? null : response.getResult().getOutput().getText();
             if (summary == null || summary.isBlank()) {
                 return null;
             }
             String trimmed = summary.trim();
             return trimmed.length() <= 300 ? trimmed : trimmed.substring(0, 300);
         } catch (RuntimeException e) {
+            aiCallRecorder.recordFailure(userId, "SUMMARY", startedAt, e);
             log.warn("生成资料摘要失败，summary 置空: cause={}", e.getMessage());
             return null;
         }
     }
 
     /**
-     * 向量化。文档 id 直接用 knowledgeItemId —— "一条资料"与"一条向量"一一对应，
-     * 将来要删/要更新，凭同一个 id 就能定位，不用再存映射。
+     * 单条向量的最大字符数。章节 8000~12000 字直接送 embedding 会触发
+     * "Tokens in a single document exceeds the maximum number of allowed input tokens"
+     * （DashScope embedding 单条输入上限 8192 token，中文约 1 字 1 token）。
+     * 章节切分服务于展示与出题，embedding 切块服务于召回，两者粒度本来就不一样。
+     */
+    private static final int EMBED_CHUNK_CHARS = 1000;
+
+    /** DashScope embedding 单次请求的文本条数上限。 */
+    private static final int EMBED_BATCH_SIZE = 10;
+
+    /**
+     * 向量化。一章可能切成多条向量，每条向量自带 knowledgeItemId，
+     * 将来要删/要更新，凭这个 key 就能定位该章的全部向量。
      * 入库失败只记日志：文本已经落库，出题可以退化为直接读正文，不该因为向量库抖动就 500。
      */
     private void indexQuietly(UUID itemId, UUID userId, String title, String content) {
@@ -158,17 +177,46 @@ public class KnowledgeService {
             return;
         }
         try {
-            Document document = Document.builder()
-                    .id(itemId.toString())
-                    .text(content)
-                    // 这两个 key 就是将来 filterExpression 能用的全部依据
-                    .metadata("userId", userId.toString())
-                    .metadata("title", title)
-                    .build();
-            vectorStore.add(List.of(document));
+            List<Document> chunks = toEmbeddingChunks(itemId, userId, title, content);
+            // DashScope embedding 单次请求最多 10 条文本，按 10 条一批提交
+            for (int i = 0; i < chunks.size(); i += EMBED_BATCH_SIZE) {
+                vectorStore.add(chunks.subList(i, Math.min(chunks.size(), i + EMBED_BATCH_SIZE)));
+            }
         } catch (Exception e) {
             log.warn("向量化失败，资料已保存但暂不参与 RAG: knowledgeItemId={}, cause={}",
                     itemId, e.getMessage());
         }
+    }
+
+    /** 按 1000 字切块，尽量在换行/空格处断开；每块 id 独立（vector_store.id 是 uuid 列）。 */
+    private List<Document> toEmbeddingChunks(UUID itemId, UUID userId, String title, String content) {
+        List<Document> chunks = new ArrayList<>();
+        int length = content.length();
+        int start = 0;
+        int seq = 0;
+        while (start < length) {
+            int end = Math.min(length, start + EMBED_CHUNK_CHARS);
+            if (end < length) {
+                int cut = Math.max(content.lastIndexOf('\n', end - 1), content.lastIndexOf(' ', end - 1));
+                if (cut > start) {
+                    end = cut + 1;
+                }
+            }
+            String text = content.substring(start, end);
+            if (!text.isBlank()) {
+                chunks.add(Document.builder()
+                        .id(UUID.randomUUID().toString())
+                        .text(text)
+                        // userId / title / knowledgeItemId 是 filterExpression 与回溯删除的全部依据
+                        .metadata("userId", userId.toString())
+                        .metadata("title", title)
+                        .metadata("knowledgeItemId", itemId.toString())
+                        .metadata("chunkSeq", seq)
+                        .build());
+            }
+            start = end;
+            seq++;
+        }
+        return chunks;
     }
 }
