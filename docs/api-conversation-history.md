@@ -62,6 +62,8 @@
 
 **没有参数**。**不接收 `userId`** —— 身份只从 session 取（②格硬约束），客户端想自报也没地方报。
 
+**服务端固定只返回对话类会话**：`mode ∈ ('FREE_CHAT', 'PRACTICE')`。理由：`SELF_TEST`（资料出题）与 `REVIEW`（到期复习）是测验流程的载体，入口在资料页 / 待办页，用户从不会在对话页继续聊这些会话；一旦返回，点一次「开始学习」就会在左侧栏多出一条标题为「第 1 题…」的假会话，把真实对话挤下去（2026-10-24 修正）。
+
 ### 3.2 成功响应
 
 ```json
@@ -80,7 +82,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `conversationId` | string（UUID） | `t_conversation.id` |
-| `mode` | string（枚举） | 4 值之一：`SELF_TEST` / `FREE_CHAT` / `REVIEW` / `PRACTICE` |
+| `mode` | string（枚举） | 实际只会出现 `FREE_CHAT` 与 `PRACTICE` 两种（原因见 §3.1）；`SELF_TEST` / `REVIEW` 已被服务端过滤 |
 | `title` | string \| null | **派生、不落库**：该会话**首条 USER 消息**的 `content` 前 50 个字符；该会话还没有 USER 消息 → `null` |
 | `updatedAt` | string（ISO-8601 带偏移） | `t_conversation.updated_at` —— **最近活动时间**。未聊过的会话 `updated_at` 等于 `created_at`（建会话时的默认值 `now()`），所以这一个字段同时覆盖"创建时间"与"最近活动时间"两种语义 |
 

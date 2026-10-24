@@ -40,7 +40,9 @@ public class ConversationRepository {
         jdbcTemplate.update("update t_conversation set updated_at = now() where id = ?", conversationId);
     }
 
-    // 查某个用户的全部会话列表，按「最近活动」倒序；标题由首条 USER 消息派生
+    // 查某个用户的对话列表，按「最近活动」倒序；标题由首条 USER 消息派生。
+    // 只取对话类会话：SELF_TEST（出题）与 REVIEW（复习）属于测验流程，在测验页进入，
+    // 若一并返回，出题动作会在对话页左侧栏冒出一堆「第 1 题…」的假会话。
     public List<ConversationRow> findAllByUserId(UUID userId){
         return jdbcTemplate.query("""
                         select c.id, c.mode, c.updated_at,
@@ -49,7 +51,7 @@ public class ConversationRepository {
                                           WHERE m.conversation_id = c.id AND m.role = 'USER'
                                           ORDER BY m.id LIMIT 1) AS title
                             from t_conversation c
-                            where c.user_id = ?
+                            where c.user_id = ? and c.mode in ('FREE_CHAT', 'PRACTICE')
                             order by c.updated_at DESC
                         """,
                 (rs, rowNum) -> new ConversationRow(

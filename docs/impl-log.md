@@ -1054,3 +1054,15 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 
 验收：11-28。
 
+## 修复：测验会话混进对话页左侧栏
+
+现象：在资料页点「开始学习」出题后，对话页左侧栏多出一条会话；复习也一样。
+
+原因：`GET /conversations` 只按 `user_id` 过滤，把 `t_conversation` 里 4 种 mode 全返回。出题写入的是 `SELF_TEST`、复习写入的是 `REVIEW`，它们本来是测验页的载体，却被当成聊天会话渲染。实测数据：该用户列表里 `SELF_TEST` 10 条、`REVIEW` 3 条。
+
+改法：`ConversationRepository.findAllByUserId` 的 SQL 加上 `and c.mode in ('FREE_CHAT', 'PRACTICE')`。在 SQL 层过滤而不是前端过滤，理由是列表语义本身就该是「对话」——`SELF_TEST`/`REVIEW` 在任何页面都不会被当聊天打开，留在响应里只会误导所有调用方（含默认打开最近一条会话的逻辑，以前可能随机落到一条测验会话上）。
+
+`PRACTICE` 保留在列表内：它是「怎么练」生成的可追问会话，用户需要能回到它继续提问。
+
+契约同步：`docs/api-conversation-history.md` §3.1、§3.2。
+
