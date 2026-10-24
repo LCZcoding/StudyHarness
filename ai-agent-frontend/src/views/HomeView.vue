@@ -20,7 +20,7 @@
            后端 /api/ai/manus/chat 与 LiManus 保留，待后续作为「工具调用」接入本页。 -->
       <RouterLink to="/guide" class="card guide">
         <div class="card-inner">
-          <span class="emoji">渔</span>
+          <span class="emoji"><BrandMark /></span>
           <h2>授人以渔</h2>
           <p>不替你答，让你自己讲。</p>
           <ul class="feats">
@@ -39,6 +39,7 @@
 import { ref } from 'vue'
 import { isAuthenticated, currentUsername, clearAuth } from '../stores/auth.js'
 import { logout } from '../api/auth.js'
+import BrandMark from '../components/BrandMark.vue'
 
 const loggingOut = ref(false)
 

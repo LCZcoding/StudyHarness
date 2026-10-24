@@ -109,7 +109,7 @@
         <p class="hint">求助不产生成绩，只把这题标记为「求助过」，复习时会优先排</p>
         <div class="qa">
           <div v-for="(m, i) in helpMessages" :key="i" :class="['bubble', m.role === 'me' ? 'me' : 'ai']">
-            <span class="who">{{ m.role === 'me' ? '我' : '渔' }}</span>{{ m.content }}
+            <span class="who">{{ m.role === 'me' ? '我' : '考官' }}</span>{{ m.content }}
           </div>
           <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
         </div>

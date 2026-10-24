@@ -4,7 +4,7 @@
     <header class="chat-header">
       <div class="h-left">
         <RouterLink to="/" class="back" title="返回应用中心">←</RouterLink>
-        <div class="avatar">{{ aiAvatar }}</div>
+        <div class="avatar"><BrandMark /></div>
         <div class="title-box">
           <h1>{{ title }}</h1>
           <p class="status">
@@ -25,7 +25,7 @@
     <div ref="listEl" class="messages">
       <!-- 空会话：欢迎语 + 建议提问 -->
       <div v-if="messages.length === 0" class="empty">
-        <div class="empty-avatar">{{ aiAvatar }}</div>
+        <div class="empty-avatar"><BrandMark /></div>
         <h2>{{ greeting }}</h2>
         <p>{{ greetingSub }}</p>
         <div class="suggestions">
@@ -37,7 +37,7 @@
 
       <template v-else>
         <div v-for="m in messages" :key="m.id" :class="['msg-row', m.role]">
-          <div v-if="m.role === 'ai'" class="avatar sm">{{ aiAvatar }}</div>
+          <div v-if="m.role === 'ai'" class="avatar sm"><BrandMark /></div>
           <div class="col">
             <span class="name">{{ m.role === 'user' ? userName : aiName }} · {{ m.time }}</span>
             <div :class="['bubble', m.role]">
@@ -99,15 +99,15 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { streamChat } from '../api/chatStream.js'
 import { renderMarkdown } from '../utils/markdown.js'
+import BrandMark from './BrandMark.vue'
 
 const props = defineProps({
-  // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
+  // 主题：guide（浅色答疑）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
   theme: { type: String, default: 'guide' },
   title: { type: String, default: '' },
-  aiName: { type: String, default: 'AI' },
+  aiName: { type: String, default: '考官' },
   userName: { type: String, default: '我' },
-  aiAvatar: { type: String, default: '🤖' },
-  userAvatar: { type: String, default: '🧑' },
+  userAvatar: { type: String, default: '我' },
   // 流式模式：token = 逐字追加（当前唯一入口 GuideChatView 走这条）；
   //          step = 按步骤换行追加（原 /manus 入口用，入口下线后暂无调用方）
   streamMode: { type: String, default: 'token' },
