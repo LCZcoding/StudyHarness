@@ -69,15 +69,20 @@ public class ToolRegistration {
     }
 
     /**
-     * 聊天可用的安全工具集：只读外部信息，不碰服务器。
-     * 刻意不包含 TerminalOperationTool / FileOperationTool / ResourceDownloadTool / PDFGenerationTool：
+     * 联网工具：网页搜索 + 网页抓取，由对话页的「联网」开关控制。
+     * 聊天不挂 TerminalOperationTool / FileOperationTool / ResourceDownloadTool / PDFGenerationTool：
      * 这几个都会在服务器上产生副作用（执行命令、写文件），不该由一次聊天触发。
      */
-    @Bean(name = "chatTools")
-    public ToolCallback[] chatTools() {
+    @Bean(name = "chatWebTools")
+    public ToolCallback[] chatWebTools() {
         WebSearchTool webSearchTool = new WebSearchTool(tavilyApiKey);
         WebScrapingTool webScrapingTool = new WebScrapingTool();
-        DateTimeTool dateTimeTool = new DateTimeTool();
-        return ToolCallbacks.from(webSearchTool, webScrapingTool, dateTimeTool);
+        return ToolCallbacks.from(webSearchTool, webScrapingTool);
+    }
+
+    /** 查时间：默认常开，不受任何开关控制。 */
+    @Bean(name = "chatClockTool")
+    public ToolCallback[] chatClockTool() {
+        return ToolCallbacks.from(new DateTimeTool());
     }
 }

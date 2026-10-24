@@ -49,8 +49,8 @@
       @done="onRoundDone"
     >
       <template #composer-extra>
-        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许调用只读工具。
-             收进输入框右侧、只留图标，功能说明靠悬停浮出的文字气泡 -->
+        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许联网搜索与抓取。
+             查时间不受开关控制，任何一轮都可用。收进输入框右侧、只留图标，说明靠悬停浮出 -->
         <button
           type="button"
           class="tool-btn"
@@ -62,8 +62,8 @@
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="M20 20l-4.2-4.2" />
+            <path d="M12 7v14" />
+            <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
           </svg>
         </button>
         <button
@@ -71,13 +71,14 @@
           class="tool-btn"
           :class="{ on: useTools }"
           :aria-pressed="useTools"
-          aria-label="工具"
-          :data-tip="useTools ? '工具 · 已开启，可网页搜索、抓网页、查时间' : '工具 · 已关闭，不调用任何外部工具'"
+          aria-label="联网"
+          :data-tip="useTools ? '联网 · 已开启，可搜索与抓取网页；查时间始终可用' : '联网 · 已关闭，不访问外部网页；查时间始终可用'"
           @click="useTools = !useTools"
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M20 20l-4.2-4.2" />
           </svg>
         </button>
         <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->

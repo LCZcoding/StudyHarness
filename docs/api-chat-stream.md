@@ -54,10 +54,11 @@
 | `conversationId` | string(UUID) | 是 | `@NotNull(message="conversationId 不能为空")` | 由②格 `POST /conversations` 签发。**不是前端自己生成的** |
 | `message` | string | 是 | `@NotBlank(message="message 不能为空")` + `@Size(max=4000, message="message 过长")` | 请求体里**没有 `userId` 字段**：身份只从 session 取 |
 | `useRag` | boolean | 否 | 无 | `true` 挂 `QuestionAnswerAdvisor`：按 `userId` 过滤、`topK(5)` 检索本人资料；缺省 `false` |
-| `useTools` | boolean | 否 | 无 | `true` 挂 `chatTools`（网页搜索 / 网页抓取 / 时间）；缺省 `false`。**写文件、执行命令、下载、生成 PDF 等有副作用的工具不挂到聊天** |
+| `useTools` | boolean | 否 | 无 | `true` 挂 `chatWebTools`（网页搜索 / 网页抓取）；缺省 `false`。**写文件、执行命令、下载、生成 PDF 等有副作用的工具不挂到聊天** |
 
-> 两个开关默认都是 `false`，由用户在对话页顶栏显式打开（按钮「资料检索」「工具」），服务端不做意图猜测。
+> 两个开关默认都是 `false`，由用户在对话页输入框右侧显式打开（图标按钮「资料检索」「联网」），服务端不做意图猜测。
 > 开关只影响本轮回答，不改任何历史消息。
+> `chatClockTool`（查时间）不受 `useTools` 控制，每一轮都挂——它不联网、无副作用，没有理由要求用户先点开关。
 
 > 校验注解与类型匹配（②格定的规则）：`String` 用 `@NotBlank`，`UUID` / 枚举用 `@NotNull`——不能互换。
 
