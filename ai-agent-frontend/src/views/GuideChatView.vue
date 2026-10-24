@@ -29,10 +29,9 @@
     <ChatRoom
       class="room"
       theme="guide"
-      title="AI 问题引导解决助手"
-      ai-name="引导助手"
+      title="授人以渔"
+      ai-name="小思"
       user-name="我"
-      ai-avatar="AI"
       user-avatar="我"
       stream-mode="token"
       :chat-id="chatId"
@@ -41,10 +40,10 @@
       :history-messages="historyMessages"
       :resolve-chat-id="ensureChatId"
       placeholder="说出你卡住的地方…"
-      idle-text="在线，随时为你答疑"
-      streaming-text="正在梳理思路，引导你一步步解决…"
-      greeting="你好，我是你的问题引导解决助手"
-      greeting-sub="无论是报错排查、代码问题还是概念学习，我们一起找到答案"
+      idle-text="在听，说说你卡在哪"
+      streaming-text="正在想下一步给你什么提示…"
+      greeting="授人以鱼，不如授人以渔"
+      greeting-sub="这里不直接给答案。先给方向，再给关键词，实在卡住才给最小示例——目标是让你搞懂答案是怎么来的。"
       :suggestions="suggestions"
       @done="onRoundDone"
     >
@@ -192,7 +191,7 @@ function newConversation() {
 async function ensureChatId() {
   if (chatId.value) return chatId.value
   try {
-    const data = await createConversation('PRACTICE')
+    const data = await createConversation('FREE_CHAT')
     chatId.value = data.conversationId
     await loadConversations()
     router.replace({ name: 'guide-conversation', params: { conversationId: chatId.value } })
@@ -287,11 +286,12 @@ function formatTime(iso) {
   })
 }
 
+// 引导语按「我要提示、不要答案」写：句子本身就在演练这个产品该怎么被使用
 const suggestions = [
-  '我的代码报错了，帮我理一下排查思路',
-  '讲讲什么是线程池，我该从哪学起？',
-  '这个报错我不认识，该去哪查官方文档？',
-  '帮我判断这段配置哪里可能有问题'
+  '线程池核心数怎么定？先别给答案',
+  '这段报错我怀疑是空指针，从哪查起',
+  'AQS 排队那段没看懂，给个方向就行',
+  '配置改了没生效，我想要排查顺序'
 ]
 </script>
 
@@ -466,7 +466,9 @@ const suggestions = [
   bottom: calc(100% + 10px);
   z-index: 6;
   width: max-content;
-  max-width: 216px;
+  max-width: 236px;
+  /* 两行时让断行落在逗号附近，避免最后一行只剩一两个字 */
+  text-wrap: balance;
   padding: 6px 10px;
   border-radius: 8px;
   background: #0d0d0d;

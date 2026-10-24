@@ -1006,3 +1006,106 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 - 中途踩到的坑：在**同一会话**里先让模型说过「我没有搜索工具」，即使随后打开联网，它仍沿用上一轮的自我描述继续否认有搜索能力。
   所以验证工具集变更必须**新建会话**——历史上下文会覆盖本轮实际挂载的工具清单。这不是代码缺陷，但排查时容易误判。
 
+## 项目介绍视频稿
+
+新增 `docs/video-script.md`：约 900 字口播、3 分 40 秒，按「翻完笔记合上书答不上来 → 课堂按大纲走顾不上个人 → AI 答得越好人越懒 → 让 AI 当考官」的顺序立论，
+正文依次演示资料切章、题面不泄答案、判分只指缺口、每题 2 次机会、求助优先复习、跳过不算对、资料按用户隔离、两个开关与「做成题」。
+技术名词全部留给视频简介，避免观众被框架名劝退。
+
+## 引导词改版：从「助手」到「授人以渔」
+
+| 位置 | 改动 |
+| --- | --- |
+| `GuideChatView.vue` | 顶栏标题「AI 问题引导解决助手」→「授人以渔」；`ai-name`「引导助手」→「考官」；空态主文案改为「授人以鱼，不如授人以渔」，副文案改为「这里不直接给答案。你把思路讲出来，讲不清的地方回原文重看。」；状态行「在线，随时为你答疑」→「在听，说说你卡在哪」，流式中文案改「正在挑你思路里的漏洞…」 |
+| `GuideChatView.vue` 建议提问 | 四条全部改成「我先讲、你来挑」的句式，第一条消息就确立分工，而不是「帮我做」 |
+| `HomeView.vue` | 入口卡片标题「授人以渔」、徽标改为学士帽图标、说明「不直接给答案，先给方向。」，特性三条改为资料切章 / 每章 3 题判讲清楚没有 / 答不出的下次复习先问 |
+| `QuizView.vue` | 求助抽屉里 AI 说话人标签「引导助手」→「考官」 |
+| `ChatRoom.vue` | 新增 `BrandMark.vue` 组件（学士帽描边图标），替换头像位的文字：顶栏头像、空态大图标、每条 AI 消息的 26px 小头像统一用它；AI 说话人名固定「考官」；组件默认 `greeting` 改为「说说你卡在哪」，不再兜底成「我是你的 AI 助手」 |
+
+取舍：产品定位是「不替用户答」，那么文案里出现「助手」就等于自我否定——助手的天职是代劳。说话人名取「考官」而不是「渔」：标题「授人以渔」是给用户看的立意，头像位再用一个「渔」字，第一次进来的人只会以为是个人名或昵称，看不出这是产品标识。图形改成学士帽，是为了让头像在 26px 下也能一眼认出「学习」这件事，而不是靠一个字去猜。
+
+上表中「你把思路讲出来」「我先讲、你来挑」两类表述已在同日修正，见下节。
+
+验收：11-25。
+
+**修正（同日）：定位表述由「让用户先讲」改为「AI 不直接给答案」**
+
+上一版把立场写成了「你先讲、我来挑」，读起来像要求用户主动输出，偏离了实际机制：对话页的系统提示词是「先给方向 → 再给关键词 → 伪代码 → 最小示例 → 完整答案」分级递进（`LoveApp.SYSTEM_PROMPT` 总原则第 3 条），主动权在 AI 手上，用户是被问、被提示的一方。
+
+| 位置 | 改后文案 |
+| --- | --- |
+| `HomeView.vue` 卡片说明 | 不直接给答案，先给方向。 |
+| `GuideChatView.vue` 空态副文案 | 这里不直接给答案。先给你方向，再给关键词，实在卡住才给最小示例。 |
+| `GuideChatView.vue` 流式中状态 | 正在想下一步给你什么提示… |
+| `GuideChatView.vue` 建议提问 | 线程池核心数怎么定？先别给答案 / 这段报错我怀疑是空指针，从哪查起 / AQS 排队那段没看懂，给个方向就行 / 配置改了没生效，我想要排查顺序 |
+
+验收：11-27。
+
+**命名与定位再次修正：「小思」**
+
+「考官」这个词把关系说反了：这一页的业务是用户提问、AI 不给现成答案、最终让用户搞懂答案是怎么来的，AI 是陪跑的人不是审判的人。统一改成「小思」，并用副文案把业务说清楚。
+
+| 位置 | 改后 |
+| --- | --- |
+| `GuideChatView.vue` `ai-name` | 考官 → 小思（顶栏、每条 AI 消息的说话人名都取自这里） |
+| `ChatRoom.vue` 组件默认 `aiName` | 考官 → 小思，避免其他调用方漏传时又出现旧称呼 |
+| `QuizView.vue` 求助抽屉说话人 | 考官 → 小思 |
+| `GuideChatView.vue` 空态副文案 | 这里不直接给答案。先给方向，再给关键词，实在卡住才给最小示例——目标是让你搞懂答案是怎么来的。 |
+
+验收：11-28。
+
+## 修复：测验会话混进对话页左侧栏
+
+现象：在资料页点「开始学习」出题后，对话页左侧栏多出一条会话；复习也一样。
+
+原因：`GET /conversations` 只按 `user_id` 过滤，把 `t_conversation` 里 4 种 mode 全返回。出题写入的是 `SELF_TEST`、复习写入的是 `REVIEW`，它们本来是测验页的载体，却被当成聊天会话渲染。实测数据：该用户列表里 `SELF_TEST` 10 条、`REVIEW` 3 条。
+
+改法：`ConversationRepository.findAllByUserId` 的 SQL 加上 `and c.mode in ('FREE_CHAT', 'PRACTICE')`。在 SQL 层过滤而不是前端过滤，理由是列表语义本身就该是「对话」——`SELF_TEST`/`REVIEW` 在任何页面都不会被当聊天打开，留在响应里只会误导所有调用方（含默认打开最近一条会话的逻辑，以前可能随机落到一条测验会话上）。
+
+`PRACTICE` 保留在列表内：它是「怎么练」生成的可追问会话，用户需要能回到它继续提问。
+
+契约同步：`docs/api-conversation-history.md` §3.1、§3.2。
+
+## 修复：测验页的求助回答与判分意见未做 markdown 渲染
+
+现象：在求助抽屉里，AI 回答直接显示 `**副本**`、`` `obj = method(obj)` ``、`- ` 列表符号；判分意见同理。聊天页早已接入 `utils/markdown.js`，这两处漏了。
+
+原因：`QuizView.vue` 里两段 AI 产出的文本都用插值 `{{ }}` 输出，而富文本要走 `v-html` + `renderMarkdown`。
+
+改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| 求助抽屉 | `m.role === 'me'` 仍用插值（用户手打的字不该被当成 markdown）；AI 回答改为 `.md` + `v-html="renderMarkdown(m.content)"` |
+| 判分意见 | `<p class="feedback">{{ … }}</p>` → `<div class="feedback md" v-html="renderMarkdown(…)" />`。必须换成 `div`：渲染后的内容可能含 `<ul>`/`<pre>`，`p` 里塞块级元素会被浏览器拆散 |
+| 样式 | 新增 `.md` 作用域样式（段落/标题/加粗/列表/行内代码/代码块/引用/表格/链接），并把 `.md` 的 `white-space` 改回 `normal`——`.bubble` 上的 `pre-wrap` 会让 markdown 的换行失效 |
+
+题面 `.qtext` 保持纯文本：题面是短句，不需要排版。
+
+验收：11-30。
+
+## 修复：求助记录与测验题目不持久
+
+现象两条：① 求助完关掉抽屉再打开，之前的问答没了；② 答到一半退出，再点「开始学习」会重新出题，原题和已答结论都没了。
+
+根因：
+
+- 求助内容**从未落库**。`QuizService.help` 只调 `HelpService.answer` 拿到回答、把 `t_question.help_used` 置 true，问答文本没有任何存储位置，关掉抽屉即丢。
+- `POST /quiz/generate` **无幂等**。每次调用都走 `QuizStore.createSelfTest` 新建 `SELF_TEST` 会话，退出再进必然是一轮新题。
+
+改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| [`db/schema.sql`](../db/schema.sql) | 新增 `t_help_turn`（`question_id` / `role` / `content`）+ `idx_help_turn_question`。单独建表而不复用 `t_message`：求助不是会话问答流的一部分，且必须按 `question_id` 精确回放 |
+| [`HelpTurnRepository`](../src/main/java/com/lcz/aiagentstudy/repository/HelpTurnRepository.java) | 新建。`saveTurn` 在一个事务里写 USER + ASSISTANT 两行（只写一半会回放出「有问没答」）；`findByQuestion` 按 id 顺序回放 |
+| [`QuestionRepository.findLatestUnfinishedSelfTest`](../src/main/java/com/lcz/aiagentstudy/repository/QuestionRepository.java) | 按「存在未作答且未跳过的题」找这份资料最近一轮未完成的自测 |
+| [`QuizService.generate`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 未完成轮次存在就直接返回它的 `conversationId` 与原题，不调模型、不建会话；全部答完（含跳过）才允许开新一轮 |
+| [`QuizService.help`](../src/main/java/com/lcz/aiagentstudy/service/QuizService.java) | 回答生成后落库；新增 `helpHistory` 做归属校验后回放 |
+| [`QuizController`](../src/main/java/com/lcz/aiagentstudy/controller/QuizController.java) | 新增 `GET /quiz/{questionId}/help` |
+| [`QuizView.vue`](../ai-agent-frontend/src/views/QuizView.vue) | 打开抽屉先拉历史并显示「正在加载之前的求助记录…」；发送失败时撤掉乐观气泡、把问题填回输入框，避免界面留下服务端没有的记录 |
+
+顺带修复：恢复出来的题（只有 `verdict`、没有 `result`）此前不显示「求助」按钮，导致复习时点不了求助。改为求助按钮恒显示，只把「补讲一次」和剩余次数收敛到 `result` 存在时。
+
+数据库变更已在远程库执行（`CREATE TABLE` + 索引，`11 行`表清单确认）。验收记录见 `acceptance-log.md` 11-31 / 11-32。
+

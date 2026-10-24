@@ -41,27 +41,29 @@
               <!-- 已判分：恢复出来的题只有 verdict，本次作答过的有完整结果 -->
               <div v-if="verdictOf(q)" class="verdict">
                 <div v-if="stateOf(q).restored" class="restored">历史判分（本轮未作答）</div>
-                <p v-if="stateOf(q).result?.feedback" class="feedback">
-                  {{ stateOf(q).result.feedback }}
-                </p>
+                <div v-if="stateOf(q).result?.feedback" class="feedback md" v-html="renderMarkdown(stateOf(q).result.feedback)"></div>
                 <ul v-if="stateOf(q).result?.gaps?.length" class="gaps">
                   <li v-for="(gap, i) in stateOf(q).result.gaps" :key="i">
                     <b>缺口 {{ String(i + 1).padStart(2, '0') }}</b>{{ gap }}
                   </li>
                 </ul>
-                <div v-if="stateOf(q).result" class="qrow">
+                <div class="qrow">
                   <div class="left">
                     <button
-                      v-if="stateOf(q).result.retryAllowed"
+                      v-if="stateOf(q).result?.retryAllowed"
                       type="button"
                       class="btn ghost"
                       @click="startRetry(q)"
                     >
                       补讲一次
                     </button>
+                    <!-- 恢复出来的题只有 verdict，但求助同样应该可用 -->
                     <button type="button" class="btn" @click="openHelp(q)">求助</button>
                   </div>
-                  <span :class="['quota', { warn: stateOf(q).result.retryAllowed }]">
+                  <span
+                    v-if="stateOf(q).result"
+                    :class="['quota', { warn: stateOf(q).result.retryAllowed }]"
+                  >
                     {{ stateOf(q).result.retryAllowed ? '剩余 1 次' : '已用完' }}
                   </span>
                 </div>
@@ -106,12 +108,18 @@
     <div v-if="helpOpen" class="drawer-mask" @click.self="helpOpen = false">
       <aside class="drawer">
         <h3>求助：{{ helpTarget?.target }}</h3>
-        <p class="hint">求助不产生成绩，只把这题标记为「求助过」，复习时会优先排</p>
+        <p class="hint">求助不产生成绩，只把这题标记为「求助过」，复习时会优先排。记录会保存，下次打开还在</p>
         <div class="qa">
-          <div v-for="(m, i) in helpMessages" :key="i" :class="['bubble', m.role === 'me' ? 'me' : 'ai']">
-            <span class="who">{{ m.role === 'me' ? '我' : '引导助手' }}</span>{{ m.content }}
-          </div>
-          <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
+          <p v-if="helpLoading" class="drawer-empty">正在加载之前的求助记录…</p>
+          <template v-else>
+            <div v-for="(m, i) in helpMessages" :key="i" :class="['bubble', m.role === 'me' ? 'me' : 'ai']">
+              <span class="who">{{ m.role === 'me' ? '我' : '小思' }}</span>
+              <!-- 我手打的字原样显示；小思的回答是 markdown，要渲染 -->
+              <template v-if="m.role === 'me'">{{ m.content }}</template>
+              <div v-else class="md" v-html="renderMarkdown(m.content)"></div>
+            </div>
+            <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
+          </template>
         </div>
         <p v-if="helpError" class="qerror">{{ helpError }}</p>
         <div class="drawer-foot">
@@ -129,7 +137,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/PageHeader.vue'
-import { conversation, attempt, help } from '../api/quiz.js'
+import { conversation, attempt, help, helpHistory } from '../api/quiz.js'
+import { renderMarkdown } from '../utils/markdown.js'
 import { redirectOn401, messageOf } from '../utils/apiError.js'
 
 const route = useRoute()
@@ -231,14 +240,30 @@ const helpTarget = ref(null)
 const helpMessages = ref([])
 const helpQuestion = ref('')
 const helpSending = ref(false)
+const helpLoading = ref(false)
 const helpError = ref('')
 
-function openHelp(q) {
+// 求助记录存在服务端（t_help_turn），每次打开抽屉都先回放，关掉再开不会清空
+async function openHelp(q) {
   helpTarget.value = q
   helpMessages.value = []
   helpQuestion.value = ''
   helpError.value = ''
   helpOpen.value = true
+  helpLoading.value = true
+  try {
+    const turns = await helpHistory(q.questionId)
+    // 后端 role 是 USER / ASSISTANT，前端只区分「我」和「小思」
+    helpMessages.value = (turns || []).map((t) => ({
+      role: t.role === 'USER' ? 'me' : 'ai',
+      content: t.content
+    }))
+  } catch (e) {
+    if (redirectOn401(e, router, route)) return
+    helpError.value = messageOf(e, '历史求助加载失败，仍可继续提问')
+  } finally {
+    helpLoading.value = false
+  }
 }
 
 async function sendHelp() {
@@ -253,6 +278,9 @@ async function sendHelp() {
     helpMessages.value.push({ role: 'ai', content: data.answer })
   } catch (e) {
     if (redirectOn401(e, router, route)) return
+    // 没答上来这一问就没落库，把气泡撤掉、问题填回去，避免界面上留下服务端没有的记录
+    helpMessages.value.pop()
+    helpQuestion.value = question
     helpError.value = messageOf(e, '求助失败，请稍后重试')
   } finally {
     helpSending.value = false
@@ -632,6 +660,97 @@ onMounted(load)
   margin-bottom: 4px;
   font-size: 10.5px;
   color: var(--ink-dim);
+}
+
+/* 求助回答与判分意见都是 AI 产出的 markdown：气泡内的 pre-wrap 会毁掉排版，这里改回正常换行 */
+.md {
+  white-space: normal;
+}
+.md :deep(p) {
+  margin: 0 0 8px;
+}
+.md :deep(p:last-child),
+.md :deep(ul:last-child),
+.md :deep(ol:last-child),
+.md :deep(pre:last-child) {
+  margin-bottom: 0;
+}
+.md :deep(h1),
+.md :deep(h2),
+.md :deep(h3),
+.md :deep(h4) {
+  margin: 14px 0 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.md :deep(h1:first-child),
+.md :deep(h2:first-child),
+.md :deep(h3:first-child) {
+  margin-top: 0;
+}
+.md :deep(strong) {
+  font-weight: 600;
+  color: var(--ink);
+}
+.md :deep(ul),
+.md :deep(ol) {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.md :deep(li) {
+  margin: 3px 0;
+}
+.md :deep(li > p) {
+  margin: 0;
+}
+/* 行内代码给底色，代码块给边框和横向滚动，两者不能共用一套 */
+.md :deep(code) {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+.md :deep(pre) {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f7f8;
+  overflow-x: auto;
+}
+.md :deep(pre code) {
+  padding: 0;
+  background: none;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.md :deep(blockquote) {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--brand-lit);
+  color: var(--ink-soft);
+}
+.md :deep(table) {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.md :deep(th),
+.md :deep(td) {
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.md :deep(a) {
+  color: var(--brand-lit);
+  text-decoration: underline;
 }
 .drawer-empty {
   margin: 0;

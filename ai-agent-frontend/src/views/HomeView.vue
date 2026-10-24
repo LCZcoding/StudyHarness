@@ -20,14 +20,15 @@
            后端 /api/ai/manus/chat 与 LiManus 保留，待后续作为「工具调用」接入本页。 -->
       <RouterLink to="/guide" class="card guide">
         <div class="card-inner">
-          <span class="emoji">AI</span>
-          <h2>AI 问题引导解决助手</h2>
-          <p>你的专属答疑助手，引导你解决问题，陪伴你一起解决每一个问题。</p>
+          <span class="emoji"><BrandMark /></span>
+          <h2>授人以渔</h2>
+          <p>不直接给答案，先给方向。</p>
           <ul class="feats">
-            <li>问题解决</li>
-            <li>学习辅助</li>
+            <li>把你自己的资料切成章节</li>
+            <li>每章 3 道题，答完判你讲清楚没有</li>
+            <li>答不出的，下次复习先问你</li>
           </ul>
-          <span class="enter">进入答疑区 <b>→</b></span>
+          <span class="enter">进去讲两句 <b>→</b></span>
         </div>
       </RouterLink>
     </main>
@@ -38,6 +39,7 @@
 import { ref } from 'vue'
 import { isAuthenticated, currentUsername, clearAuth } from '../stores/auth.js'
 import { logout } from '../api/auth.js'
+import BrandMark from '../components/BrandMark.vue'
 
 const loggingOut = ref(false)
 
