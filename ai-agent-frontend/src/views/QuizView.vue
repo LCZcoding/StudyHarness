@@ -12,36 +12,35 @@
     </PageHeader>
 
     <main class="content">
-      <div v-if="error" class="banner">{{ error }}</div>
-      <p v-if="loading" class="loading">加载中…</p>
+      <div class="inner">
+        <div v-if="error" class="banner">{{ error }}</div>
+        <p v-if="loading" class="loading">加载中…</p>
 
-      <div v-if="!loading && quiz" class="quiz-wrap">
-        <div class="quiz-head">
-          <span>{{ quiz.conversationId.slice(0, 8) }} · 本轮测验</span>
-          <span class="done">共 {{ quiz.questions.length }} 道 · 已完成 {{ doneCount }}</span>
-        </div>
-
-        <article
-          v-for="(q, index) in quiz.questions"
-          :key="q.questionId"
-          :class="['qcard', { answered: verdictOf(q) }]"
-        >
-          <div class="qcard-head">
-            <span :class="['kind', { explain: q.kind === 'EXPLAIN' }]">{{ q.kind }}</span>
-            <span class="qtarget">{{ q.target }}</span>
-            <span class="qno">{{ index + 1 }}</span>
+        <div v-if="!loading && quiz" class="quiz-wrap">
+          <div class="quiz-head">
+            <span class="mono">{{ quiz.conversationId.slice(0, 8) }} · 本轮测验</span>
+            <span class="mono done">共 {{ quiz.questions.length }} 道 · 已完成 {{ doneCount }}</span>
           </div>
-          <p class="qtext">{{ q.text }}</p>
+          <div class="quiz-progress">
+            <i :style="{ width: donePercent }"></i>
+          </div>
 
-          <div class="qbody">
-            <!-- 已判分：恢复出来的题只有 verdict，本次作答过的有完整结果 -->
-            <div v-if="verdictOf(q)" class="verdict">
-              <div :class="['verdict-band', verdictClass(verdictOf(q))]"></div>
-              <div class="verdict-body">
-                <div class="verdict-line">
-                  <span :class="['tag', verdictClass(verdictOf(q))]">{{ verdictOf(q) }}</span>
-                  <span v-if="stateOf(q).restored" class="restored">历史判分（本轮未作答）</span>
-                </div>
+          <article v-for="(q, index) in quiz.questions" :key="q.questionId" class="q">
+            <span class="q-no">{{ String(index + 1).padStart(2, '0') }}</span>
+
+            <div class="q-body">
+              <div class="q-meta">
+                <span :class="['kind', { explain: q.kind === 'EXPLAIN' }]">{{ q.kind }}</span>
+                <span class="qtarget">{{ q.target }}</span>
+                <span v-if="verdictOf(q)" :class="['tag', verdictClass(verdictOf(q))]">
+                  {{ verdictOf(q) }}
+                </span>
+              </div>
+              <p class="qtext">{{ q.text }}</p>
+
+              <!-- 已判分：恢复出来的题只有 verdict，本次作答过的有完整结果 -->
+              <div v-if="verdictOf(q)" class="verdict">
+                <div v-if="stateOf(q).restored" class="restored">历史判分（本轮未作答）</div>
                 <p v-if="stateOf(q).result?.feedback" class="feedback">
                   {{ stateOf(q).result.feedback }}
                 </p>
@@ -67,39 +66,39 @@
                   </span>
                 </div>
               </div>
-            </div>
 
-            <!-- 未作答 / 补讲中 -->
-            <template v-else>
-              <textarea
-                v-model="stateOf(q).answer"
-                maxlength="5000"
-                :disabled="stateOf(q).submitting"
-                :placeholder="stateOf(q).retrying ? '补齐上一轮缺口，再提交一次…' : '用自己的话讲清楚，不要只写结论…'"
-              ></textarea>
-              <p v-if="stateOf(q).submitError" class="qerror">{{ stateOf(q).submitError }}</p>
-              <div class="qrow">
-                <div class="left">
-                  <button
-                    type="button"
-                    class="btn primary"
-                    :disabled="stateOf(q).submitting || !stateOf(q).answer.trim()"
-                    @click="submit(q)"
-                  >
-                    {{ stateOf(q).submitting ? '判分中…' : '提交作答' }}
-                  </button>
-                  <button type="button" class="btn" @click="openHelp(q)">求助</button>
+              <!-- 未作答 / 补讲中 -->
+              <template v-else>
+                <textarea
+                  v-model="stateOf(q).answer"
+                  maxlength="5000"
+                  :disabled="stateOf(q).submitting"
+                  :placeholder="stateOf(q).retrying ? '补齐上一轮缺口，再提交一次…' : '用自己的话讲清楚，不要只写结论…'"
+                ></textarea>
+                <p v-if="stateOf(q).submitError" class="qerror">{{ stateOf(q).submitError }}</p>
+                <div class="qrow">
+                  <div class="left">
+                    <button
+                      type="button"
+                      class="btn primary"
+                      :disabled="stateOf(q).submitting || !stateOf(q).answer.trim()"
+                      @click="submit(q)"
+                    >
+                      {{ stateOf(q).submitting ? '判分中…' : '提交作答' }}
+                    </button>
+                    <button type="button" class="btn" @click="openHelp(q)">求助</button>
+                  </div>
+                  <span class="quota">剩余 {{ 2 - stateOf(q).attemptNo }} 次</span>
                 </div>
-                <span class="quota">剩余 {{ 2 - stateOf(q).attemptNo }} 次</span>
-              </div>
-            </template>
-          </div>
-        </article>
-      </div>
+              </template>
+            </div>
+          </article>
+        </div>
 
-      <div v-if="!loading && !quiz" class="empty">
-        <strong>没有找到这一轮测验</strong>
-        回资料库重新出题，或者去待办开始复习。
+        <div v-if="!loading && !quiz" class="empty">
+          <h2>没有找到这一轮测验</h2>
+          <p>回资料库重新出题，或者去待办开始复习。</p>
+        </div>
       </div>
     </main>
 
@@ -114,13 +113,13 @@
           </div>
           <p v-if="!helpMessages.length" class="drawer-empty">先问一个具体卡住你的点，比如「这个参数作用在哪个阶段？」</p>
         </div>
+        <p v-if="helpError" class="qerror">{{ helpError }}</p>
         <div class="drawer-foot">
           <input v-model="helpQuestion" maxlength="500" placeholder="输入你的问题…" @keyup.enter="sendHelp" />
           <button type="button" class="btn primary" :disabled="helpSending || !helpQuestion.trim()" @click="sendHelp">
             {{ helpSending ? '回答中…' : '提问' }}
           </button>
         </div>
-        <p v-if="helpError" class="qerror">{{ helpError }}</p>
       </aside>
     </div>
   </div>
@@ -165,11 +164,17 @@ function verdictOf(q) {
   return local?.verdict || q.verdict || null
 }
 
-const verdictClass = (v) => ({ PASS: 'pass', PARTIAL: 'partial', FAIL: 'fail' }[v] || 'fail')
+// SKIPPED 是跳过，不是判失败：给中性灰，避免和 FAIL 的红混在一起
+const verdictClass = (v) =>
+  ({ PASS: 'pass', PARTIAL: 'partial', FAIL: 'fail', SKIPPED: 'skipped' }[v] || 'skipped')
 
 const doneCount = computed(
   () => (quiz.value ? quiz.value.questions.filter((q) => verdictOf(q)).length : 0)
 )
+const donePercent = computed(() => {
+  const total = quiz.value?.questions.length || 0
+  return total ? `${Math.round((doneCount.value / total) * 100)}%` : '0%'
+})
 
 async function load() {
   loading.value = true
@@ -258,48 +263,85 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
 .page {
+  --bg: #0e1116;
+  --surface: #141b23;
+  --ink: #eef4fa;
+  --ink-soft: #8ba3b8;
+  --ink-dim: #6b7f92;
+  --line: rgba(148, 163, 184, 0.13);
+  --brand: #0284c7;
+  --brand-lit: #22d3ee;
+  --good: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --radius-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0e1116;
+  background: var(--bg);
 }
 .content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 24px 32px 44px;
+}
+.inner {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 36px 32px 72px;
+}
+.quiz-wrap {
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: 999px;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  color: #dbe6f0;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: transparent;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
   white-space: nowrap;
 }
-.btn:hover { background: rgba(148, 163, 184, 0.1); }
+.btn:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
 .btn.primary {
-  background: linear-gradient(140deg, #0284c7, #0ea5c9);
+  background: linear-gradient(140deg, var(--brand), #0ea5c9);
   border-color: transparent;
   color: #04121b;
   font-weight: 700;
 }
-.btn.primary:hover { filter: brightness(1.08); }
-.btn.ghost { border-color: rgba(34, 211, 238, 0.35); color: #22d3ee; }
-.btn.ghost:hover { background: rgba(34, 211, 238, 0.12); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary:hover {
+  filter: brightness(1.08);
+}
+.btn.ghost {
+  border-color: rgba(34, 211, 238, 0.35);
+  color: var(--brand-lit);
+}
+.btn.ghost:hover {
+  background: rgba(34, 211, 238, 0.12);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 .banner {
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  border-radius: 10px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 12px;
   border: 1px solid rgba(248, 113, 113, 0.35);
   background: rgba(248, 113, 113, 0.08);
   color: #f9a8a8;
@@ -307,41 +349,64 @@ onMounted(load)
 }
 .loading {
   margin: 0;
-  padding: 40px 0;
+  padding: 48px 0;
   text-align: center;
-  color: #6b7f92;
+  color: var(--ink-dim);
   font-size: 12px;
 }
 
-.quiz-wrap {
-  max-width: 780px;
-  margin: 0 auto;
+/* ---------- 轮次抬头 + 进度线 ---------- */
+.mono {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--ink-dim);
 }
 .quiz-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 18px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: #6b7f92;
 }
-.quiz-head .done { color: #22d3ee; }
-
-.qcard {
-  margin-bottom: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: #141b23;
+.quiz-head .done {
+  color: var(--brand-lit);
+}
+.quiz-progress {
+  height: 3px;
+  margin: 14px 0 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(148, 163, 184, 0.16);
   overflow: hidden;
 }
-.qcard-head {
+.quiz-progress i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--brand), var(--brand-lit));
+  transition: width 0.5s var(--ease);
+}
+
+/* ---------- 每题一节：编号 + 发丝线分隔 ---------- */
+.q {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 20px;
+  padding: 34px 4px 32px;
+  border-bottom: 1px solid var(--line);
+}
+.q-no {
+  padding-top: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.q-body {
+  min-width: 0;
+}
+.q-meta {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 18px 0;
 }
 .kind {
   padding: 3px 9px;
@@ -350,186 +415,202 @@ onMounted(load)
   font-size: 10px;
   letter-spacing: 1px;
   border: 1px solid rgba(34, 211, 238, 0.3);
-  color: #22d3ee;
+  color: var(--brand-lit);
 }
 .kind.explain {
   border-color: rgba(168, 85, 247, 0.4);
   color: #c4a5f7;
 }
 .qtarget {
+  min-width: 0;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #6b7f92;
-  margin-left: auto;
+  color: var(--ink-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.qno {
+.tag {
   flex: none;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  color: #6b7f92;
+  letter-spacing: 1px;
+}
+.tag.pass {
+  background: rgba(52, 211, 153, 0.14);
+  color: var(--good);
+}
+.tag.partial {
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--warn);
+}
+.tag.fail {
+  background: rgba(248, 113, 113, 0.14);
+  color: var(--bad);
+}
+.tag.skipped {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--ink-soft);
 }
 .qtext {
-  margin: 10px 18px 14px;
-  font-size: 15px;
-  line-height: 1.8;
-  color: #eef4fa;
+  margin: 14px 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.75;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
-.qcard.answered .qtext { color: #8ba3b8; }
 
-.qbody { padding: 0 18px 18px; }
-.qbody textarea {
+.q-body textarea {
   width: 100%;
-  min-height: 82px;
+  min-height: 96px;
   resize: vertical;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
   background: #0f151c;
-  color: #dbe6f0;
-  line-height: 1.7;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.8;
   outline: none;
-  transition: border-color 0.18s ease;
+  transition: border-color 0.2s var(--ease);
 }
-.qbody textarea:focus { border-color: rgba(34, 211, 238, 0.45); }
-.qbody textarea::placeholder { color: #53687a; }
-.qbody textarea:disabled { opacity: 0.6; }
+.q-body textarea:focus {
+  border-color: rgba(34, 211, 238, 0.45);
+}
+.q-body textarea::placeholder {
+  color: #53687a;
+}
+.q-body textarea:disabled {
+  opacity: 0.6;
+}
 
 .qrow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
-.qrow .left { display: flex; gap: 8px; }
+.qrow .left {
+  display: flex;
+  gap: 8px;
+}
 .quota {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #6b7f92;
+  color: var(--ink-dim);
 }
-.quota.warn { color: #fbbf24; }
+.quota.warn {
+  color: var(--warn);
+}
 .qerror {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 12.5px;
   color: #f9a8a8;
 }
 
-.verdict { border-top: 1px solid rgba(148, 163, 184, 0.12); }
-.verdict-band { height: 3px; }
-.verdict-band.pass { background: #34d399; }
-.verdict-band.partial { background: #fbbf24; }
-.verdict-band.fail { background: #f87171; }
-.verdict-body { padding: 14px 18px 18px; }
-.verdict-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+/* ---------- 判分结果 ---------- */
+.verdict {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
 }
-.tag {
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-}
-.tag.pass { background: rgba(52, 211, 153, 0.14); color: #34d399; }
-.tag.partial { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
-.tag.fail { background: rgba(248, 113, 113, 0.14); color: #f87171; }
 .restored {
+  margin-bottom: 10px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  color: #6b7f92;
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  color: var(--ink-dim);
 }
 .feedback {
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
+  line-height: 1.85;
   color: #dbe6f0;
-  line-height: 1.75;
 }
 .gaps {
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .gaps li {
   display: flex;
-  gap: 8px;
-  padding: 7px 11px;
-  border-radius: 8px;
-  background: rgba(251, 191, 36, 0.06);
-  border: 1px dashed rgba(251, 191, 36, 0.22);
+  gap: 10px;
+  padding: 9px 12px;
+  border-left: 2px solid rgba(251, 191, 36, 0.45);
   font-size: 12.5px;
+  line-height: 1.75;
   color: #d8c690;
 }
 .gaps li b {
   flex: none;
   font-weight: 400;
-  color: #fbbf24;
+  color: var(--warn);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
 }
 
 .empty {
-  max-width: 780px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 60px 20px;
+  padding: 88px 24px;
   text-align: center;
-  border: 1px dashed rgba(148, 163, 184, 0.12);
-  border-radius: 16px;
-  color: #6b7f92;
-  font-size: 13px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
-.empty strong {
-  display: block;
-  margin-bottom: 6px;
-  color: #dbe6f0;
-  font-size: 15px;
+.empty h2 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.empty p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--ink-dim);
 }
 
-/* 求助抽屉 */
+/* ---------- 求助抽屉 ---------- */
 .drawer-mask {
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(4, 8, 12, 0.6);
-  backdrop-filter: blur(2px);
+  background: rgba(6, 10, 14, 0.72);
+  backdrop-filter: blur(3px);
 }
 .drawer {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(420px, 88vw);
+  width: min(420px, 100vw);
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  background: #101820;
-  border-left: 1px solid rgba(34, 211, 238, 0.14);
+  padding: 26px 24px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
   overflow-y: auto;
 }
 .drawer h3 {
-  margin: 0 0 4px;
-  font-size: 15px;
-  color: #eef4fa;
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
 }
 .drawer .hint {
-  margin: 0 0 18px;
+  margin: 0 0 20px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #6b7f92;
+  line-height: 1.7;
+  color: var(--ink-dim);
 }
 .qa {
   display: flex;
@@ -537,10 +618,10 @@ onMounted(load)
   gap: 12px;
 }
 .bubble {
-  padding: 10px 13px;
-  border-radius: 12px;
+  padding: 11px 14px;
+  border-radius: 14px;
   font-size: 13px;
-  line-height: 1.75;
+  line-height: 1.8;
   white-space: pre-wrap;
 }
 .bubble.me {
@@ -550,7 +631,7 @@ onMounted(load)
 }
 .bubble.ai {
   background: #111b27;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--line);
   color: #dbe6f0;
 }
 .bubble .who {
@@ -558,33 +639,69 @@ onMounted(load)
   margin-bottom: 4px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  color: #6b7f92;
+  color: var(--ink-dim);
 }
 .drawer-empty {
   margin: 0;
   font-size: 12.5px;
-  color: #6b7f92;
   line-height: 1.8;
+  color: var(--ink-dim);
 }
 .drawer-foot {
   display: flex;
   gap: 8px;
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 18px;
 }
 .drawer-foot input {
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 10px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
   background: #0f151c;
-  color: #dbe6f0;
+  color: var(--ink);
   outline: none;
+  transition: border-color 0.2s var(--ease);
 }
-.drawer-foot input:focus { border-color: rgba(34, 211, 238, 0.45); }
+.drawer-foot input:focus {
+  border-color: rgba(34, 211, 238, 0.45);
+}
 
 @media (max-width: 820px) {
-  .content { padding: 18px; }
+  .inner {
+    padding: 28px 18px 56px;
+  }
+  .q {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding: 26px 2px 24px;
+  }
+  .qtext {
+    font-size: 16px;
+  }
+  .q-meta {
+    flex-wrap: wrap;
+  }
+  .qrow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .qrow .left {
+    width: 100%;
+  }
+  .qrow .left .btn {
+    flex: 1;
+  }
+  .drawer {
+    width: 100vw;
+    border-left: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .quiz-progress i {
+    transition: none;
+  }
 }
 </style>
