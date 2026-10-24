@@ -845,9 +845,67 @@ RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md)
    `QuizService.skip` 校验归属 → 已作答报 400 → 已跳过报 400 → 标 `skipped` → 有排期才 `postpone` 1 天；
    `QuestionRepository.findUnanswered` 排除 skipped，会话查询把跳过题返回 `verdict="SKIPPED"`。
    实测：跳过 q31/q32 后本轮未答列表清空，再点 `/review/start` 得到 `400 现在没有到期需要复习的题`，
-   复习循环被打断；`user2` 跳过 `lcz` 的题 403。见 [`acceptance-log.md`](./acceptance-log.md) 6-20。
+   复习循环被打断；`user2` 跳过 `lcz` 的题 403。见 [`acceptance-log.md`](./acceptance-log.md) 6-21 ~ 6-24。
    坑：`startReview` 会用 `moveQuestion` 把排期从旧题迁到新题，所以「跳过新题」等价于「推迟那次到期」，
    不需要再去改源题。重复跳过守卫写完还没重启验证过。
 8. `PRACTICE` 会话后续追问走练习提示词（技术债 13，用户决定不改）。
-9. 前端资料页按「文档 → 章节」重写（等后端收尾后做）。
+9. ~~前端资料页按「文档 → 章节」重写~~（2026-10-24 完成）：同轮把待办、进度、测验、对话四页也统一了视觉，
+   见本文件下一节「前端改版」。6 个提交在分支 `feat/frontend-materials`（`ea972d5`…`885f0eb`），待合并。
+
+***
+
+## 前端改版（文档 → 章节两级 + 全站视觉统一，2026-10-24）
+
+**起因**：后端闭环跑通后，前端仍是「单条资料 + 卡片」的旧结构，六个页面各写一套样式（有的胶囊、有的卡片、对话区还是浅蓝）。
+用户拍板两件事：资料按「文档 → 章节」组织；视觉参考苹果官网的排版节奏，配色沿用项目既有的深色青色。
+
+**设计约定（六页共用，写在各自根类的 CSS 变量里）**
+
+| 令牌 | 值 | 用途 |
+| --- | --- | --- |
+| `--bg` / `--surface` | `#0e1116` / `#141b23` | 页面底 / 抬升面 |
+| `--ink` / `--ink-soft` / `--ink-dim` | `#eef4fa` / `#8ba3b8` / `#6b7f92` | 三级文字 |
+| `--line` | `rgba(148, 163, 184, 0.13)` | 发丝线（替代卡片描边） |
+| `--brand` / `--brand-lit` | `#0284c7` / `#22d3ee` | 主色 / 高亮 |
+| `--radius-pill` | `999px` | 全部按钮 |
+| `--ease` | `cubic-bezier(0.22, 1, 0.36, 1)` | 动效统一 0.2s |
+
+版式：内容列 `max-width: 1040px`、左右 32px（阅读页正文 760px）；章节与行之间用发丝线分隔而不是卡片；
+层级只靠字号与字重表达；按钮一律 pill。
+
+**逐页改法**
+
+| 页面 | 改前 | 改后 |
+| --- | --- | --- |
+| [`MaterialsView.vue`](../ai-agent-frontend/src/views/MaterialsView.vue) | 平铺资料条目 | 文档分组 + 每章「序号 / 标题 / 摘要 / 三态 / 字数」，文档头带通过进度条 |
+| [`SectionReadView.vue`](../ai-agent-frontend/src/views/SectionReadView.vue)（新增） | 无 | 760px 正文列、去掉 `##` 标记、上一章/下一章、两个检测入口，底栏 sticky |
+| [`TodoView.vue`](../ai-agent-frontend/src/views/TodoView.vue) | 圆角卡片 + 彩色图标块 | 发丝线清单 + 状态圆点 + 一行总览（复习/补讲/未测） |
+| [`ProgressView.vue`](../ai-agent-frontend/src/views/ProgressView.vue) | 三张统计卡 + 各自断开的柱底 | 竖线分隔的大字栏；8 周柱图共用一条伪元素基线，柱顶标数值 |
+| [`QuizView.vue`](../ai-agent-frontend/src/views/QuizView.vue) | 卡片式题目 | 两位序号分节；判分标签四态（`PASS` / `PARTIAL` / `FAIL` / `SKIPPED`，`SKIPPED` 用中性灰） |
+| [`GuideChatView.vue`](../ai-agent-frontend/src/views/GuideChatView.vue) + [`ChatRoom.vue`](../ai-agent-frontend/src/components/ChatRoom.vue) | 浅蓝聊天区 + 描边卡片侧栏 | 侧栏改发丝线列表、选中态左缘亮条；`ChatRoom` 的 `theme-guide` 全套令牌改深色 |
+
+**踩坑（四个都是窄屏/边界才暴露的真问题，不是审美偏好）**
+
+| 现象 | 根因 | 改法 |
+| --- | --- | --- |
+| `/guide` 在 375px 横向溢出，聊天头部按钮被推出视口 | 侧栏固定 280px + 聊天区两列并排，合计超出 375 | `≤640px` 断点把 `.guide-layout` 改 `flex-direction: column`，会话列表转顶部横向条（`max-height: 150px`） |
+| 阅读页底栏有正文文字透上来 | `.action-bar` 用 `linear-gradient(rgba(14,17,22,.86), …)` 做玻璃感 | 窄屏改实色 `#0e1116`，桌面保留玻璃 |
+| 上一章/下一章标题互相压字 | `.pager-title { max-width: 220px }` 大于按钮盒子宽度（`max-width: 46%`），子元素溢出父盒 | 按钮改定宽 `46%`，标题改 `max-width: 100%` |
+| 聊天头部标题把「把这轮做成题」挤到边界外 | `.title-box` 没设 `min-width: 0`，不收缩 | 窄屏 `.chat-header` 允许换行，右侧操作整行右对齐 |
+
+**验证**
+
+- `npm run build` 每步通过（共 5 次）。
+- 桌面：内置浏览器子代理逐页截图核对顶栏、分组、发丝线、气泡与按钮，未发现重叠或截断，控制台无报错。
+- 375×812：Playwright 脚本登录 `lcz` 后依次访问 `/materials`、`/todo`、`/progress`、`/guide`、`/quiz/{id}`、`/materials/{id}`，
+  六页均 `scrollWidth == clientWidth == 375`，控制台 `errors=[]`。
+- 工具边界：浏览器子代理不支持改视口，375px 必须换 Playwright（临时脚本跑完即删，不入库）。
+
+**未验**：真机 iOS Safari / Android Chrome；平板 768~820 区间只靠断点代码保证。
+
+**实施顺序**：资料页 → 章节阅读页 → 待办 → 进度 → 测验 → 对话，每个页面「改完 build + 浏览器实测 + 提交」，
+共 6 个提交（`ea972d5`、`41f6543`、`9e86a15`、`93e0c99`、`98b1aec`、`885f0eb`）。
+
+**预测外问题（按规则转记）**：窄屏三处布局缺陷已按上面表格修掉；「子元素 `min-width: 0` 才能让 flex 子项收缩」这条
+与⑤格 `side-title` 的踩坑同源，说明这套令牌换页时很容易复现，记为复查项。
 
