@@ -41,6 +41,13 @@ const routes = [
         meta: { requiresAuth: true }
       },
       {
+        // 章节阅读页：知识单元是章节，id 用 knowledgeItemId
+        path: 'materials/:knowledgeItemId',
+        name: 'section-read',
+        component: () => import('../views/SectionReadView.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
         path: 'quiz/:conversationId',
         name: 'quiz',
         component: () => import('../views/QuizView.vue'),

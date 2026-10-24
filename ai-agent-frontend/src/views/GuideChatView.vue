@@ -32,8 +32,8 @@
       title="AI 问题引导解决助手"
       ai-name="引导助手"
       user-name="我"
-      ai-avatar="❓"
-      user-avatar="🧑"
+      ai-avatar="AI"
+      user-avatar="我"
       stream-mode="token"
       :chat-id="chatId"
       :history-messages="historyMessages"
@@ -253,21 +253,32 @@ const suggestions = [
 </script>
 
 <style scoped>
+/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
 .guide-layout {
+  --bg: #0e1116;
+  --surface: #141b23;
+  --ink: #eef4fa;
+  --ink-soft: #8ba3b8;
+  --ink-dim: #6b7f92;
+  --line: rgba(148, 163, 184, 0.13);
+  --brand-lit: #22d3ee;
+  --radius-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   height: 100%;
   display: flex;
-  background: #0e1116;
+  background: var(--bg);
 }
 
-/* ===== 左侧栏 ===== */
+/* ===== 左侧栏：发丝线列表，选中项靠左侧亮条标识 ===== */
 .sidebar {
   flex: none;
-  width: 262px;
+  width: 280px;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid rgba(34, 211, 238, 0.14);
-  background: #0e1116;
+  border-right: 1px solid var(--line);
+  background: var(--bg);
 }
 
 .side-head {
@@ -276,21 +287,22 @@ const suggestions = [
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 16px 14px 12px;
+  padding: 22px 18px 16px;
 }
 .side-brand {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 2px;
-  color: #8ba3b8;
+  color: var(--ink-dim);
 }
 .new-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(34, 211, 238, 0.35);
-  color: #22d3ee;
+  color: var(--brand-lit);
   font-size: 12px;
-  transition: background 0.2s ease;
+  line-height: 1;
+  transition: background 0.2s var(--ease);
 }
 .new-btn:hover {
   background: rgba(34, 211, 238, 0.12);
@@ -298,9 +310,10 @@ const suggestions = [
 
 .side-state {
   margin: 0;
-  padding: 24px 14px;
+  padding: 28px 18px;
   font-size: 12px;
-  color: #6b7f92;
+  line-height: 1.8;
+  color: var(--ink-dim);
   text-align: center;
 }
 .side-state.error {
@@ -313,51 +326,65 @@ const suggestions = [
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 0 8px 16px;
+  padding: 0 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 .side-list::-webkit-scrollbar {
   width: 6px;
 }
 .side-list::-webkit-scrollbar-thumb {
-  background: rgba(34, 211, 238, 0.2);
+  background: rgba(148, 163, 184, 0.18);
   border-radius: 3px;
 }
 
 .side-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid transparent;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition: background 0.2s var(--ease);
 }
 .side-item:hover {
-  background: #111b27;
-  border-color: rgba(34, 211, 238, 0.12);
+  background: rgba(148, 163, 184, 0.04);
 }
 .side-item.active {
-  background: #111b27;
-  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.06);
+}
+/* 选中态：左缘一条亮线，不用描边卡片 */
+.side-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-lit);
 }
 
 .side-title {
   font-size: 13px;
-  color: #dbe6f0;
+  line-height: 1.5;
+  color: var(--ink-soft);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   /* 弹性的子元素要显式 min-width: 0，否则文字撑破容器、省略号不生效 */
   min-width: 0;
+  transition: color 0.2s var(--ease);
+}
+.side-item:hover .side-title,
+.side-item.active .side-title {
+  color: var(--ink);
 }
 .side-time {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: #6b7f92;
+  font-size: 10.5px;
+  color: var(--ink-dim);
 }
 
 /* 右侧聊天区占满剩余宽度 */
@@ -368,14 +395,14 @@ const suggestions = [
 
 /* 顶栏右侧的「把这轮做成题」：与 ChatRoom 的闲聊色系保持一致 */
 .make-quiz {
-  padding: 7px 14px;
-  border-radius: 999px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(34, 211, 238, 0.35);
-  color: #22d3ee;
+  color: var(--brand-lit);
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
-  transition: background 0.18s ease, opacity 0.18s ease;
+  transition: background 0.2s var(--ease), opacity 0.2s var(--ease);
 }
 .make-quiz:not(:disabled):hover {
   background: rgba(34, 211, 238, 0.12);
@@ -392,8 +419,8 @@ const suggestions = [
   z-index: 30;
   max-width: 360px;
   margin: 0;
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 11px 15px;
+  border-radius: 12px;
   border: 1px solid rgba(248, 113, 113, 0.35);
   background: #1b1417;
   color: #f9a8a8;
@@ -412,31 +439,31 @@ const suggestions = [
 }
 .make-card {
   width: 320px;
-  padding: 24px;
-  border-radius: 16px;
+  padding: 26px;
+  border-radius: 20px;
   border: 1px solid rgba(34, 211, 238, 0.18);
-  background: #141b23;
+  background: var(--surface);
   text-align: center;
 }
 .make-card p {
   margin: 0;
-  font-size: 13px;
-  color: #dbe6f0;
+  font-size: 13.5px;
+  color: var(--ink);
 }
 .make-card span {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  color: #6b7f92;
+  color: var(--ink-dim);
 }
 .make-spinner {
   width: 26px;
   height: 26px;
-  margin: 0 auto 14px;
+  margin: 0 auto 16px;
   border-radius: 50%;
   border: 2px solid rgba(34, 211, 238, 0.22);
-  border-top-color: #22d3ee;
+  border-top-color: var(--brand-lit);
   animation: make-spin 0.9s linear infinite;
 }
 @keyframes make-spin {
@@ -445,7 +472,65 @@ const suggestions = [
 
 @media (max-width: 820px) {
   .sidebar {
-    width: 190px;
+    width: 200px;
+  }
+  .side-head {
+    padding: 18px 14px 12px;
+  }
+  .side-item {
+    padding: 12px 14px;
+  }
+}
+/* 窄屏放不下「侧栏 + 聊天区」两列：会话列表改成顶部横向条，聊天区占满剩余高度 */
+@media (max-width: 640px) {
+  .guide-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    max-height: 150px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-head {
+    padding: 12px 14px 10px;
+  }
+  .side-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 14px 12px;
+    gap: 8px;
+  }
+  .side-item {
+    flex: none;
+    min-width: 190px;
+    max-width: 220px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .side-item.active::before {
+    top: 8px;
+    bottom: 8px;
+    left: -1px;
+  }
+  .make-quiz {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+  .room {
+    min-height: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .side-item,
+  .side-title,
+  .new-btn,
+  .make-quiz,
+  .make-spinner {
+    transition: none;
+    animation: none;
   }
 }
 </style>

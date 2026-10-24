@@ -228,6 +228,11 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 6-18 | 上下文预算生效（8000） | 在 `FREE_CHAT` 会话 `c3e1f1c1` 连发 12 轮，每轮 750 字 | 日志出现 5 次 `聊天历史按预算裁剪`，最后几条为 `保留 13/14 条，7701 字符`、`保留 12/16 条，7758 字符`、`保留 11/18 条，7252 字符`、`保留 11/20 条，7436 字符`、`保留 11/22 条，7647 字符`，均 ≤ 8000 | `POST /ai/chat/stream` | 历史超过 8000 字符时裁剪，且保留量贴着预算 | 连发 12 轮后 `Select-String "$env:TEMP\aiagent-backend.log" -Pattern '聊天历史按预算裁剪'` | 通过（需要 `com.lcz.aiagentstudy.chatmemory: DEBUG`，`application.yml` 已配） |
 | 6-19 | 预算改 500 后保留条数下降 | 把 `app.ai.context.max-history-chars` 改成 `500`，重启，在新会话 `adb5c282` 发 3 轮、每轮 750 字 | 日志：`保留 1/2 条，430 字符（预算 500）`、`保留 1/4 条，276 字符（预算 500）`；保留条数从 11~13 掉到 1 | 同上 | 预算变小后保留条数明显变少，证明配置真的注入 | 改配置 → 重启 → 发 3 轮 → 查日志 | 通过（验完已改回 8000 并重启） |
 | 6-20 | 失败调用落行 `success=false` | mock `deepSeekChatModel` 抛 `RuntimeException("mock-ai-down")`，走一次真实 `PracticeService.guide` | `guide` 按预期抛出同一异常；`t_ai_call` 新增一行：`scene=PRACTICE`、`success=false`、`error_code=RuntimeException`、`prompt_tokens=null` | — | 失败必须落行且带错误类型 | `mvn -Dtest=FailedCallRecordingTest test`（`@Transactional`，跑完回滚） | 通过（`Tests run: 1, Failures: 0`） |
+| 6-21 | 跳过不算作答、不产生成绩 | 本轮 2 道未答题 `q31` / `q32` 各调一次 `POST /quiz/{questionId}/skip` | 两次均成功；`t_question.skipped=true`；本轮未答列表由 2 条变 0 条；`t_test_record` 不新增行 | `POST /quiz/{questionId}/skip` | 跳过只标 `skipped`，不落成绩 | 跳过「开始复习」里的两道题后重新打开该会话 | 通过 |
+| 6-22 | 有排期的题跳过后排期推后 1 天 | 对 `t_review_schedule` 中有排期的题执行跳过 | `next_due` 由 D 推到 D+1；自测题（无排期）只标 `skipped`、排期不变 | 同上 | 复习排期推后 1 天，自测题不动 | 查 `t_review_schedule.next_due` 前后对照 | 通过 |
+| 6-23 | 跳过全部到期题后复习入口关闭 | 跳完本轮题后调 `POST /review/start` | `400 {"message":"现在没有到期需要复习的题"}` | `POST /review/start` | 不再凭空新建一轮 | 同 6-21 后调一次 | 通过 |
+| 6-24 | 越权跳过 | `user2` 跳过 `lcz` 的 `q31` | `403` | `POST /quiz/{questionId}/skip` | `403`，不改他人数据 | 用 `user2` 的 Cookie 调同一个接口 | 通过 |
+| 6-25 | 重复跳过拦截 | 对已 `skipped` 的题再调一次 | 代码按「已跳过报 400」实现；**守卫写完未重启后端，未实测** | 同上 | `400` | 重启后重跑 6-21 的第二次调用 | 待验 |
 
 > 6-16 / 6-17 在本次验收中重建了向量库：先 `delete from vector_store where metadata->>'userId'='008e1d32…'`、再 `delete from t_knowledge_item where doc_title='JUC'`，然后重新上传。旧版向量（整章一条）已全部清空，`vector_store` 现在只存 1000 字粒度的块。
 
@@ -268,6 +273,35 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | `PRACTICE` 会话后续追问 | 本阶段只做首轮生成，没验证「接着追问会走通用聊天提示词」（技术债 13） | 前端练习对话页联调时 |
 | P95 的分位行为 | 每个场景样本仍少，`percentile_cont(0.95)` 退化成一个普通值，等于没验分位数 | 同一场景攒够 20 行以上再抽查一次 |
 | 旧章节回填向量 | `indexQuietly` 只在写入时调用；2026-10-24 已清空全部测试资料，旧章节不必回填 | 如需导入非本次上传的历史资料，再写一次性回填 |
+| 重复跳过的 400 守卫 | `QuizService.skip` 的「已跳过报 400」分支写完未重启后端，未实测（6-25） | 重启后重跑一次跳过 |
 
 > 2026-10-24 补齐并移出待验表的有：`PASSED` 三态（1-20）、超长单节均分切块（1-21）、
 > 阶段 5 材料截断（5-9）、上下文预算（6-18 / 6-19）、失败调用落行（6-20）、`RagEvalTest`（7-5）。
+
+***
+
+## 11. 前端页面（2026-10-24，视觉改版与窄屏适配）
+
+验收日期 2026-10-24，账号 `lcz`，后端 8123、前端 5173。桌面逐页核对用内置浏览器子代理截图；
+375px 用 Playwright（`viewport 375×812`，登录后依次访问六个页面）。
+
+| # | 场景 / 问题 | 输入 | 实际响应 | 接口 | 期望 | 复现方法 | 结论 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 11-1 | 资料页按文档分组 + 章节三态 | 浏览器打开 `/materials` | 1 份文档「JUC」、共 7 章 · 已通过 0 章；每章有两位序号、摘要、状态点（第 1 章「进行中」，其余「未开始」）与字数 | `GET /knowledge-items` | 按文档分组，章节三态齐全 | 打开 `/materials` | 通过 |
+| 11-2 | 章节阅读页 | 第 1 章点「开始学习」 | 跳 `/materials/{knowledgeItemId}`；抬头 `第 1 / 7 章`；正文 11,220 字且 `##` 标记已去除；底栏有上一章/下一章与两个检测入口 | `GET /knowledge-items/{id}` | 正文可读、翻页可用、检测入口齐全 | 同上 | 通过 |
+| 11-3 | 「怎么练」弹层 | 某章点「怎么练」 | 弹层展示该章练习方案；`#` 与 `**` 按标题/段落分块渲染；「继续追问」在 `PRACTICE` 会话下可点 | `POST /practice/guide` | 方案可读，追问绑定会话 | 同上 | 通过 |
+| 11-4 | 待办页总览与分组 | 打开 `/todo` | 总览「共 2 项待处理 · 复习 0 道 · 补讲 0 份 · 未测 2 份」；「还没测过」组 2 行，行间发丝线、无卡片边框 | `GET /todo` | 三类分组 + 一行总览 | 打开 `/todo` | 通过 |
+| 11-5 | 进度页数字栏与柱图 | 打开 `/progress` | `MASTERED 0 / 7`、`STREAK 1 天`、`DUE 0 道`；三栏竖线分隔；8 周柱图共用一条连续基线，柱顶标数值 | `GET /progress/summary` | 统计与库内一致、基线连续 | 打开 `/progress` | 通过 |
+| 11-6 | 测验页序号分节 + 四态标签 | 从待办进入 `/quiz/{conversationId}` | 抬头「共 2 道 · 已完成 2」+ 进度条；每题两位序号；标签为中性的 `SKIPPED`（不再误用 FAIL 的红） | `GET /quiz/{conversationId}` | 序号分节、跳过着色中性 | 待办点「开始测验」 | 通过 |
+| 11-7 | 对话页侧栏与深色聊天区 | 打开 `/guide` | 侧栏约 280px，选中会话淡青底 + 左缘 2px 亮条；用户气泡 `rgb(2,132,199)→rgb(14,165,201)` 渐变、文字 `rgb(4,18,27)`；AI 气泡 `rgb(20,27,35)` 带细边 | `GET /conversations` | 全页统一深色、气泡对比度足够 | 打开 `/guide` | 通过 |
+| 11-8 | 375px 六页无横向溢出 | Playwright `375×812` 访问 `/materials`、`/todo`、`/progress`、`/guide`、`/quiz/{id}`、`/materials/{id}` | 六页均 `scrollWidth = clientWidth = 375`；`console errors = []` | — | 任何页面都不出现横向滚动 | DevTools 响应模式或 Playwright 设 375px | 通过 |
+| 11-9 | 窄屏对话页上下堆叠 | 375px 打开 `/guide` | 侧栏变为顶部横向会话条（行内横向滚动），聊天区占满剩余高度 | — | 不再两列并排溢出 | 同 11-8 | 通过 |
+| 11-10 | 窄屏阅读页底栏 | 375px 打开 `/materials/{id}` | 底栏实色 `#0e1116`，正文不透出；上一章/下一章标题各自省略号截断，不互相压字 | — | 底栏可读、分页标题不重叠 | 同 11-8 | 通过 |
+
+> 说明：11-1 ~ 11-7 的数据是 2026-10-24 当天库内状态（JUC 7 章、2 道题均已跳过），不是固定断言。
+
+**本节未覆盖**
+
+- 真机 iOS Safari / Android Chrome 未测，只验了 Chromium 375px。
+- 平板 768~820 区间只有断点代码保证，没有实测截图。
+- 重复跳过的 400 守卫（6-25）写完后未重启后端，仍待验。
