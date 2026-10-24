@@ -317,32 +317,35 @@ onBeforeUnmount(closeSource)
 </script>
 
 <style scoped>
+/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
 .chat-room {
   height: 100%;
   display: flex;
   flex-direction: column;
-  --text: #1f3442;
-  --muted: #7b93a5;
-  --accent: #0ea5e9;
-  --panel: rgba(246, 251, 255, 0.82);
-  --ai-bubble: #ffffff;
-  --user-bubble: linear-gradient(135deg, #2f80ed, #12b5c9);
-  --border: rgba(15, 23, 42, 0.1);
+  --bg: #0e1116;
+  --surface: #141b23;
+  --text: #eef4fa;
+  --muted: #6b7f92;
+  --ink-soft: #8ba3b8;
+  --accent: #22d3ee;
+  --panel: rgba(14, 17, 22, 0.88);
+  --ai-bubble: #141b23;
+  --user-bubble: linear-gradient(140deg, #0284c7, #0ea5c9);
+  --border: rgba(148, 163, 184, 0.13);
+  --radius-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ===== 问题引导解决助手：清新蓝青 · 答疑辅导风 ===== */
+/* ===== 问题引导解决助手：深色底 + 青色 ===== */
 .theme-guide {
-  --text: #17384d;
-  --muted: #6c8ba3;
-  --accent: #0ea5e9;
-  --panel: rgba(238, 248, 255, 0.82);
-  --ai-bubble: #ffffff;
-  --user-bubble: linear-gradient(135deg, #2f80ed, #12b5c9);
-  --border: rgba(14, 165, 233, 0.18);
-  background:
-    radial-gradient(1000px 520px at 88% -8%, rgba(14, 165, 233, 0.18), transparent 60%),
-    radial-gradient(880px 480px at -10% 108%, rgba(45, 212, 191, 0.2), transparent 60%),
-    linear-gradient(180deg, #f4fbff 0%, #ecf8f8 100%);
+  --text: #eef4fa;
+  --muted: #6b7f92;
+  --accent: #22d3ee;
+  --panel: rgba(14, 17, 22, 0.88);
+  --ai-bubble: #141b23;
+  --user-bubble: linear-gradient(140deg, #0284c7, #0ea5c9);
+  --border: rgba(148, 163, 184, 0.13);
+  background: #0e1116;
 }
 
 /* ===== 超级智能体：深色 + 电光青 ===== */
@@ -368,9 +371,11 @@ onBeforeUnmount(closeSource)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 22px;
-  background: var(--panel);
-  backdrop-filter: blur(14px);
+  gap: 20px;
+  padding: 18px 24px;
+  background:
+    radial-gradient(700px 200px at 88% -40%, rgba(34, 211, 238, 0.1), transparent 62%),
+    var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
@@ -389,36 +394,43 @@ onBeforeUnmount(closeSource)
   border-radius: 50%;
   border: 1px solid var(--border);
   color: var(--text);
-  font-size: 16px;
-  transition: transform 0.2s ease, background 0.2s ease;
+  font-size: 15px;
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
 }
 .back:hover {
   transform: translateX(-3px);
-  background: var(--border);
+  background: rgba(148, 163, 184, 0.1);
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  flex: none;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 24px;
-  background: var(--ai-bubble);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 .avatar.sm {
-  width: 36px;
-  height: 36px;
-  font-size: 19px;
-  flex: none;
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+}
+.avatar.user-av {
+  border-color: rgba(34, 211, 238, 0.3);
+  color: var(--accent);
 }
 
 .title-box h1 {
   margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 .theme-manus .title-box h1 {
@@ -426,8 +438,9 @@ onBeforeUnmount(closeSource)
 }
 
 .status {
-  margin: 2px 0 0;
-  font-size: 12px;
+  margin: 3px 0 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -489,14 +502,14 @@ onBeforeUnmount(closeSource)
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 30px 6vw 10px;
+  padding: 34px 6vw 12px;
   scroll-behavior: smooth;
 }
 .messages::-webkit-scrollbar {
   width: 6px;
 }
 .messages::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(148, 163, 184, 0.18);
   border-radius: 3px;
 }
 
@@ -515,26 +528,31 @@ onBeforeUnmount(closeSource)
   to { opacity: 1; transform: translateY(0); }
 }
 .empty-avatar {
-  width: 76px;
-  height: 76px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 40px;
-  background: var(--ai-bubble);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.1);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 .empty h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 .empty p {
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
+  line-height: 1.8;
 }
 
 .suggestions {
@@ -542,28 +560,29 @@ onBeforeUnmount(closeSource)
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  max-width: 560px;
+  max-width: 620px;
 }
 .suggestions button {
   padding: 9px 16px;
-  font-size: 13px;
-  color: var(--text);
-  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: var(--ai-bubble);
-  transition: transform 0.18s ease, border-color 0.18s ease;
+  background: transparent;
+  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
 }
 .suggestions button:hover {
   transform: translateY(-2px);
-  border-color: var(--accent);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: var(--text);
 }
 
 /* 消息行 */
 .msg-row {
   display: flex;
   gap: 10px;
-  max-width: 1040px;
-  margin: 0 auto 22px;
+  max-width: 860px;
+  margin: 0 auto 26px;
   animation: msgIn 0.28s ease both;
 }
 @keyframes msgIn {
@@ -576,22 +595,23 @@ onBeforeUnmount(closeSource)
 .col {
   display: flex;
   flex-direction: column;
-  max-width: min(86%, 820px);
+  max-width: min(86%, 720px);
 }
 .msg-row.user .col {
   align-items: flex-end;
 }
 .name {
-  font-size: 11px;
+  margin: 0 4px 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
   color: var(--muted);
-  margin: 0 4px 5px;
 }
 
 .bubble {
-  padding: 12px 16px;
+  padding: 13px 17px;
   border-radius: 16px;
   font-size: 14.5px;
-  line-height: 1.75;
+  line-height: 1.8;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -600,13 +620,12 @@ onBeforeUnmount(closeSource)
   color: var(--text);
   border: 1px solid var(--border);
   border-top-left-radius: 5px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 .bubble.user {
   background: var(--user-bubble);
-  color: #fff;
+  color: #04121b;
+  font-weight: 600;
   border-top-right-radius: 5px;
-  box-shadow: 0 10px 26px rgba(47, 128, 237, 0.24);
 }
 .theme-manus .bubble.user {
   box-shadow: 0 10px 26px rgba(8, 145, 178, 0.3);
@@ -677,23 +696,22 @@ onBeforeUnmount(closeSource)
 /* ===== 输入区 ===== */
 .composer {
   flex: none;
-  padding: 12px 22px 16px;
-  background: var(--panel);
-  backdrop-filter: blur(14px);
+  padding: 14px 24px 18px;
+  background: var(--bg);
   border-top: 1px solid var(--border);
 }
 .composer-box {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 10px 14px;
-  border-radius: 18px;
-  background: var(--ai-bubble);
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s var(--ease);
 }
 .composer-box:focus-within {
-  border-color: var(--accent);
+  border-color: rgba(34, 211, 238, 0.45);
 }
 .composer-box textarea {
   flex: 1;
@@ -703,11 +721,11 @@ onBeforeUnmount(closeSource)
   background: transparent;
   color: var(--text);
   font-size: 14.5px;
-  line-height: 1.6;
+  line-height: 1.7;
   max-height: 120px;
 }
 .composer-box textarea::placeholder {
-  color: var(--muted);
+  color: #53687a;
 }
 .actions {
   display: flex;
@@ -717,32 +735,34 @@ onBeforeUnmount(closeSource)
 .send,
 .stop {
   padding: 9px 18px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 500;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  line-height: 1;
+  transition: filter 0.2s var(--ease), opacity 0.2s var(--ease);
 }
 .send {
   background: var(--user-bubble);
-  color: #fff;
+  color: #04121b;
+  font-weight: 700;
 }
 .send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 .send:not(:disabled):hover {
-  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 .stop {
   border: 1px solid var(--border);
   color: var(--text);
 }
 .stop:hover {
-  background: var(--border);
+  background: rgba(148, 163, 184, 0.1);
 }
 .tip {
-  margin: 8px 4px 0;
-  font-size: 11px;
+  margin: 10px 4px 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
   color: var(--muted);
   text-align: center;
 }
