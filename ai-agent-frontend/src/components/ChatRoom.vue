@@ -14,8 +14,6 @@
         </div>
       </div>
       <div class="h-right">
-        <!-- 父组件往顶栏右侧塞按钮（GuideChatView 用它放「把这轮做成题」） -->
-        <slot name="header-extra" />
         <div v-if="chatId" class="room-id" :title="chatId">
           <span class="rid-label">CHAT ID</span>
           <span class="rid-value">{{ shortChatId }}</span>
@@ -74,6 +72,8 @@
           @input="autoResize"
         ></textarea>
         <div class="actions">
+          <!-- 父组件往输入框右侧塞图标按钮（GuideChatView 放检索 / 工具 / 做成题） -->
+          <slot name="composer-extra" />
           <button v-if="streaming" type="button" class="stop" @click="stop">■ 停止</button>
           <button
             type="button"
@@ -910,7 +910,6 @@ onBeforeUnmount(closeSource)
   .h-right {
     width: 100%;
     justify-content: flex-end;
-    /* 插槽里可能有多个按钮（资料检索 / 工具 / 做成题），窄屏允许折行 */
     flex-wrap: wrap;
     gap: 8px;
   }
@@ -932,6 +931,17 @@ onBeforeUnmount(closeSource)
   }
   .composer {
     padding: 10px 12px 14px;
+  }
+  /* 窄屏一行放不下「输入 + 3 个图标 + 发送」：图标行换到输入框下方，输入区保留整行宽度 */
+  .composer-box {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 8px 6px 16px;
+    border-radius: 22px;
+  }
+  .actions {
+    justify-content: flex-end;
+    padding-bottom: 2px;
   }
   .col {
     max-width: 88%;

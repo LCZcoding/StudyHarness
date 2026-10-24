@@ -48,37 +48,58 @@
       :suggestions="suggestions"
       @done="onRoundDone"
     >
-      <template #header-extra>
-        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许调用只读工具 -->
+      <template #composer-extra>
+        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许调用只读工具。
+             收进输入框右侧、只留图标，功能说明靠悬停浮出的文字气泡 -->
         <button
           type="button"
-          class="opt"
+          class="tool-btn"
           :class="{ on: useRag }"
           :aria-pressed="useRag"
-          title="检索你上传的资料（按 userId 过滤，topK=5）"
+          aria-label="资料检索"
+          :data-tip="useRag ? '资料检索 · 已开启，按你上传的资料回答' : '资料检索 · 已关闭，只用模型自身知识'"
           @click="useRag = !useRag"
         >
-          <i class="opt-dot"></i>资料检索
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
         </button>
         <button
           type="button"
-          class="opt"
+          class="tool-btn"
           :class="{ on: useTools }"
           :aria-pressed="useTools"
-          title="允许调用只读工具：网页搜索、抓取网页、查时间"
+          aria-label="工具"
+          :data-tip="useTools ? '工具 · 已开启，可网页搜索、抓网页、查时间' : '工具 · 已关闭，不调用任何外部工具'"
           @click="useTools = !useTools"
         >
-          <i class="opt-dot"></i>工具
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 8h8" />
+            <path d="M16 8h4" />
+            <circle cx="14" cy="8" r="2" />
+            <path d="M4 16h4" />
+            <path d="M12 16h8" />
+            <circle cx="10" cy="16" r="2" />
+          </svg>
         </button>
         <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->
         <button
           type="button"
-          class="make-quiz"
+          class="tool-btn"
           :disabled="makeBusy || !chatId"
-          :title="chatId ? '把这段对话保存为资料并出 3 道题' : '先发一条消息，再把这轮做成题'"
+          aria-label="把这轮做成题"
+          :data-tip="makeBusy ? '正在整理…' : (chatId ? '把这轮对话做成 3 道题' : '先发一条消息，再把这轮做成题')"
           @click="makeQuiz"
         >
-          {{ makeBusy ? '整理中…' : '把这轮做成题' }}
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="3" width="8" height="3.5" rx="1.5" />
+            <path d="M16 5.5h1.5A1.5 1.5 0 0 1 19 7v12.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V7a1.5 1.5 0 0 1 1.5-1.5H8" />
+            <path d="M9 13l2 2 3.5-3.5" />
+          </svg>
         </button>
       </template>
     </ChatRoom>
@@ -410,60 +431,63 @@ const suggestions = [
   min-width: 0;
 }
 
-/* 顶栏开关：默认描边胶囊，开启后黑底白字（与 ChatGPT 的「深度思考」开关同一种表达） */
-.opt {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 13px;
+/* 输入框右侧的操作图标：默认灰、悬停深底，开启态黑底反白；
+   功能说明放 ::after，用 data-tip 的内容，悬停或键盘聚焦时浮出 */
+.tool-btn {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink-soft);
-  font-size: 12.5px;
-  line-height: 1;
-  white-space: nowrap;
-  background: #ffffff;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  background: transparent;
+  transition: background 0.16s ease, color 0.16s ease;
 }
-.opt:hover {
+.tool-btn svg {
+  display: block;
+}
+.tool-btn:hover:not(:disabled) {
   background: #f0f0f2;
   color: var(--ink);
 }
-.opt-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  transition: background 0.16s ease, border-color 0.16s ease;
-}
-.opt.on {
-  border-color: #0d0d0d;
+.tool-btn.on {
   background: #0d0d0d;
   color: #ffffff;
 }
-.opt.on .opt-dot {
-  background: #ffffff;
-  border-color: #ffffff;
+.tool-btn.on:hover:not(:disabled) {
+  background: #2f2f2f;
 }
-
-/* 顶栏右侧的「把这轮做成题」：次要按钮，白底描边 */
-.make-quiz {
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  color: var(--ink);
-  font-size: 12.5px;
-  line-height: 1;
-  white-space: nowrap;
-  background: #ffffff;
-  transition: background 0.16s ease, opacity 0.16s ease;
-}
-.make-quiz:not(:disabled):hover {
-  background: #f0f0f2;
-}
-.make-quiz:disabled {
+.tool-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+.tool-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 6;
+  width: max-content;
+  max-width: 216px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0d0d0d;
+  color: #ffffff;
+  font-size: 11.5px;
+  line-height: 1.6;
+  text-align: center;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+.tool-btn:hover::after,
+.tool-btn:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .make-error {
@@ -568,13 +592,9 @@ const suggestions = [
   .side-item.active {
     border-color: rgba(0, 0, 0, 0.18);
   }
-  .make-quiz {
-    padding: 7px 12px;
-    font-size: 11px;
-  }
-  .opt {
-    padding: 7px 11px;
-    font-size: 11.5px;
+  .tool-btn {
+    width: 32px;
+    height: 32px;
   }
   .room {
     min-height: 0;
@@ -584,7 +604,7 @@ const suggestions = [
   .side-item,
   .side-title,
   .new-btn,
-  .make-quiz,
+  .tool-btn,
   .make-spinner {
     transition: none;
     animation: none;
