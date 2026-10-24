@@ -79,9 +79,14 @@
             type="button"
             class="send"
             :disabled="streaming || !input.trim()"
+            aria-label="发送"
             @click="send()"
           >
-            发送 ↑
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
           </button>
         </div>
       </div>
@@ -855,13 +860,16 @@ onBeforeUnmount(closeSource)
   line-height: 1;
   transition: background 0.16s ease, opacity 0.16s ease;
 }
-/* 发送按钮：44px 圆形、深色实心（与 ChatGPT 一致） */
+/* 发送按钮：38px 圆形实心、只有图标（与 ChatGPT 一致） */
 .send {
   width: 38px;
   height: 38px;
+  flex: none;
   background: #0d0d0d;
   color: #ffffff;
-  font-weight: 600;
+}
+.send svg {
+  display: block;
 }
 .send:disabled {
   background: #e5e5e8;

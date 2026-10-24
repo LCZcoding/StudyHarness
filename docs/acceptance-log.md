@@ -305,6 +305,7 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 11-16 | 资料 / 待办 / 进度页浅色 | 登录 `lcz` 后打开三页 | 令牌统一为 `#fcfcfc` 底 / `#0d0d0d` 主文字；主按钮纯黑白字、次按钮白底描边；资料章节状态点为灰 `#d4d4d8`，待办复习点为琥珀、进度柱体纯黑 | `GET /knowledge-items`、`GET /todo`、`GET /progress/summary` | 三页与首页同色系、无深色残留块 | 截图 `d_materials.png` / `d_todo.png` / `d_progress.png` | 通过（2026-10-24 18:20） |
 | 11-17 | 对话 / 阅读 / 测验页浅色 | 打开 `/guide`、`/materials/{id}`、`/quiz/{id}` | 对话页 AI 回答无气泡平铺、用户消息 `#f4f4f5` 圆角、输入框 26px 圆角胶囊；阅读页正文 720px 列、底栏**白色实色**；测验页题号分节、`SKIPPED` 为中性灰标签 | `GET /conversations`、`GET /knowledge-items/{id}`、`GET /quiz/{id}` | 三页无深色块，层级靠描边 / 字号 / 留白 | 截图 `d_guide.png` / `d_read.png` / `d_quiz.png` | 通过（2026-10-24 18:20） |
 | 11-18 | 改版后 6 页 × 2 视口无溢出、无报错 | Playwright 1440×900 与 375×812 访问 `/`、`/guide`、`/materials`、`/todo`、`/progress`、`/materials/{id}`、`/quiz/{id}` | 14 张截图全部 `scrollWidth == innerWidth`（1440 与 375），每页 `console errors = []`；顺带修掉窄屏输入框占位被裁、阅读页正文被底栏压住两处缺陷 | — | 换肤不引入布局回归 | `node shots.mjs`（临时脚本，未入库） | 通过（2026-10-24 18:20） |
+| 11-19 | 发送按钮文字溢出圆形 | 打开 `/guide`，看空态与有输入两种状态 | 改前 38px 圆内塞「发送 ↑」四个字符，「发送」被挤成两行、箭头掉到第二行（用户截图反馈）；改后按钮内只剩 18px 上箭头 SVG，空态 `#e5e5e8` 灰底灰箭头、可发送态 `#0d0d0d` 黑底白箭头，`scrollWidth/scrollHeight` 均不超出 38×38，1440 与 375 一致，`console errors = []` | — | 圆形按钮内只放图标，不再出现换行溢出 | `node send.mjs`（临时脚本，未入库）截图 `send_d_empty.png` / `send_d_filled.png` | 通过（2026-10-24 18:41） |
 
 > 说明：11-1 ~ 11-7 的数据是 2026-10-24 当天库内状态（JUC 7 章、2 道题均已跳过），不是固定断言。
 
