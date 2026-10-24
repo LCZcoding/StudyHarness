@@ -426,12 +426,20 @@ onBeforeUnmount(closeSource)
   color: var(--accent);
 }
 
+/* 标题占剩余宽度并允许收缩，窄屏才不会把右侧按钮挤出边界 */
+.title-box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .title-box h1 {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .theme-manus .title-box h1 {
   letter-spacing: 1px;
@@ -769,8 +777,31 @@ onBeforeUnmount(closeSource)
 
 /* ===== 移动端适配 ===== */
 @media (max-width: 640px) {
+  /* 标题和操作按钮一行放不下：让右侧操作换到第二行，标题保留完整宽度 */
   .chat-header {
+    flex-wrap: wrap;
+    gap: 10px;
     padding: 12px 14px;
+  }
+  .h-left {
+    flex: 1 1 100%;
+  }
+  .h-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .title-box {
+    min-width: 0;
+  }
+  .title-box h1 {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .avatar {
+    width: 34px;
+    height: 34px;
   }
   .messages {
     padding: 18px 12px 8px;
@@ -779,7 +810,7 @@ onBeforeUnmount(closeSource)
     padding: 10px 12px 14px;
   }
   .col {
-    max-width: 82%;
+    max-width: 88%;
   }
   .room-id {
     display: none;

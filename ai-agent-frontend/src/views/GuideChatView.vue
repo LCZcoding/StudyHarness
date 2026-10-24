@@ -481,6 +481,48 @@ const suggestions = [
     padding: 12px 14px;
   }
 }
+/* 窄屏放不下「侧栏 + 聊天区」两列：会话列表改成顶部横向条，聊天区占满剩余高度 */
+@media (max-width: 640px) {
+  .guide-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    max-height: 150px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-head {
+    padding: 12px 14px 10px;
+  }
+  .side-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 14px 12px;
+    gap: 8px;
+  }
+  .side-item {
+    flex: none;
+    min-width: 190px;
+    max-width: 220px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .side-item.active::before {
+    top: 8px;
+    bottom: 8px;
+    left: -1px;
+  }
+  .make-quiz {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+  .room {
+    min-height: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .side-item,
   .side-title,

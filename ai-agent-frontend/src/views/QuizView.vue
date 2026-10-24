@@ -422,6 +422,7 @@ onMounted(load)
   color: #c4a5f7;
 }
 .qtarget {
+  flex: 1 1 0;
   min-width: 0;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;

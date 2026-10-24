@@ -470,12 +470,29 @@ watch(
     gap: 12px;
     padding: 14px 18px;
   }
+  /* 窄屏操作栏内容更密，半透明底会让正文透上来：改成实色 */
+  .action-bar {
+    background: #0e1116;
+  }
   .pager {
     width: 100%;
     justify-content: space-between;
   }
   .pager-btn {
-    max-width: 46%;
+    width: 46%;
+    max-width: none;
+  }
+  /* 窄屏标题不能超出按钮：否则左右两个分页标题会相互压字 */
+  .pager-title {
+    max-width: 100%;
+  }
+  /* 窄屏底栏文字更小，dim 灰在深底上偏暗：提一档亮度 */
+  .pager-label {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  .pager-btn:disabled {
+    opacity: 0.55;
   }
   .cta {
     justify-content: stretch;
