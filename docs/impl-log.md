@@ -909,3 +909,27 @@ RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md)
 **预测外问题（按规则转记）**：窄屏三处布局缺陷已按上面表格修掉；「子元素 `min-width: 0` 才能让 flex 子项收缩」这条
 与⑤格 `side-title` 的踩坑同源，说明这套令牌换页时很容易复现，记为复查项。
 
+**补充（同日）：聊天页补 RAG / 工具开关**
+
+后台早已支持 `useRag` / `useTools`，但前端 [chatStream.js](../ai-agent-frontend/src/api/chatStream.js) 只发
+`{conversationId, message}`，两个开关恒为 `false`，等于能力在页面里不可用。改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| [`chatStream.js`](../ai-agent-frontend/src/api/chatStream.js) | 入参加 `useRag` / `useTools`（默认 `false`），写进请求体 |
+| [`ChatRoom.vue`](../ai-agent-frontend/src/components/ChatRoom.vue) | 新增同名副属性（props）透传给 `streamChat`；窄屏 `.h-right` 允许折行 |
+| [`GuideChatView.vue`](../ai-agent-frontend/src/views/GuideChatView.vue) | 顶栏加「资料检索」「工具」两个开关按钮：默认灰底空心点，开启后青底实心点，带 `aria-pressed` |
+
+设计取舍：开关放在页面层而不是 `ChatRoom` 内部状态，`ChatRoom` 保持「只负责渲染与会话」的通用职责；
+两个开关都是用户显式打开，不做「问题里含资料就不检索」这类意图猜测——猜错比多一次检索更糟。
+
+验证（Playwright，登录 `lcz`，界面操作）：
+
+| 开关 | 关 | 开 |
+| --- | --- | --- |
+| 资料检索 | 「我这边看不到你上传的资料内容」并反问资料类型 | 按 JUC 资料列锁升级链路、乐观/悲观锁、CAS 与 ABA、`ReentrantLock`、`ThreadLocal` |
+| 工具 | 「没有实时时钟，无法告知」 | `2026 年 10 月 24 日 17:31:48` |
+
+两次运行 `console errors` 均为空。附带发现：对话页引用 Google Fonts，离线时 `fonts.gstatic.com` 请求失败会回退系统字体，不影响功能。
+接口契约已同步到 [`api-chat-stream.md`](./api-chat-stream.md) §2.1。
+

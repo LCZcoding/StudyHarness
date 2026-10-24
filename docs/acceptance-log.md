@@ -297,6 +297,8 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 11-8 | 375px 六页无横向溢出 | Playwright `375×812` 访问 `/materials`、`/todo`、`/progress`、`/guide`、`/quiz/{id}`、`/materials/{id}` | 六页均 `scrollWidth = clientWidth = 375`；`console errors = []` | — | 任何页面都不出现横向滚动 | DevTools 响应模式或 Playwright 设 375px | 通过 |
 | 11-9 | 窄屏对话页上下堆叠 | 375px 打开 `/guide` | 侧栏变为顶部横向会话条（行内横向滚动），聊天区占满剩余高度 | — | 不再两列并排溢出 | 同 11-8 | 通过 |
 | 11-10 | 窄屏阅读页底栏 | 375px 打开 `/materials/{id}` | 底栏实色 `#0e1116`，正文不透出；上一章/下一章标题各自省略号截断，不互相压字 | — | 底栏可读、分页标题不重叠 | 同 11-8 | 通过 |
+| 11-11 | 「资料检索」开关生效 | `/guide` 新建会话，开关关 / 开各问一次「我上传的资料里，关于锁的部分讲了哪些内容？」 | 关：回答「我这边看不到你上传的资料内容」并反问资料类型；开：按资料内容列出锁升级（无锁→偏向→轻量级→重量级）、乐观/悲观锁、CAS 与 ABA、`ReentrantLock`、`ThreadLocal` | `POST /ai/chat/stream`（`useRag` true/false） | 关时不编造资料内容，开时能引用资料里的具体条目 | Playwright 登录 `lcz` 后两次提问，读 `.bubble.ai` 文本 | 通过（2026-10-24 17:29） |
+| 11-12 | 「工具」开关生效 | 同 11-11，开关关 / 开各问一次「现在几点？」 | 关：回答没有实时时钟、无法告知；开：返回 `2026 年 10 月 24 日 17:31:48` | `POST /ai/chat/stream`（`useTools` true/false） | 关时不调用工具，开时能取系统时间 | 同上 | 通过（2026-10-24 17:31） |
 
 > 说明：11-1 ~ 11-7 的数据是 2026-10-24 当天库内状态（JUC 7 章、2 道题均已跳过），不是固定断言。
 
@@ -305,3 +307,5 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 - 真机 iOS Safari / Android Chrome 未测，只验了 Chromium 375px。
 - 平板 768~820 区间只有断点代码保证，没有实测截图。
 - 重复跳过的 400 守卫（6-25）写完后未重启后端，仍待验。
+- 「工具」开关只验了时间工具；网页搜索（Tavily）与网页抓取未在开关开启状态下实测。
+- 对话页加载 Google Fonts（`fonts.gstatic.com`）在离线/被墙环境下会失败，浏览器回退到系统字体，不影响功能。

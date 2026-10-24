@@ -36,6 +36,8 @@
       user-avatar="我"
       stream-mode="token"
       :chat-id="chatId"
+      :use-rag="useRag"
+      :use-tools="useTools"
       :history-messages="historyMessages"
       :resolve-chat-id="ensureChatId"
       placeholder="描述你遇到的问题，我们一起拆解…"
@@ -47,6 +49,27 @@
       @done="onRoundDone"
     >
       <template #header-extra>
+        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许调用只读工具 -->
+        <button
+          type="button"
+          class="opt"
+          :class="{ on: useRag }"
+          :aria-pressed="useRag"
+          title="检索你上传的资料（按 userId 过滤，topK=5）"
+          @click="useRag = !useRag"
+        >
+          <i class="opt-dot"></i>资料检索
+        </button>
+        <button
+          type="button"
+          class="opt"
+          :class="{ on: useTools }"
+          :aria-pressed="useTools"
+          title="允许调用只读工具：网页搜索、抓取网页、查时间"
+          @click="useTools = !useTools"
+        >
+          <i class="opt-dot"></i>工具
+        </button>
         <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->
         <button
           type="button"
@@ -87,6 +110,9 @@ const router = useRouter()
 
 // 当前会话 id。空字符串 = 还没有会话（空白新对话，等第一条消息发出时才创建）
 const chatId = ref('')
+// 本轮检索 / 工具开关：默认都关，由用户显式打开，服务端不做「猜」的智能判断
+const useRag = ref(false)
+const useTools = ref(false)
 // 当前会话的历史消息（喂给 ChatRoom 渲染）
 const historyMessages = ref([])
 // 左侧栏的会话列表
@@ -391,6 +417,41 @@ const suggestions = [
 .room {
   flex: 1;
   min-width: 0;
+}
+
+/* 顶栏开关：默认灰，开启后青色底 + 实心点，一眼能看出本轮带不带 RAG / 工具 */
+.opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.opt:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--ink-soft);
+}
+.opt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.opt.on {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--brand-lit);
+}
+.opt.on .opt-dot {
+  background: var(--brand-lit);
+  border-color: var(--brand-lit);
 }
 
 /* 顶栏右侧的「把这轮做成题」：与 ChatRoom 的闲聊色系保持一致 */

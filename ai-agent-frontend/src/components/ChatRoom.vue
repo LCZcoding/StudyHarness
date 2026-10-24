@@ -116,6 +116,9 @@ const props = defineProps({
   // 用户在空白会话里发出第一条消息时，才真正去 POST /conversations。
   resolveChatId: { type: Function, default: null },
   placeholder: { type: String, default: '输入你想说的话…' },
+  // 本轮是否检索本人资料 / 是否允许只读工具：由父组件持有的开关控制，这里只透传给接口
+  useRag: { type: Boolean, default: false },
+  useTools: { type: Boolean, default: false },
   idleText: { type: String, default: '在线' },
   streamingText: { type: String, default: '正在输入…' },
   greeting: { type: String, default: '你好，我是你的 AI 助手' },
@@ -202,6 +205,8 @@ async function send(picked) {
   streamChat({
     conversationId: cid,
     message: text,
+    useRag: props.useRag,
+    useTools: props.useTools,
     signal: controller.signal,
     onMessage,
     onDone,
@@ -789,6 +794,9 @@ onBeforeUnmount(closeSource)
   .h-right {
     width: 100%;
     justify-content: flex-end;
+    /* 插槽里可能有多个按钮（资料检索 / 工具 / 做成题），窄屏允许折行 */
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .title-box {
     min-width: 0;

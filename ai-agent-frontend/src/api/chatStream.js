@@ -7,6 +7,8 @@
 export async function streamChat({
   conversationId, // 发给后端的会话 id
   message,        // 发给后端的问题
+  useRag = false, // 本轮是否检索本人资料（后端按 userId 过滤，topK=5）
+  useTools = false, // 本轮是否允许调用只读工具（搜索 / 抓网页 / 时间）
   onMessage, // 后端每吐出一小段文本，就调一次
   onDone,         // 流结束调一次
   onError,     // 出错调一次
@@ -21,7 +23,7 @@ export async function streamChat({
     const res = await fetch('/api/ai/chat/stream',{
         method: 'POST',
         headers: {'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, message }),
+        body: JSON.stringify({ conversationId, message, useRag, useTools }),
         credentials: 'include',// 跨域仍带cookie
         signal
     })
