@@ -113,11 +113,11 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatRoom from '../components/ChatRoom.vue'
 import { createConversation, listConversations, listMessages } from '../api/conversation.js'
-import { createItem } from '../api/knowledge.js'
+import { createItem, listDocuments } from '../api/knowledge.js'
 import { generate as generateQuiz } from '../api/quiz.js'
 import { messageOf } from '../utils/apiError.js'
 
@@ -211,18 +211,33 @@ function onRoundDone() {
 /* ---------- 把这轮对话做成题 ---------- */
 const makeBusy = ref(false)
 const makeError = ref('')
+let errorTimer = 0
+
+// 错误提示只挂 6 秒：出题失败后用户往往接着聊天，常驻的报错会一直挡在右上角
+function showMakeError(text) {
+  makeError.value = text
+  clearTimeout(errorTimer)
+  errorTimer = setTimeout(() => {
+    makeError.value = ''
+  }, 6000)
+}
+
+function clearMakeError() {
+  clearTimeout(errorTimer)
+  makeError.value = ''
+}
 
 // 聊天本身不进待办（待办三条来源都必须先有 t_question）。
 // 这里把整轮对话存成一份资料，再按资料出题，对话才真正进入「未测 → 判分 → 复习」闭环。
 async function makeQuiz() {
   if (!chatId.value || makeBusy.value) return
   makeBusy.value = true
-  makeError.value = ''
+  clearMakeError()
   try {
     const data = await listMessages(chatId.value)
     const msgs = data.messages || []
     if (!msgs.length) {
-      makeError.value = '这段对话还没有内容，先聊一轮再试'
+      showMakeError('这段对话还没有内容，先聊一轮再试')
       return
     }
     // 标题沿用后端派生规则的口径：取首条 USER 消息前 50 字
@@ -234,12 +249,25 @@ async function makeQuiz() {
     // 后端正文上限 20000 字：超长时保留最近的部分，结论通常在后半段
     if (content.length > 20000) content = content.slice(-20000)
 
-    const item = await createItem(title, content)
-    const quiz = await generateQuiz(item.knowledgeItemId)
+    // 一轮对话只对应一份资料：标题相同就复用已有那份。
+    // 一是避免重复点击撞后端「同名文档」校验，二是让出题保持幂等（同一资料 = 同一轮题）。
+    const docs = await listDocuments()
+    const existing = docs.find((d) => d.docTitle === title)
+    const sections = existing
+      ? existing.sections
+      : (await createItem(title, content)).sections
+    // 建资料返回的是 { docTitle, sections }，出题单位是章节而不是文档。
+    // 对话里若出现 `##` 小标题会被切成多章，取正文最长的一章，保证题目覆盖内容主体。
+    if (!sections || !sections.length) {
+      showMakeError('这段对话没能整理成可出题的资料')
+      return
+    }
+    const target = sections.reduce((a, b) => (b.chars > a.chars ? b : a))
+    const quiz = await generateQuiz(target.knowledgeItemId)
     router.push({ name: 'quiz', params: { conversationId: quiz.conversationId } })
   } catch (e) {
     if (toLoginIfUnauthorized(e)) return
-    makeError.value = messageOf(e, '整理失败，请稍后重试')
+    showMakeError(messageOf(e, '整理失败，请稍后重试'))
   } finally {
     makeBusy.value = false
   }
@@ -252,10 +280,17 @@ watch(
     if (id && id !== chatId.value) {
       chatId.value = id
       historyMessages.value = []
+      // 换会话就收起上一条会话留下的出题报错，避免串到新会话里
+      clearMakeError()
       loadMessages(id)
     }
   }
 )
+
+onBeforeUnmount(() => {
+  // 组件卸载时清掉待触发的定时器，避免回调改已销毁组件的状态
+  clearTimeout(errorTimer)
+})
 
 onMounted(async () => {
   const idFromRoute = route.params.conversationId

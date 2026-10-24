@@ -76,6 +76,7 @@
 - `HttpSession` 参数导致未登录也下发空会话 `JSESSIONID`（③格预测外问题 1）——**已修**（2026-10-20）：`CurrentUserResolver.requireUserId` 与 `AiChatController` / `ConversationController` 的 4 处参数由 `HttpSession` 改 `HttpServletRequest` + `getSession(false)`（`AuthController.login` 保留参数式 `HttpSession`，它必须写 session 属性）。MockMvc 侧的代理断言是 `assertNull(result.getRequest().getSession(false))`；真机可证伪验收是**响应头 `Set-Cookie` 从「有」变「无」**。
 - `t_message.conversation_id` **缺索引**：⑤格派生的会话标题用相关子查询逐会话扫 `t_message`，另外 `GET /conversations/{id}/messages` 也按此列过滤；MVP 数据量下无感，**数据量上来再加**（`CREATE INDEX ... ON t_message(conversation_id)`）。
 - **`updated_at` 只在 `MessageService.appendRound` 里更新**：将来出现别的"写消息"入口（复习闭环的 `FEEDBACK`、手工导入历史等），必须也调 `ConversationRepository.touch(conversationId)`，否则列表的"按最近活动排序"会漏掉这类活动。
+- **前端假设「建资料接口返回顶层 `knowledgeItemId`」**→ 实测没有：`POST /api/knowledge-items` 只回 `{ docTitle, sections }`，出题单位是章节。前端取 `item.knowledgeItemId` 得到 `undefined`，被服务端 `@NotNull` 拦成 `400 knowledgeItemId 不能为空`，而这条报错又是无自动关闭的浮层，于是一次失败就常驻页面。**已修**（2026-10-24）：改为取 `sections` 中 `chars` 最大的一章出题；报错改 6 秒自动消失并补卸载清理；顺带按 `docTitle` 复用同名资料，避开「已存在同名文档」的 400。见 [`impl-log.md`](./impl-log.md) 末节、`acceptance-log.md` 11-33 / 11-34。
 - **列表里大量 `title` 为 `null`**：2026-10-20 实测 24 条会话里 22 条没有标题 —— 那些是③格之前 `/guide` 每次进入就新建一条 `PRACTICE` 会话、且走无鉴权教学接口**一条消息都不落库**留下的空会话。**已修**：⑤格前端 `/guide` 左侧栏对 `title` 为 `null` 的行兜底显示「（暂无内容）」，且把「新对话」改成**懒创建**（`side bar` 的「+ 新对话」只切空白态、等第一条消息真发出去才 `POST /conversations`）→ 空会话的**源头被封住**，这类脏行不会再新增。存量 22 条是否清理另定（清不清都不影响后端契约）。
 
 **实测纠正过我的六处判断（记档，避免以后重犯）**
