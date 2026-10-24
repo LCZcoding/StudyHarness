@@ -951,3 +951,25 @@ RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md)
 依赖：`marked@18.1.1`、`dompurify`。`npm audit` 的两条告警来自 devDependency `vite`→`esbuild`（开发服务器跨域读取问题），
 与本轮新增依赖无关，且预览/生产构建不使用 dev server，暂不升级。
 
+**补充（同日）：全站改浅色，对齐 ChatGPT / DeepSeek 网页版**
+
+改前全站是深色青蓝主题，用户反馈「还是不好看」，并要求**先去官网取真实样式**而不是凭记忆改。做法是先用浏览器读
+`chat.deepseek.com` 与 `chatgpt.com` 的 `getComputedStyle`：页面底色 `rgb(252, 252, 252)`、输入框 768×52 / 28px 圆角 /
+`0.8px solid rgba(0, 0, 0, 0.1)` 描边、标题 24px/400。据此定浅色规格再动手。
+
+| 位置 | 改动 |
+| --- | --- |
+| `styles/global.css` | 新增中性浅色令牌：`--bg #fcfcfc`、`--surface #ffffff`、`--surface-soft #f4f4f5`、`--ink #0d0d0d`、`--ink-soft #565869`、`--ink-dim #8e8ea0`、`--line rgba(0,0,0,0.1)`、`--accent #4d6bfe`；字体改 system-ui 栈，`body` 底色 `#fcfcfc` |
+| `components/ChatRoom.vue` | AI 回答**去气泡平铺**（`--ai-bubble: transparent`），用户消息 `#f4f4f5` + 20px 圆角；消息列 768px 居中；输入框 26px 圆角胶囊 + 38px 圆形黑色发送键；顶栏 56px 白底 + 发丝线；在线点改 `#10a37f` |
+| `views/GuideChatView.vue` | 侧栏 260px 浅底、条目 hover `#f0f0f2` / 选中 `#ececef`；「资料检索 / 工具」开关改白底描边、开启态黑底白字 |
+| `views/MaterialsView.vue` `TodoView.vue` `ProgressView.vue` `QuizView.vue` `SectionReadView.vue` | 令牌改浅；主按钮纯黑底白字、次按钮白底描边；状态点改绿 `#10a37f` / 琥珀 `#d97706` / 红 `#b4341a` / 空 `#d4d4d8`；阅读页正文列 720px、行高 1.85，底栏由半透明渐变改**白色实色** + 上边框 |
+| `views/HomeView.vue` `LoginView.vue` | 首页去掉蓝青渐变大卡，改白面 + 发丝描边的入口卡；登录按钮改纯黑胶囊 |
+| `index.html` | 移除 Google Fonts（`IBM Plex Mono` / `Noto Serif SC` 已无引用），少一次外部阻塞请求 |
+
+验证（Playwright，登录 `lcz`，6 页 × 2 视口共 14 张截图）：`/`、`/guide`、`/materials`、`/todo`、`/progress`、
+`/materials/{id}`（读第 1 章）、`/quiz/{id}`（从待办进入）在 1440×900 与 375×812 下 `scrollWidth == innerWidth`，
+`console errors = []`，各页 `.page` 底色均为 `rgb(252, 252, 252)`。
+
+顺手修掉两个改版暴露出来的缺陷：375px 对话页输入框占位文案过长会换行被裁 → 文案缩短为「说出你卡住的地方…」；
+375px 阅读页底部栏是两行，正文最后一段会被压住 → `.reader-inner` 底部留白 56px 提到 132px。
+

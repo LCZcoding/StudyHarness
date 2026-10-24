@@ -185,17 +185,17 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .page {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
-  --amber: #fbbf24;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.08);
+  --brand: #0d0d0d;
+  --brand-lit: #4d6bfe;
+  --amber: #d97706;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -212,7 +212,7 @@ onMounted(load)
 .inner {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 36px 32px 72px;
+  padding: 32px 32px 72px;
 }
 .todo-wrap {
   max-width: 860px;
@@ -227,30 +227,32 @@ onMounted(load)
   border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink);
-  background: transparent;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: #f0f0f2;
 }
 .btn.primary {
-  background: linear-gradient(140deg, var(--brand), #0ea5c9);
-  border-color: transparent;
-  color: #04121b;
-  font-weight: 700;
+  background: #0d0d0d;
+  border-color: #0d0d0d;
+  color: #ffffff;
+  font-weight: 500;
 }
 .btn.primary:hover {
-  filter: brightness(1.08);
+  background: #2f2f2f;
 }
 .btn.ghost {
-  border-color: rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--ink-soft);
+  background: #ffffff;
 }
 .btn.ghost:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
+  color: var(--ink);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -261,9 +263,9 @@ onMounted(load)
   margin-bottom: 20px;
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.08);
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff7ed;
+  color: #b4341a;
   font-size: 13px;
 }
 .loading {
@@ -275,37 +277,35 @@ onMounted(load)
 }
 
 .overview {
-  margin: 0 0 40px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.5px;
+  margin: 0 0 36px;
+  font-size: 12.5px;
+  letter-spacing: 0;
   color: var(--ink-dim);
 }
 .sep {
-  color: rgba(148, 163, 184, 0.3);
+  color: rgba(0, 0, 0, 0.2);
   margin: 0 2px;
 }
 
 .tgroup + .tgroup {
-  margin-top: 48px;
+  margin-top: 44px;
 }
 .tgroup-head {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding-bottom: 14px;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 .tgroup-head .name {
   margin: 0;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 15.5px;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
 .tgroup-head .count {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 
@@ -318,14 +318,14 @@ onMounted(load)
 .row {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 16px;
   align-items: center;
-  padding: 22px 4px;
+  padding: 20px 4px;
   border-bottom: 1px solid var(--line);
-  transition: background 0.2s var(--ease);
+  transition: background 0.16s ease;
 }
 .row:hover {
-  background: rgba(148, 163, 184, 0.035);
+  background: rgba(0, 0, 0, 0.02);
 }
 .dot {
   width: 7px;
@@ -336,22 +336,22 @@ onMounted(load)
 }
 .dot.review {
   background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.14);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
 }
 .dot.retry {
-  background: #f87171;
-  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.14);
+  background: #b4341a;
+  box-shadow: 0 0 0 3px rgba(180, 52, 26, 0.1);
 }
 .dot.untested {
-  background: #55677a;
+  background: #d4d4d8;
 }
 .row-body {
   min-width: 0;
 }
 .row-body .main {
   margin: 0;
-  font-size: 15.5px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--ink);
   overflow: hidden;
@@ -359,9 +359,8 @@ onMounted(load)
   white-space: nowrap;
 }
 .row-body .sub {
-  margin: 5px 0 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--ink-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -381,8 +380,8 @@ onMounted(load)
 }
 .empty h2 {
   margin: 0 0 10px;
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--ink);
 }

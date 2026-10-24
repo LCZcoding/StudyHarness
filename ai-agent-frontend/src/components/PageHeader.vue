@@ -28,29 +28,28 @@ defineProps({
   justify-content: space-between;
   gap: 20px;
   padding: 26px 32px 18px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  background: radial-gradient(700px 200px at 88% -40%, rgba(34, 211, 238, 0.1), transparent 62%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fcfcfc;
 }
 .topbar-text {
   min-width: 0;
 }
 .eyebrow {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  letter-spacing: 2.5px;
-  color: #6b7f92;
+  letter-spacing: 2px;
+  color: #8e8ea0;
 }
 .title {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  color: #eef4fa;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #0d0d0d;
 }
 .subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #6b7f92;
+  margin: 5px 0 0;
+  font-size: 13.5px;
+  color: #6e6e80;
 }
 .top-actions {
   display: flex;

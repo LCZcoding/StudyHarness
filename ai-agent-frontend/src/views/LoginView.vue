@@ -131,11 +131,18 @@ function safeRedirect(target) {
 </script>
 
 <style scoped>
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .login {
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0e1116;
+  background: var(--bg);
 }
 
 .topbar {
@@ -144,20 +151,19 @@ function safeRedirect(target) {
   align-items: center;
   justify-content: space-between;
   padding: 18px 30px;
-  color: #e8edf2;
+  color: var(--ink);
 }
 .brand {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  letter-spacing: 3px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 .back {
-  font-size: 12px;
-  color: #6b7f92;
-  letter-spacing: 1px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
 }
 .back:hover {
-  color: #22d3ee;
+  color: var(--ink);
 }
 
 .card {
@@ -171,13 +177,15 @@ function safeRedirect(target) {
 .card h1 {
   margin: 0;
   font-size: 28px;
-  font-weight: 800;
-  color: #e8edf2;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 .sub {
   margin: 8px 0 26px;
   font-size: 13px;
-  color: #6b7f92;
+  line-height: 1.7;
+  color: var(--ink-dim);
 }
 
 form {
@@ -193,55 +201,57 @@ form {
 }
 .field span {
   font-size: 12px;
-  color: #6b7f92;
-  letter-spacing: 1px;
+  color: var(--ink-soft);
 }
 .field input {
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(34, 211, 238, 0.2);
-  background: #111b27;
-  color: #e8edf2;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  color: var(--ink);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.16s ease;
 }
 .field input:focus {
-  border-color: #22d3ee;
+  border-color: rgba(0, 0, 0, 0.32);
 }
 .field input::placeholder {
-  color: #55677a;
+  color: #9b9ba8;
 }
 
 .error {
   margin: 0;
   font-size: 13px;
-  color: #f87171;
+  color: #b4341a;
 }
 
 .switch {
   margin: 18px 0 0;
   font-size: 13px;
-  color: #6b7f92;
+  color: var(--ink-dim);
   text-align: center;
 }
 .switch a {
-  color: #22d3ee;
+  color: #4d6bfe;
   margin-left: 4px;
+}
+.switch a:hover {
+  text-decoration: underline;
 }
 
 button {
   margin-top: 6px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 600;
-  color: #06202a;
-  background: linear-gradient(135deg, #22d3ee, #0891b2);
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-weight: 500;
+  color: #ffffff;
+  background: #0d0d0d;
+  transition: background 0.16s ease, opacity 0.16s ease;
 }
 button:not(:disabled):hover {
-  transform: translateY(-1px);
+  background: #2f2f2f;
 }
 button:disabled {
   opacity: 0.45;

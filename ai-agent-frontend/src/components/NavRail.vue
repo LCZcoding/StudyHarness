@@ -60,86 +60,71 @@ const avatarText = computed(() => (currentUsername.value || '我').slice(0, 1))
 <style scoped>
 .rail {
   flex: none;
-  width: 68px;
+  width: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 0 14px;
-  border-right: 1px solid rgba(34, 211, 238, 0.14);
-  background: #0b0f14;
+  gap: 4px;
+  padding: 16px 0 14px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fcfcfc;
 }
 
 .rail-logo {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  margin-bottom: 14px;
-  background: linear-gradient(150deg, #0284c7, #22d3ee);
-  color: #04121b;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  border-radius: 9px;
+  margin-bottom: 12px;
+  background: #0d0d0d;
+  color: #ffffff;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .rail-item {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  color: #8ba3b8;
-  transition: background 0.18s ease, color 0.18s ease;
+  border-radius: 10px;
+  color: #7b7b88;
+  transition: background 0.16s ease, color 0.16s ease;
 }
 .rail-item svg {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 .rail-item:hover {
-  background: rgba(34, 211, 238, 0.08);
-  color: #dbe6f0;
+  background: #f0f0f2;
+  color: #0d0d0d;
 }
 .rail-item.active {
-  background: rgba(34, 211, 238, 0.12);
-  color: #22d3ee;
-}
-.rail-item.active::before {
-  content: '';
-  position: absolute;
-  left: -12px;
-  top: 50%;
-  width: 3px;
-  height: 20px;
-  margin-top: -10px;
-  border-radius: 0 3px 3px 0;
-  background: #22d3ee;
+  background: #ececef;
+  color: #0d0d0d;
 }
 
 .rail-foot {
   margin-top: auto;
 }
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #111b27;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  color: #dbe6f0;
-  font-size: 13px;
+  background: #ececef;
+  color: #0d0d0d;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 @media (max-width: 820px) {
   .rail {
-    width: 58px;
-  }
-  .rail-item.active::before {
-    left: -7px;
+    width: 54px;
   }
 }
 </style>

@@ -108,16 +108,16 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .page {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.08);
+  --brand: #0d0d0d;
+  --brand-lit: #4d6bfe;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -134,7 +134,7 @@ onMounted(load)
 .inner {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 36px 32px 72px;
+  padding: 32px 32px 72px;
 }
 .wrap {
   max-width: 860px;
@@ -145,14 +145,14 @@ onMounted(load)
   border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink);
-  background: transparent;
-  transition: background 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: #f0f0f2;
 }
 .btn:disabled {
   opacity: 0.45;
@@ -163,9 +163,9 @@ onMounted(load)
   margin-bottom: 20px;
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.08);
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff7ed;
+  color: #b4341a;
   font-size: 13px;
 }
 .loading {
@@ -193,16 +193,14 @@ onMounted(load)
   padding-left: 4px;
 }
 .stat .label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-size: 11.5px;
+  letter-spacing: 0.2px;
   color: var(--ink-dim);
 }
 .stat .value {
-  margin-top: 14px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 40px;
-  font-weight: 700;
+  margin-top: 12px;
+  font-size: 38px;
+  font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -240,14 +238,13 @@ onMounted(load)
 }
 .panel-head h2 {
   margin: 0;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
 .panel-head span {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 
@@ -279,7 +276,6 @@ onMounted(load)
   gap: 8px;
 }
 .bar-num {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 10.5px;
   color: var(--ink-dim);
 }
@@ -293,15 +289,14 @@ onMounted(load)
 .bar {
   width: min(28px, 100%);
   border-radius: 3px 3px 0 0;
-  background: linear-gradient(180deg, rgba(34, 211, 238, 0.85), rgba(2, 132, 199, 0.45));
+  background: #0d0d0d;
   min-height: 2px;
   transition: height 0.5s var(--ease);
 }
 .bar.zero {
-  background: rgba(148, 163, 184, 0.28);
+  background: #e5e5e8;
 }
 .bar-label {
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 10.5px;
   line-height: 16px;
   color: var(--ink-dim);

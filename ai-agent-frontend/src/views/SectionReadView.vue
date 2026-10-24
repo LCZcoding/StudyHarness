@@ -220,15 +220,16 @@ watch(
 </script>
 
 <style scoped>
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .page {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.08);
+  --brand: #0d0d0d;
+  --brand-lit: #4d6bfe;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -254,30 +255,32 @@ watch(
   border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink);
-  background: transparent;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: #f0f0f2;
 }
 .btn.primary {
-  background: linear-gradient(140deg, var(--brand), #0ea5c9);
-  border-color: transparent;
-  color: #04121b;
-  font-weight: 700;
+  background: #0d0d0d;
+  border-color: #0d0d0d;
+  color: #ffffff;
+  font-weight: 500;
 }
 .btn.primary:hover {
-  filter: brightness(1.08);
+  background: #2f2f2f;
 }
 .btn.ghost {
-  border-color: rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--ink-soft);
+  background: #ffffff;
 }
 .btn.ghost:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
+  color: var(--ink);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -290,9 +293,9 @@ watch(
   margin: 20px auto 0;
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.08);
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff7ed;
+  color: #b4341a;
   font-size: 13px;
 }
 .loading {
@@ -308,25 +311,23 @@ watch(
   flex: 1;
 }
 .reader-inner {
-  max-width: 760px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 34px 32px 48px;
+  padding: 40px 32px 56px;
 }
 .chapter-line {
-  margin: 0 0 30px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
-  letter-spacing: 0.6px;
+  margin: 0 0 28px;
+  font-size: 12px;
   color: var(--ink-dim);
 }
 .sep {
   margin: 0 6px;
-  color: rgba(148, 163, 184, 0.3);
+  color: rgba(0, 0, 0, 0.18);
 }
 .prose {
-  font-size: 16.5px;
-  line-height: 1.95;
-  color: #c9d6e2;
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: #1f2023;
 }
 .md-para {
   margin: 0 0 1.15em;
@@ -336,7 +337,7 @@ watch(
 .md-heading {
   margin: 2em 0 0.7em;
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.5;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -350,13 +351,12 @@ watch(
   position: sticky;
   bottom: 0;
   border-top: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(14, 17, 22, 0.86), #0e1116 38%);
-  backdrop-filter: blur(10px);
+  background: #ffffff;
 }
 .action-inner {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 16px 32px;
+  padding: 14px 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -375,28 +375,26 @@ watch(
   align-items: flex-start;
   gap: 3px;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid transparent;
   color: var(--ink-soft);
   text-align: left;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+  transition: background 0.16s ease, border-color 0.16s ease;
 }
 .pager-btn.right {
   align-items: flex-end;
   text-align: right;
 }
 .pager-btn:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.07);
-  border-color: var(--line);
+  background: #f0f0f2;
+  border-color: transparent;
 }
 .pager-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .pager-label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
+  font-size: 10.5px;
   color: var(--ink-dim);
 }
 .pager-title {
@@ -422,15 +420,15 @@ watch(
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(6, 10, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
 }
 .busy-card {
   width: 340px;
   padding: 26px;
   border-radius: 18px;
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  background: var(--surface);
+  background: #ffffff;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
   text-align: center;
 }
 .busy-card p {
@@ -440,7 +438,6 @@ watch(
 }
 .busy-hint {
   margin-top: 8px;
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
   color: var(--ink-dim);
 }
@@ -449,8 +446,8 @@ watch(
   height: 26px;
   margin: 0 auto 16px;
   border-radius: 50%;
-  border: 2px solid rgba(34, 211, 238, 0.22);
-  border-top-color: var(--brand-lit);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #0d0d0d;
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin {
@@ -464,15 +461,20 @@ watch(
     padding-left: 18px;
     padding-right: 18px;
   }
+  .reader-inner {
+    padding-top: 28px;
+    /* 窄屏底栏是两行（翻页 + 操作），留足高度，避免正文最后一段被压在栏下 */
+    padding-bottom: 132px;
+  }
   .action-inner {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: 10px;
+    padding: 12px 18px;
   }
-  /* 窄屏操作栏内容更密，半透明底会让正文透上来：改成实色 */
+  /* 窄屏操作栏内容更密：保持实色底，避免正文透上来 */
   .action-bar {
-    background: #0e1116;
+    background: #ffffff;
   }
   .pager {
     width: 100%;
@@ -486,10 +488,9 @@ watch(
   .pager-title {
     max-width: 100%;
   }
-  /* 窄屏底栏文字更小，dim 灰在深底上偏暗：提一档亮度 */
   .pager-label {
     font-size: 10.5px;
-    color: var(--ink-soft);
+    color: var(--ink-dim);
   }
   .pager-btn:disabled {
     opacity: 0.55;
@@ -501,7 +502,7 @@ watch(
     flex: 1;
   }
   .prose {
-    font-size: 16px;
+    font-size: 15px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

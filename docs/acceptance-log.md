@@ -301,6 +301,10 @@ curl.exe -s -c "$d\cookies.txt" -H "Content-Type: application/json" --data-binar
 | 11-12 | 「工具」开关生效 | 同 11-11，开关关 / 开各问一次「现在几点？」 | 关：回答没有实时时钟、无法告知；开：返回 `2026 年 10 月 24 日 17:31:48` | `POST /ai/chat/stream`（`useTools` true/false） | 关时不调用工具，开时能取系统时间 | 同上 | 通过（2026-10-24 17:31） |
 | 11-13 | AI 回答 markdown 渲染 | `/guide` 新会话提问「用 markdown 列出 3 个 JUC 常见锁，要表格 + java 代码块 + 两个要点」 | 气泡内渲染出 1 个表格（表头「锁名 / 特点」）、1 个 java 代码块、2 个要点列表、2 处加粗；正文无 `**`、`|---` 原文残留；代码块可横向滚动 | `POST /ai/chat/stream` | 表格 / 代码块 / 列表 / 加粗正常显示 | Playwright 登录后提问，统计 `.text-seg.md` 内 `table` / `pre` / `li` / `strong` 数量 | 通过（2026-10-24 17:41） |
 | 11-14 | markdown 在 375px 不撑宽页面 | 375×812 打开同一会话 | `scrollWidth == clientWidth == 375`；表格在气泡内横向滚动，不推出视口 | — | 窄屏不出现横向滚动 | Playwright `viewport 375×812` | 通过（2026-10-24 17:41） |
+| 11-15 | 首页 / 登录页浅色 | 打开 `/`、`/login` | 页面底色 `rgb(252, 252, 252)`；入口卡白面 + 1px 发丝描边 + 纯黑「进入答疑区」胶囊；登录页输入框白底描边、主按钮纯黑胶囊 | — | 与 ChatGPT / DeepSeek 网页版同系的浅色中性风 | Playwright 截图 `d_home.png` / `m_home.png` | 通过（2026-10-24 18:20） |
+| 11-16 | 资料 / 待办 / 进度页浅色 | 登录 `lcz` 后打开三页 | 令牌统一为 `#fcfcfc` 底 / `#0d0d0d` 主文字；主按钮纯黑白字、次按钮白底描边；资料章节状态点为灰 `#d4d4d8`，待办复习点为琥珀、进度柱体纯黑 | `GET /knowledge-items`、`GET /todo`、`GET /progress/summary` | 三页与首页同色系、无深色残留块 | 截图 `d_materials.png` / `d_todo.png` / `d_progress.png` | 通过（2026-10-24 18:20） |
+| 11-17 | 对话 / 阅读 / 测验页浅色 | 打开 `/guide`、`/materials/{id}`、`/quiz/{id}` | 对话页 AI 回答无气泡平铺、用户消息 `#f4f4f5` 圆角、输入框 26px 圆角胶囊；阅读页正文 720px 列、底栏**白色实色**；测验页题号分节、`SKIPPED` 为中性灰标签 | `GET /conversations`、`GET /knowledge-items/{id}`、`GET /quiz/{id}` | 三页无深色块，层级靠描边 / 字号 / 留白 | 截图 `d_guide.png` / `d_read.png` / `d_quiz.png` | 通过（2026-10-24 18:20） |
+| 11-18 | 改版后 6 页 × 2 视口无溢出、无报错 | Playwright 1440×900 与 375×812 访问 `/`、`/guide`、`/materials`、`/todo`、`/progress`、`/materials/{id}`、`/quiz/{id}` | 14 张截图全部 `scrollWidth == innerWidth`（1440 与 375），每页 `console errors = []`；顺带修掉窄屏输入框占位被裁、阅读页正文被底栏压住两处缺陷 | — | 换肤不引入布局回归 | `node shots.mjs`（临时脚本，未入库） | 通过（2026-10-24 18:20） |
 
 > 说明：11-1 ~ 11-7 的数据是 2026-10-24 当天库内状态（JUC 7 章、2 道题均已跳过），不是固定断言。
 
