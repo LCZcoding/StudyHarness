@@ -65,6 +65,20 @@ public class ReviewScheduleRepository {
                 OffsetDateTime.class, userId, questionId, stage, days);
     }
 
+    /**
+     * 跳过：把这道题的排期往后推几天，仍保持 PENDING。
+     * 不标 DONE —— 用户只是这轮不想答，不是从此不再复习。
+     */
+    public OffsetDateTime postpone(long questionId, int days) {
+        return jdbcTemplate.queryForObject("""
+                        update t_review_schedule
+                           set due_at = now() + make_interval(days => ?)
+                         where question_id = ? and status = 'PENDING'
+                        returning due_at
+                        """,
+                OffsetDateTime.class, days, questionId);
+    }
+
     /** 1 -> 3 -> 7 走完后再 PASS：不再排期。 */
     public void markDoneByQuestion(long questionId) {
         jdbcTemplate.update("""

@@ -38,6 +38,24 @@ public class QuestionRepository {
         jdbcTemplate.update("update t_question set help_used = true where id = ?", questionId);
     }
 
+    /** 用户跳过这道题：不算作答、不产生成绩，只是这一轮不再等它。 */
+    public void markSkipped(long questionId) {
+        jdbcTemplate.update("update t_question set skipped = true where id = ?", questionId);
+    }
+
+    public boolean isSkipped(long questionId) {
+        Boolean skipped = jdbcTemplate.queryForObject(
+                "select skipped from t_question where id = ?", Boolean.class, questionId);
+        return Boolean.TRUE.equals(skipped);
+    }
+
+    public boolean hasRecord(long questionId) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                "select exists (select 1 from t_test_record where question_id = ?)",
+                Boolean.class, questionId);
+        return Boolean.TRUE.equals(exists);
+    }
+
     public List<QuestionContext> findWithOwner(long questionId) {
         return jdbcTemplate.query("""
                         select q.id            as question_id,
@@ -110,9 +128,10 @@ public class QuestionRepository {
     public List<QuestionRow> findByConversation(UUID conversationId) {
         return jdbcTemplate.query("""
                         select q.id, q.kind, q.target, m.content as text,
-                               (select tr.verdict from t_test_record tr
-                                 where tr.question_id = q.id
-                                 order by tr.id desc limit 1) as verdict
+                               case when q.skipped then 'SKIPPED'
+                                    else (select tr.verdict from t_test_record tr
+                                           where tr.question_id = q.id
+                                           order by tr.id desc limit 1) end as verdict
                           from t_question q
                           join t_message m on m.id = q.message_id
                          where m.conversation_id = ?
@@ -133,6 +152,7 @@ public class QuestionRepository {
                       from t_question q
                       join t_message m on m.id = q.message_id
                      where m.conversation_id = ?
+                       and q.skipped = false
                        and not exists (select 1 from t_test_record tr where tr.question_id = q.id)
                      order by q.id
                     """,

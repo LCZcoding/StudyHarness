@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS t_question (
     target             VARCHAR(200) NOT NULL,
     -- 这道题是否点过「我卡住了」。放在题目上，因为求助可能发生在作答之前（那时还没有成绩行）
     help_used          BOOLEAN     NOT NULL DEFAULT false,
+    -- 本轮被用户跳过。跳过不算作答、不产生成绩，只让这一轮不再等它
+    skipped            BOOLEAN     NOT NULL DEFAULT false,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

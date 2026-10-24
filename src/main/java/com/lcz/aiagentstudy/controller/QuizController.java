@@ -77,6 +77,16 @@ public class QuizController {
         return new HelpResponse(quizService.help(userId, questionId, req.question()));
     }
 
+    public record SkipResponse(OffsetDateTime nextDueAt) {
+    }
+
+    /** 不想答这道题：跳过它，这一轮不再等它，1 天后重新到期。 */
+    @PostMapping("/{questionId}/skip")
+    public SkipResponse skip(@PathVariable long questionId, HttpServletRequest request) {
+        UUID userId = currentUserResolver.requireUserId(request);
+        return new SkipResponse(quizService.skip(userId, questionId));
+    }
+
 
     public record QuestionStateView(long questionId, String kind, String target,
                                     String text, String verdict) {

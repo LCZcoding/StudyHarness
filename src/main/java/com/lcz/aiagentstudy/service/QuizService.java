@@ -7,9 +7,12 @@ import com.lcz.aiagentstudy.model.KnowledgeItemRow;
 import com.lcz.aiagentstudy.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -44,6 +47,7 @@ public class QuizService {
     private final KnowledgePointRepository knowledgePointRepository;
     private final QuestionRepository questionRepository;
     private final QuizStore quizStore;
+    private final AiCallRecorder aiCallRecorder;
 
 
 
@@ -68,27 +72,39 @@ public class QuizService {
         boolean requireExplain = retry.map(r -> !"EXPLAIN".equals(r.kind())).orElse(true);
 
         List<String> verified = knowledgePointRepository.findRecentVerified(userId, 5);
-        List<TaskDraft> tasks = draft(item.content(), newCount, requireExplain, verified);
+        List<TaskDraft> tasks = draft(userId, item.content(), newCount, requireExplain, verified);
 
         return quizStore.createSelfTest(userId, item, retry.orElse(null), tasks);
     }
 
     /** 复习的交错题：只出 1 个。出不来就返回 empty，不阻断这次复习。 */
-    public Optional<TaskDraft> draftOne(KnowledgeItemRow item, List<String> verified) {
+    public Optional<TaskDraft> draftOne(UUID userId, KnowledgeItemRow item, List<String> verified) {
         try {
-            return draft(item.content(), 1, false, verified).stream().findFirst();
+            return draft(userId, item.content(), 1, false, verified).stream().findFirst();
         } catch (RuntimeException e) {
             return Optional.empty();
         }
     }
 
-    private List<TaskDraft> draft(String content, int count, boolean requireExplain,
+    private List<TaskDraft> draft(UUID userId, String content, int count, boolean requireExplain,
                                   List<String> verified) {
         ChatClient client = ChatClient.builder(deepSeekChatModel).defaultSystem(SYSTEM_PROMPT).build();
-        QuizDraft draft = client.prompt()
-                .user(buildUserMessage(truncate(content), count, requireExplain, verified))
-                .call()
-                .entity(QuizDraft.class);
+
+        long startedAt = aiCallRecorder.start();
+        ResponseEntity<ChatResponse, QuizDraft> result;
+        try {
+            result = client.prompt()
+                    .user(buildUserMessage(truncate(content), count, requireExplain, verified))
+                    .call()
+                    .responseEntity(QuizDraft.class);
+        } catch (RuntimeException e) {
+            aiCallRecorder.recordFailure(userId, "QUIZ_GENERATE", startedAt, e);
+            throw e;
+        }
+        aiCallRecorder.recordCall(userId, "QUIZ_GENERATE", startedAt, result.getResponse());
+
+        QuizDraft draft = result.getEntity();
+        // ↓ 原方法剩下的校验与归一化原样保留
 
         if (draft == null || draft.tasks() == null || draft.tasks().size() != count) {
             throw new IllegalStateException("模型未按要求返回 " + count + " 个任务，请重试");
@@ -141,7 +157,7 @@ public class QuizService {
     /** 求助：先回答用户的疑问，再把这题标记为"求助过"。不改判分、不产生成绩。 */
     public String help(UUID userId, long questionId, String userQuestion) {
         QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
-        String answer = helpService.answer(question.material(), question.text(), userQuestion);
+        String answer = helpService.answer(userId, question.material(), question.text(), userQuestion);
         questionRepository.markHelpUsed(questionId);
         return answer;
     }
@@ -149,9 +165,25 @@ public class QuizService {
     public AttemptStore.AttemptResult attempt(UUID userId, long questionId, String answer) {
         QuestionRepository.QuestionContext question = requireOwnedQuestion(userId, questionId);
         GradingService.Grading grading = gradingService.grade(
-                question.material(), question.target(), question.kind(),
+                userId, question.material(), question.target(), question.kind(),
                 question.text(), answer);
         return attemptStore.record(userId, question, answer, grading);
+    }
+
+    /** 跳过这道题：不判分、不产生成绩，只让当前这轮不再等它；排期往后推 1 天。 */
+    public OffsetDateTime skip(UUID userId, long questionId) {
+        requireOwnedQuestion(userId, questionId);
+        if (questionRepository.hasRecord(questionId)) {
+            throw new BadRequestException("这道题已经作答，不能跳过");
+        }
+        if (questionRepository.isSkipped(questionId)) {
+            throw new BadRequestException("这道题已经跳过");
+        }
+        questionRepository.markSkipped(questionId);
+        // 自测题没有复习排期，跳过就只是跳过，不必造一行排期
+        return reviewScheduleRepository.findByQuestion(questionId).isPresent()
+                ? reviewScheduleRepository.postpone(questionId, 1)
+                : null;
     }
 
     private QuestionRepository.QuestionContext requireOwnedQuestion(UUID userId, long questionId) {
@@ -207,7 +239,7 @@ public class QuizService {
         if (anotherItemId.isPresent()) {
             KnowledgeItemRow item = knowledgeService.requireOwned(anotherItemId.get(), userId);
             List<String> verified = knowledgePointRepository.findRecentVerified(userId, 5);
-            Optional<TaskDraft> draft = draftOne(item, verified);
+            Optional<TaskDraft> draft = draftOne(userId, item, verified);
             if (draft.isPresent()) {
                 interleaved = draft.get();
                 interleavedItemId = item.id();
