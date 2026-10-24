@@ -263,19 +263,19 @@ onMounted(load)
 </script>
 
 <style scoped>
-/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .page {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
-  --good: #34d399;
-  --warn: #fbbf24;
-  --bad: #f87171;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.08);
+  --brand: #0d0d0d;
+  --brand-lit: #4d6bfe;
+  --good: #10a37f;
+  --warn: #d97706;
+  --bad: #b4341a;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -292,7 +292,7 @@ onMounted(load)
 .inner {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 36px 32px 72px;
+  padding: 32px 32px 72px;
 }
 .quiz-wrap {
   max-width: 800px;
@@ -308,30 +308,32 @@ onMounted(load)
   border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink);
-  background: transparent;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: #f0f0f2;
 }
 .btn.primary {
-  background: linear-gradient(140deg, var(--brand), #0ea5c9);
-  border-color: transparent;
-  color: #04121b;
-  font-weight: 700;
+  background: #0d0d0d;
+  border-color: #0d0d0d;
+  color: #ffffff;
+  font-weight: 500;
 }
 .btn.primary:hover {
-  filter: brightness(1.08);
+  background: #2f2f2f;
 }
 .btn.ghost {
-  border-color: rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--ink-soft);
+  background: #ffffff;
 }
 .btn.ghost:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
+  color: var(--ink);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -342,9 +344,9 @@ onMounted(load)
   margin-bottom: 20px;
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.08);
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff7ed;
+  color: #b4341a;
   font-size: 13px;
 }
 .loading {
@@ -357,9 +359,8 @@ onMounted(load)
 
 /* ---------- 轮次抬头 + 进度线 ---------- */
 .mono {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.5px;
+  font-size: 11.5px;
+  letter-spacing: 0.2px;
   color: var(--ink-dim);
 }
 .quiz-head {
@@ -369,34 +370,33 @@ onMounted(load)
   gap: 12px;
 }
 .quiz-head .done {
-  color: var(--brand-lit);
+  color: var(--ink-soft);
 }
 .quiz-progress {
   height: 3px;
   margin: 14px 0 8px;
   border-radius: var(--radius-pill);
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(0, 0, 0, 0.07);
   overflow: hidden;
 }
 .quiz-progress i {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--brand), var(--brand-lit));
+  background: #0d0d0d;
   transition: width 0.5s var(--ease);
 }
 
 /* ---------- 每题一节：编号 + 发丝线分隔 ---------- */
 .q {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: 20px;
-  padding: 34px 4px 32px;
+  padding: 32px 4px 30px;
   border-bottom: 1px solid var(--line);
 }
 .q-no {
   padding-top: 4px;
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
   color: var(--ink-dim);
 }
@@ -411,21 +411,19 @@ onMounted(load)
 .kind {
   padding: 3px 9px;
   border-radius: 6px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-  border: 1px solid rgba(34, 211, 238, 0.3);
-  color: var(--brand-lit);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: var(--ink-soft);
 }
 .kind.explain {
-  border-color: rgba(168, 85, 247, 0.4);
-  color: #c4a5f7;
+  border-color: rgba(77, 107, 254, 0.28);
+  color: #4d6bfe;
 }
 .qtarget {
   flex: 1 1 0;
   min-width: 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -436,30 +434,29 @@ onMounted(load)
   margin-left: auto;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
 }
 .tag.pass {
-  background: rgba(52, 211, 153, 0.14);
+  background: rgba(16, 163, 127, 0.1);
   color: var(--good);
 }
 .tag.partial {
-  background: rgba(251, 191, 36, 0.14);
+  background: rgba(217, 119, 6, 0.1);
   color: var(--warn);
 }
 .tag.fail {
-  background: rgba(248, 113, 113, 0.14);
+  background: rgba(180, 52, 26, 0.1);
   color: var(--bad);
 }
 .tag.skipped {
-  background: rgba(148, 163, 184, 0.14);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--ink-soft);
 }
 .qtext {
   margin: 14px 0 18px;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 16.5px;
+  font-weight: 500;
   line-height: 1.75;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -469,21 +466,21 @@ onMounted(load)
   width: 100%;
   min-height: 96px;
   resize: vertical;
-  padding: 14px 16px;
+  padding: 13px 15px;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #0f151c;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
   color: var(--ink);
   font-size: 14px;
   line-height: 1.8;
   outline: none;
-  transition: border-color 0.2s var(--ease);
+  transition: border-color 0.16s ease;
 }
 .q-body textarea:focus {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(0, 0, 0, 0.32);
 }
 .q-body textarea::placeholder {
-  color: #53687a;
+  color: #9b9ba8;
 }
 .q-body textarea:disabled {
   opacity: 0.6;
@@ -501,8 +498,7 @@ onMounted(load)
   gap: 8px;
 }
 .quota {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .quota.warn {
@@ -511,7 +507,7 @@ onMounted(load)
 .qerror {
   margin: 10px 0 0;
   font-size: 12.5px;
-  color: #f9a8a8;
+  color: #b4341a;
 }
 
 /* ---------- 判分结果 ---------- */
@@ -521,16 +517,14 @@ onMounted(load)
 }
 .restored {
   margin-bottom: 10px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.5px;
+  font-size: 11px;
   color: var(--ink-dim);
 }
 .feedback {
   margin: 0;
   font-size: 13.5px;
   line-height: 1.85;
-  color: #dbe6f0;
+  color: #33343a;
 }
 .gaps {
   margin: 14px 0 0;
@@ -544,17 +538,16 @@ onMounted(load)
   display: flex;
   gap: 10px;
   padding: 9px 12px;
-  border-left: 2px solid rgba(251, 191, 36, 0.45);
+  border-left: 2px solid rgba(217, 119, 6, 0.45);
   font-size: 12.5px;
   line-height: 1.75;
-  color: #d8c690;
+  color: #5c4a22;
 }
 .gaps li b {
   flex: none;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--warn);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .empty {
@@ -567,9 +560,9 @@ onMounted(load)
 }
 .empty h2 {
   margin: 0 0 10px;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .empty p {
@@ -584,8 +577,8 @@ onMounted(load)
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(6, 10, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
 }
 .drawer {
   position: absolute;
@@ -595,21 +588,20 @@ onMounted(load)
   width: min(420px, 100vw);
   display: flex;
   flex-direction: column;
-  padding: 26px 24px;
-  background: var(--surface);
+  padding: 24px;
+  background: #ffffff;
   border-left: 1px solid var(--line);
   overflow-y: auto;
 }
 .drawer h3 {
   margin: 0 0 6px;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--ink);
 }
 .drawer .hint {
   margin: 0 0 20px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1.7;
   color: var(--ink-dim);
 }
@@ -627,19 +619,18 @@ onMounted(load)
 }
 .bubble.me {
   align-self: flex-end;
-  background: rgba(2, 132, 199, 0.22);
-  color: #cfe9f7;
+  background: #f4f4f5;
+  color: #0d0d0d;
 }
 .bubble.ai {
-  background: #111b27;
+  background: #ffffff;
   border: 1px solid var(--line);
-  color: #dbe6f0;
+  color: #33343a;
 }
 .bubble .who {
   display: block;
   margin-bottom: 4px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--ink-dim);
 }
 .drawer-empty {
@@ -659,14 +650,14 @@ onMounted(load)
   min-width: 0;
   padding: 10px 14px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--line);
-  background: #0f151c;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
   color: var(--ink);
   outline: none;
-  transition: border-color 0.2s var(--ease);
+  transition: border-color 0.16s ease;
 }
 .drawer-foot input:focus {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(0, 0, 0, 0.32);
 }
 
 @media (max-width: 820px) {

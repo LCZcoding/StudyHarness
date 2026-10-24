@@ -909,3 +909,100 @@ RAG 追问能引用该章原句，见 [`acceptance-log.md`](./acceptance-log.md)
 **预测外问题（按规则转记）**：窄屏三处布局缺陷已按上面表格修掉；「子元素 `min-width: 0` 才能让 flex 子项收缩」这条
 与⑤格 `side-title` 的踩坑同源，说明这套令牌换页时很容易复现，记为复查项。
 
+**补充（同日）：聊天页补 RAG / 工具开关**
+
+后台早已支持 `useRag` / `useTools`，但前端 [chatStream.js](../ai-agent-frontend/src/api/chatStream.js) 只发
+`{conversationId, message}`，两个开关恒为 `false`，等于能力在页面里不可用。改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| [`chatStream.js`](../ai-agent-frontend/src/api/chatStream.js) | 入参加 `useRag` / `useTools`（默认 `false`），写进请求体 |
+| [`ChatRoom.vue`](../ai-agent-frontend/src/components/ChatRoom.vue) | 新增同名副属性（props）透传给 `streamChat`；窄屏 `.h-right` 允许折行 |
+| [`GuideChatView.vue`](../ai-agent-frontend/src/views/GuideChatView.vue) | 顶栏加「资料检索」「工具」两个开关按钮：默认灰底空心点，开启后青底实心点，带 `aria-pressed` |
+
+设计取舍：开关放在页面层而不是 `ChatRoom` 内部状态，`ChatRoom` 保持「只负责渲染与会话」的通用职责；
+两个开关都是用户显式打开，不做「问题里含资料就不检索」这类意图猜测——猜错比多一次检索更糟。
+
+验证（Playwright，登录 `lcz`，界面操作）：
+
+| 开关 | 关 | 开 |
+| --- | --- | --- |
+| 资料检索 | 「我这边看不到你上传的资料内容」并反问资料类型 | 按 JUC 资料列锁升级链路、乐观/悲观锁、CAS 与 ABA、`ReentrantLock`、`ThreadLocal` |
+| 工具 | 「没有实时时钟，无法告知」 | `2026 年 10 月 24 日 17:31:48` |
+
+两次运行 `console errors` 均为空。附带发现：对话页引用 Google Fonts，离线时 `fonts.gstatic.com` 请求失败会回退系统字体，不影响功能。
+接口契约已同步到 [`api-chat-stream.md`](./api-chat-stream.md) §2.1。
+
+**补充（同日）：AI 回答按 markdown 渲染**
+
+改前 `.text-seg` 是 `white-space: pre-wrap` 的纯文本，模型输出的 `**加粗**`、`| 表格 |`、``` 代码块 ``` 全按原文吐出来。
+
+| 位置 | 改动 |
+| --- | --- |
+| `ai-agent-frontend/src/utils/markdown.js`（新增） | `marked`（GFM + `breaks`）解析 → `DOMPurify.sanitize` 过滤；链接统一补 `target="_blank"` 与 `rel="noopener noreferrer"` |
+| [`ChatRoom.vue`](../ai-agent-frontend/src/components/ChatRoom.vue) | 文本段改 `v-html="renderMarkdown(seg.text)"`；`.text-seg.md` 去掉 `pre-wrap`，并补标题 / 列表 / 行内代码 / 代码块 / 表格 / 引用 / 分隔线样式 |
+
+安全取舍：模型输出属于不可信内容，直接 `v-html` 会把 `&lt;img onerror=...&gt;` 变成脚本；因此必须过 DOMPurify，
+不能只用 `marked` 自带的 HTML 透传。`Step N` 段落仍按纯文本渲染，保持与最终回答的视觉区分。
+
+验证（Playwright，界面提问要求输出表格 + java 代码块 + 要点）：`.text-seg.md` 内 `table` 1 个、`pre` 1 个、
+`strong` 2 个、`li` 2 个，正文不含 `**` 与 `|---` 残留；375px `scrollWidth == clientWidth == 375`；`console errors=[]`。
+
+依赖：`marked@18.1.1`、`dompurify`。`npm audit` 的两条告警来自 devDependency `vite`→`esbuild`（开发服务器跨域读取问题），
+与本轮新增依赖无关，且预览/生产构建不使用 dev server，暂不升级。
+
+**补充（同日）：全站改浅色，对齐 ChatGPT / DeepSeek 网页版**
+
+改前全站是深色青蓝主题，用户反馈「还是不好看」，并要求**先去官网取真实样式**而不是凭记忆改。做法是先用浏览器读
+`chat.deepseek.com` 与 `chatgpt.com` 的 `getComputedStyle`：页面底色 `rgb(252, 252, 252)`、输入框 768×52 / 28px 圆角 /
+`0.8px solid rgba(0, 0, 0, 0.1)` 描边、标题 24px/400。据此定浅色规格再动手。
+
+| 位置 | 改动 |
+| --- | --- |
+| `styles/global.css` | 新增中性浅色令牌：`--bg #fcfcfc`、`--surface #ffffff`、`--surface-soft #f4f4f5`、`--ink #0d0d0d`、`--ink-soft #565869`、`--ink-dim #8e8ea0`、`--line rgba(0,0,0,0.1)`、`--accent #4d6bfe`；字体改 system-ui 栈，`body` 底色 `#fcfcfc` |
+| `components/ChatRoom.vue` | AI 回答**去气泡平铺**（`--ai-bubble: transparent`），用户消息 `#f4f4f5` + 20px 圆角；消息列 768px 居中；输入框 26px 圆角胶囊 + 38px 圆形黑色发送键；顶栏 56px 白底 + 发丝线；在线点改 `#10a37f` |
+| `views/GuideChatView.vue` | 侧栏 260px 浅底、条目 hover `#f0f0f2` / 选中 `#ececef`；「资料检索 / 工具」开关改白底描边、开启态黑底白字 |
+| `views/MaterialsView.vue` `TodoView.vue` `ProgressView.vue` `QuizView.vue` `SectionReadView.vue` | 令牌改浅；主按钮纯黑底白字、次按钮白底描边；状态点改绿 `#10a37f` / 琥珀 `#d97706` / 红 `#b4341a` / 空 `#d4d4d8`；阅读页正文列 720px、行高 1.85，底栏由半透明渐变改**白色实色** + 上边框 |
+| `views/HomeView.vue` `LoginView.vue` | 首页去掉蓝青渐变大卡，改白面 + 发丝描边的入口卡；登录按钮改纯黑胶囊 |
+| `index.html` | 移除 Google Fonts（`IBM Plex Mono` / `Noto Serif SC` 已无引用），少一次外部阻塞请求 |
+
+验证（Playwright，登录 `lcz`，6 页 × 2 视口共 14 张截图）：`/`、`/guide`、`/materials`、`/todo`、`/progress`、
+`/materials/{id}`（读第 1 章）、`/quiz/{id}`（从待办进入）在 1440×900 与 375×812 下 `scrollWidth == innerWidth`，
+`console errors = []`，各页 `.page` 底色均为 `rgb(252, 252, 252)`。
+
+顺手修掉两个改版暴露出来的缺陷：375px 对话页输入框占位文案过长会换行被裁 → 文案缩短为「说出你卡住的地方…」；
+375px 阅读页底部栏是两行，正文最后一段会被压住 → `.reader-inner` 底部留白 56px 提到 132px。
+
+**补充（同日）：发送按钮改图标、三个操作收进输入框**
+
+| 位置 | 改动 |
+| --- | --- |
+| `ChatRoom.vue` | 删除 `header-extra` 插槽，新增 `composer-extra` 插槽，位置在 `.actions` 内、停止/发送按钮之前；顶栏 `.h-right` 只剩会话 ID。窄屏（≤640px）`.composer-box` 改竖排，图标行落到输入框下方整行右对齐 |
+| `GuideChatView.vue` | 检索 / 工具 / 做成题 三个按钮由顶栏文字胶囊改为输入框内 34px 图标按钮（375px 下 32px）：关闭态透明底灰图标，开启态黑底白图标；说明文字放 `data-tip`，用 `::after` 在悬停/键盘聚焦时浮出，内容随开关状态变化。删除原 `.opt` / `.make-quiz` 样式 |
+
+为什么用 `::after` 而不是 `title`：`title` 有 1 秒以上延迟、样式不可控；伪元素能即时出现且与全站黑白灰一致。
+tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄屏溢出视口。
+
+验收：11-20 / 11-21。
+
+**补充（同日）：查时间常开，工具开关收窄为「联网」**
+
+| 位置 | 改动 |
+| --- | --- |
+| `ToolRegistration.java` | `chatTools` 拆成两个 Bean：`chatWebTools`（网页搜索 + 网页抓取，受开关控制）与 `chatClockTool`（查时间，常挂）。副作用工具仍不进聊天 |
+| `LoveApp.java` | `doChatByStream` 每轮都挂 `chatClockTool`；`useTools=true` 时把 `chatWebTools` 一并挂上 |
+| `GuideChatView.vue` | 第一个图标由放大镜改**书本**（资料检索），第二个图标由扳手改**放大镜**（联网 = 网页搜索 + 抓取）；悬停说明同步，并注明「查时间始终可用」 |
+| `api-chat-stream.md` §2.1 | `useTools` 语义改为只挂联网工具；补充查时间常开说明 |
+
+为什么把查时间单独拿出来：它不联网、没有副作用、调用成本极低，让用户为了问一句「现在几点」先点开关是多余摩擦；
+联网工具则会外发请求、消耗 Tavily 额度，仍需显式开启。
+
+验收：11-22 已通过；11-23 / 11-24 需重启后端后验证。
+
+**实测（2026-10-24 19:38，后端重启后）**
+
+- 11-23 通过：两个开关都不点，问「现在几点」回到 `2026-10-24 19:02:49`。
+- 11-24 通过：关闭联网时模型明确说只有 `getCurrentTime`、查不到实时新闻；开启后工具清单变为 `getCurrentTime、searchWeb、scrapeWebPage`，并真实检索到 HeroDevs 那篇 Spring Boot EOL 博客（含链接与 2025-05-22 日期）。
+- 中途踩到的坑：在**同一会话**里先让模型说过「我没有搜索工具」，即使随后打开联网，它仍沿用上一轮的自我描述继续否认有搜索能力。
+  所以验证工具集变更必须**新建会话**——历史上下文会覆盖本轮实际挂载的工具清单。这不是代码缺陷，但排查时容易误判。
+

@@ -20,7 +20,7 @@
            后端 /api/ai/manus/chat 与 LiManus 保留，待后续作为「工具调用」接入本页。 -->
       <RouterLink to="/guide" class="card guide">
         <div class="card-inner">
-          <span class="emoji">❓</span>
+          <span class="emoji">AI</span>
           <h2>AI 问题引导解决助手</h2>
           <p>你的专属答疑助手，引导你解决问题，陪伴你一起解决每一个问题。</p>
           <ul class="feats">
@@ -57,26 +57,22 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-/* ===== 设计令牌：颜色 / 圆角 / 阴影 / 缓动集中定义，全页只从这里取值 ===== */
+/* 浅色令牌：与 ChatGPT / DeepSeek 网页版一致 */
 .home {
-  --bg: #0e1116;
-  --ink: #123a52;            /* 卡片主文字 */
-  --ink-soft: #5c7f96;       /* 卡片次要文字 */
-  --line: rgba(14, 165, 233, 0.22);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
-  --bar-text: #e8edf2;
-  --bar-dim: #6b7f92;
-  --radius-lg: 26px;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.1);
+  --radius-lg: 16px;
   --radius-pill: 999px;
-  --shadow-soft: 0 12px 34px rgba(12, 46, 70, 0.1), 0 2px 8px rgba(12, 46, 70, 0.06);
-  --shadow-lift: 0 30px 70px rgba(12, 58, 82, 0.22), 0 6px 18px rgba(12, 58, 82, 0.1);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;          /* 页面本身不滚，滚动交给内容区 */
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -84,37 +80,35 @@ async function handleLogout() {
 .topbar {
   flex: none;
   width: 100%;
-  max-width: 1080px;         /* 与卡片同宽，左右留白与卡片对齐 */
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 24px;
-  color: var(--bar-text);
+  padding: 18px 24px;
+  color: var(--ink);
 }
 .brand {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  letter-spacing: 3px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   white-space: nowrap;
 }
 .top-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
 .tag {
   font-size: 12px;
-  color: var(--bar-dim);
-  letter-spacing: 2px;
+  color: var(--ink-dim);
   white-space: nowrap;
 }
 .who {
   font-size: 13px;
-  color: var(--bar-text);
-  letter-spacing: 1px;
+  color: var(--ink-soft);
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,31 +119,30 @@ async function handleLogout() {
 .login-link,
 .logout-btn {
   flex: none;
-  padding: 7px 18px;
+  padding: 7px 16px;
   border-radius: var(--radius-pill);
-  background: transparent;
-  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  font-size: 12.5px;
   font-family: inherit;
   line-height: 1;
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 .login-link {
-  border: 1px solid rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
+  color: var(--ink);
 }
 .login-link:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
 }
 .logout-btn {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  color: #9fb0c0;
+  color: var(--ink-soft);
 }
 .logout-btn:not(:disabled):hover {
-  background: rgba(148, 163, 184, 0.12);
-  color: var(--bar-text);
+  background: #f0f0f2;
+  color: var(--ink);
 }
 .logout-btn:disabled {
   opacity: 0.45;
@@ -161,44 +154,28 @@ async function handleLogout() {
   flex: 1;
   min-height: 0;
   display: flex;
-  overflow-y: auto;          /* 内容高于视口时在这里滚，居中不被裁掉 */
+  overflow-y: auto;
   padding: 0 24px 24px;
 }
 
-/* ---------- 卡片 ---------- */
+/* ---------- 入口卡：白面、发丝描边、极轻阴影 ---------- */
 .card {
-  /* margin:auto 而不是 align-items:center —— 溢出时不会被顶到不可见处（居中 + 滚动的安全写法） */
   margin: auto;
   position: relative;
-  display: flex;             /* 让 .card-inner 撑满卡片高度 */
+  display: flex;
   width: 100%;
-  max-width: 1080px;
-  height: clamp(320px, 66vh, 560px);
+  max-width: 720px;
+  height: auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
   text-decoration: none;
-  box-shadow: var(--shadow-soft);
-  transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
-}
-/* hover 时浮现的一层柔光：压在渐变之上、内容之下 */
-.card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.35s var(--ease);
-}
-
-/* 唯一入口卡：清新蓝青 · 答疑辅导 */
-.card.guide {
-  background:
-    radial-gradient(700px 400px at 85% 0%, rgba(14, 165, 233, 0.22), transparent 60%),
-    radial-gradient(600px 380px at 0% 100%, rgba(45, 212, 191, 0.22), transparent 60%),
-    linear-gradient(160deg, #f3fbff 0%, #e6f6f8 100%);
+  background: var(--surface);
   border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.card.guide {
+  background: var(--surface);
 }
 
 .card-inner {
@@ -207,127 +184,128 @@ async function handleLogout() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;       /* 水平居中 */
-  justify-content: center;   /* 垂直居中 */
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: clamp(28px, 4.5vw, 56px);
+  padding: clamp(32px, 5vw, 56px);
 }
 
 .emoji {
-  font-size: clamp(38px, 4vw, 50px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #0d0d0d;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   line-height: 1;
 }
 
 h2 {
-  margin: 16px 0 12px;
+  margin: 20px 0 12px;
   color: var(--ink);
-  font-size: clamp(24px, 3vw, 40px);
-  font-weight: 900;
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 400;
   line-height: 1.35;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.02em;
 }
 
 .card p {
   margin: 0;
-  max-width: 44ch;           /* 限宽：中文一行 20 字左右，读起来才舒服 */
+  max-width: 44ch;
   color: var(--ink-soft);
   font-size: 14px;
-  line-height: 1.9;
+  line-height: 1.8;
 }
 
 .feats {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   list-style: none;
   padding: 0;
-  margin: 24px 0 0;
+  margin: 22px 0 0;
 }
 .feats li {
-  padding: 6px 14px;
+  padding: 6px 13px;
   border-radius: var(--radius-pill);
-  border: 1px solid currentColor;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   color: var(--ink-soft);
   font-size: 12px;
-  letter-spacing: 0.5px;
-  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  transition: background 0.16s ease, color 0.16s ease;
 }
 
 .enter {
-  margin-top: 30px;
-  color: var(--brand);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  background: #0d0d0d;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
 }
 .enter b {
   display: inline-block;
+  font-weight: 400;
   transition: transform 0.25s var(--ease);
 }
 
 /* ---------- hover / 键盘焦点 ---------- */
-/* 不套 @media (hover: hover)：本卡是导航入口，点下去就跳走了，触摸端不会留下"粘住的 hover"；
-   规则留在顶层，浏览器里直接查样式就能验证 */
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lift);
-}
-.card:hover::after {
-  opacity: 1;
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
 }
 .card:hover .enter b {
-  transform: translateX(8px);
-}
-.card:hover .feats li {
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--brand);
+  transform: translateX(4px);
 }
 .card:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--ink);
   outline-offset: 3px;
 }
 
 /* ---------- 响应式：桌面 / 平板 / 手机 ---------- */
 @media (max-width: 820px) {
   .topbar {
-    padding: 18px 20px;
+    padding: 16px 20px;
   }
   .tag {
-    display: none;           /* 窄屏顶栏挤，先给登录/登出按钮让位 */
+    display: none;
   }
   .grid {
     padding: 0 20px 20px;
   }
   .card {
-    height: auto;            /* 矮屏改为按内容撑高，避免固定高度被压扁 */
-    min-height: 380px;
+    min-height: 0;
   }
 }
 
 @media (max-width: 480px) {
   .brand {
-    font-size: 12px;
-    letter-spacing: 2px;
+    font-size: 12.5px;
   }
   .who {
     max-width: 88px;
   }
-  .card {
-    min-height: 340px;
+  .card-inner {
+    padding: 36px 22px;
   }
 }
 
 /* 尊重系统「减少动态效果」设置 */
 @media (prefers-reduced-motion: reduce) {
   .card,
-  .card::after,
+  .card-inner,
   .enter b,
   .feats li {
     transition: none;
-  }
-  .card:hover {
-    transform: none;
   }
 }
 </style>

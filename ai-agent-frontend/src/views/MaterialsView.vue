@@ -348,17 +348,17 @@ onBeforeUnmount(stopElapsed)
 </script>
 
 <style scoped>
-/* 设计令牌沿用首页：深色底 + 青色强调，排版节奏参考苹果官网（大留白、发丝线、层级靠字号） */
+/* 设计令牌：浅色底 + 黑主按钮 + DeepSeek 蓝强调（对齐 ChatGPT / DeepSeek 网页版） */
 .page {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand: #0284c7;
-  --brand-lit: #22d3ee;
-  --amber: #fbbf24;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.08);
+  --brand: #0d0d0d;
+  --brand-lit: #4d6bfe;
+  --amber: #d97706;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -375,7 +375,7 @@ onBeforeUnmount(stopElapsed)
 .inner {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 36px 32px 72px;
+  padding: 32px 32px 72px;
 }
 
 .btn {
@@ -387,33 +387,35 @@ onBeforeUnmount(stopElapsed)
   border-radius: var(--radius-pill);
   font-size: 13px;
   line-height: 1;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.14);
   color: var(--ink);
-  background: transparent;
-  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: #f0f0f2;
 }
 .btn.primary {
-  background: linear-gradient(140deg, var(--brand), #0ea5c9);
-  border-color: transparent;
-  color: #04121b;
-  font-weight: 700;
+  background: #0d0d0d;
+  border-color: #0d0d0d;
+  color: #ffffff;
+  font-weight: 500;
 }
 .btn.primary:hover {
-  filter: brightness(1.08);
+  background: #2f2f2f;
 }
 .btn.ghost {
-  border-color: rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--ink-soft);
+  background: #ffffff;
 }
 .btn.ghost:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
+  color: var(--ink);
 }
 .btn.sm {
-  padding: 8px 16px;
+  padding: 8px 15px;
   font-size: 12.5px;
 }
 .btn:disabled {
@@ -425,9 +427,9 @@ onBeforeUnmount(stopElapsed)
   margin-bottom: 20px;
   padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.08);
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff7ed;
+  color: #b4341a;
   font-size: 13px;
 }
 
@@ -458,9 +460,8 @@ onBeforeUnmount(stopElapsed)
 }
 .doc-meta {
   margin: 8px 0 0;
-  font-family: 'IBM Plex Mono', monospace;
   font-size: 11.5px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   color: var(--ink-dim);
 }
 .doc-progress {
@@ -469,14 +470,14 @@ onBeforeUnmount(stopElapsed)
   height: 3px;
   margin-bottom: 6px;
   border-radius: var(--radius-pill);
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 .doc-progress i {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--brand), var(--brand-lit));
+  background: #0d0d0d;
   transition: width 0.5s var(--ease);
 }
 
@@ -493,14 +494,14 @@ onBeforeUnmount(stopElapsed)
   align-items: start;
   padding: 26px 4px 24px;
   border-bottom: 1px solid var(--line);
-  transition: background 0.2s var(--ease);
+  transition: background 0.16s ease;
 }
 .section:hover {
-  background: rgba(148, 163, 184, 0.035);
+  background: rgba(0, 0, 0, 0.02);
 }
 .section-no {
   padding-top: 3px;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   color: var(--ink-dim);
 }
@@ -510,13 +511,13 @@ onBeforeUnmount(stopElapsed)
 .section-title {
   margin: 0;
   font-size: 16.5px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.45;
   color: var(--ink);
-  transition: color 0.2s var(--ease);
+  transition: color 0.16s ease;
 }
 .section:hover .section-title {
-  color: #ffffff;
+  color: #000000;
 }
 .section-summary {
   margin: 7px 0 0;
@@ -533,12 +534,11 @@ onBeforeUnmount(stopElapsed)
   align-items: center;
   gap: 8px;
   margin: 11px 0 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .sep {
-  color: rgba(148, 163, 184, 0.3);
+  color: rgba(0, 0, 0, 0.2);
 }
 .dot {
   width: 7px;
@@ -547,15 +547,15 @@ onBeforeUnmount(stopElapsed)
   flex: none;
 }
 .dot.todo {
-  background: #55677a;
+  background: #d4d4d8;
 }
 .dot.doing {
   background: var(--amber);
-  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.14);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
 }
 .dot.done {
-  background: var(--brand-lit);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+  background: #10a37f;
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.14);
 }
 .section-actions {
   display: flex;
@@ -601,22 +601,23 @@ onBeforeUnmount(stopElapsed)
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(6, 10, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
 }
 .dialog {
   width: min(620px, 100%);
   max-height: 88vh;
   overflow-y: auto;
   padding: 26px;
-  border-radius: 20px;
-  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: var(--surface);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
 }
 .dialog h3 {
   margin: 0 0 18px;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 600;
   color: var(--ink);
 }
 .field {
@@ -626,8 +627,7 @@ onBeforeUnmount(stopElapsed)
   margin-bottom: 16px;
 }
 .field span {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .field input,
@@ -635,15 +635,15 @@ onBeforeUnmount(stopElapsed)
   width: 100%;
   padding: 11px 13px;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #0f151c;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
   color: var(--ink);
   outline: none;
-  transition: border-color 0.2s var(--ease);
+  transition: border-color 0.16s ease;
 }
 .field input:focus,
 .field textarea:focus {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(0, 0, 0, 0.3);
 }
 .field textarea {
   min-height: 240px;
@@ -657,7 +657,7 @@ onBeforeUnmount(stopElapsed)
 }
 .dialog-error {
   margin: 0 0 12px;
-  color: #f9a8a8;
+  color: #b4341a;
   font-size: 12.5px;
 }
 .dialog-foot {
@@ -681,8 +681,7 @@ onBeforeUnmount(stopElapsed)
 .practice-state span {
   display: block;
   margin-top: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .practice-body {
@@ -692,13 +691,13 @@ onBeforeUnmount(stopElapsed)
   overflow-y: auto;
   font-size: 14px;
   line-height: 1.9;
-  color: #c9d6e2;
+  color: #3f3f4b;
 }
 .practice-heading {
   margin: 1.5em 0 0.5em;
   font-size: 14.5px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .practice-body > .practice-heading:first-child {
@@ -712,9 +711,10 @@ onBeforeUnmount(stopElapsed)
 .busy-card {
   width: 360px;
   padding: 28px 26px;
-  border-radius: 20px;
-  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: var(--surface);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
   text-align: center;
 }
 .busy-card p {
@@ -724,17 +724,16 @@ onBeforeUnmount(stopElapsed)
 }
 .busy-hint {
   margin-top: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .spinner {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   margin: 0 auto 16px;
   border-radius: 50%;
-  border: 2px solid rgba(34, 211, 238, 0.22);
-  border-top-color: var(--brand-lit);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #0d0d0d;
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin {
@@ -750,7 +749,7 @@ onBeforeUnmount(stopElapsed)
   display: block;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(34, 211, 238, 0.2), rgba(34, 211, 238, 0.08));
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.04));
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }

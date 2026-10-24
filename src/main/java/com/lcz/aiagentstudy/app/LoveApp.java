@@ -23,8 +23,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * 恋爱心理专家对话应用。
@@ -221,11 +223,15 @@ public LoveApp(ChatModel deepSeekChatModel,
                 .content();// 返回文本片段流对象
     }
 
-    @Resource(name = "chatTools")
-    private ToolCallback[] chatTools;
+    @Resource(name = "chatWebTools")
+    private ToolCallback[] chatWebTools;
+
+    // 查时间默认常开：不联网、无副作用，不需要用户先点开关
+    @Resource(name = "chatClockTool")
+    private ToolCallback[] chatClockTool;
 
     /**
-     * 带 RAG / 工具开关的流式对话。开关由前端传入，服务端不做"智能判断"——
+     * 带 RAG / 联网开关的流式对话。开关由前端传入，服务端不做"智能判断"——
      * 猜用户要不要检索，比让用户自己点一下更不可控。
      */
     public Flux<String> doChatByStream(String message, String chatId,
@@ -243,10 +249,12 @@ public LoveApp(ChatModel deepSeekChatModel,
                             .build())
                     .build());
         }
-        if (useTools) {
-            spec = spec.toolCallbacks(chatTools);
-        }
-        return spec.stream().content();
+        // 查时间始终挂上；联网开关只决定要不要挂网页搜索与抓取
+        ToolCallback[] tools = useTools
+                ? Stream.concat(Arrays.stream(chatClockTool), Arrays.stream(chatWebTools))
+                        .toArray(ToolCallback[]::new)
+                : chatClockTool;
+        return spec.toolCallbacks(tools).stream().content();
     }
 }
 

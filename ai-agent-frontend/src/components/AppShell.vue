@@ -16,7 +16,7 @@ import NavRail from './NavRail.vue'
 .shell {
   height: 100%;
   display: flex;
-  background: #0e1116;
+  background: #fcfcfc;
 }
 .shell-body {
   flex: 1;

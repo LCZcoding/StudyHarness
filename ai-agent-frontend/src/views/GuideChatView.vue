@@ -36,9 +36,11 @@
       user-avatar="我"
       stream-mode="token"
       :chat-id="chatId"
+      :use-rag="useRag"
+      :use-tools="useTools"
       :history-messages="historyMessages"
       :resolve-chat-id="ensureChatId"
-      placeholder="描述你遇到的问题，我们一起拆解…"
+      placeholder="说出你卡住的地方…"
       idle-text="在线，随时为你答疑"
       streaming-text="正在梳理思路，引导你一步步解决…"
       greeting="你好，我是你的问题引导解决助手"
@@ -46,16 +48,54 @@
       :suggestions="suggestions"
       @done="onRoundDone"
     >
-      <template #header-extra>
+      <template #composer-extra>
+        <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许联网搜索与抓取。
+             查时间不受开关控制，任何一轮都可用。收进输入框右侧、只留图标，说明靠悬停浮出 -->
+        <button
+          type="button"
+          class="tool-btn"
+          :class="{ on: useRag }"
+          :aria-pressed="useRag"
+          aria-label="资料检索"
+          :data-tip="useRag ? '资料检索 · 已开启，按你上传的资料回答' : '资料检索 · 已关闭，只用模型自身知识'"
+          @click="useRag = !useRag"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 7v14" />
+            <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="tool-btn"
+          :class="{ on: useTools }"
+          :aria-pressed="useTools"
+          aria-label="联网"
+          :data-tip="useTools ? '联网 · 已开启，可搜索与抓取网页；查时间始终可用' : '联网 · 已关闭，不访问外部网页；查时间始终可用'"
+          @click="useTools = !useTools"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
+        </button>
         <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->
         <button
           type="button"
-          class="make-quiz"
+          class="tool-btn"
           :disabled="makeBusy || !chatId"
-          :title="chatId ? '把这段对话保存为资料并出 3 道题' : '先发一条消息，再把这轮做成题'"
+          aria-label="把这轮做成题"
+          :data-tip="makeBusy ? '正在整理…' : (chatId ? '把这轮对话做成 3 道题' : '先发一条消息，再把这轮做成题')"
           @click="makeQuiz"
         >
-          {{ makeBusy ? '整理中…' : '把这轮做成题' }}
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="3" width="8" height="3.5" rx="1.5" />
+            <path d="M16 5.5h1.5A1.5 1.5 0 0 1 19 7v12.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V7a1.5 1.5 0 0 1 1.5-1.5H8" />
+            <path d="M9 13l2 2 3.5-3.5" />
+          </svg>
         </button>
       </template>
     </ChatRoom>
@@ -87,6 +127,9 @@ const router = useRouter()
 
 // 当前会话 id。空字符串 = 还没有会话（空白新对话，等第一条消息发出时才创建）
 const chatId = ref('')
+// 本轮检索 / 工具开关：默认都关，由用户显式打开，服务端不做「猜」的智能判断
+const useRag = ref(false)
+const useTools = ref(false)
 // 当前会话的历史消息（喂给 ChatRoom 渲染）
 const historyMessages = ref([])
 // 左侧栏的会话列表
@@ -253,15 +296,16 @@ const suggestions = [
 </script>
 
 <style scoped>
-/* 设计令牌与资料页一致：深色底 + 青色强调，排版节奏参考苹果官网（发丝线分隔、层级靠字号） */
+/* 浅色令牌：与 ChatGPT 网页版一致（252 底、白面、0.06~0.16 的黑透边框） */
 .guide-layout {
-  --bg: #0e1116;
-  --surface: #141b23;
-  --ink: #eef4fa;
-  --ink-soft: #8ba3b8;
-  --ink-dim: #6b7f92;
-  --line: rgba(148, 163, 184, 0.13);
-  --brand-lit: #22d3ee;
+  --bg: #fcfcfc;
+  --surface: #ffffff;
+  --ink: #0d0d0d;
+  --ink-soft: #565869;
+  --ink-dim: #8e8ea0;
+  --line: rgba(0, 0, 0, 0.07);
+  --brand-lit: #0d0d0d;
+  --accent: #4d6bfe;
   --radius-pill: 999px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -270,15 +314,15 @@ const suggestions = [
   background: var(--bg);
 }
 
-/* ===== 左侧栏：发丝线列表，选中项靠左侧亮条标识 ===== */
+/* ===== 左侧栏：透明底、无描边，条目是圆角胶囊（参考 ChatGPT 会话列表） ===== */
 .sidebar {
   flex: none;
-  width: 280px;
+  width: 260px;
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--line);
-  background: var(--bg);
+  background: #fcfcfc;
 }
 
 .side-head {
@@ -287,37 +331,42 @@ const suggestions = [
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 22px 18px 16px;
+  padding: 16px 14px 10px;
 }
 .side-brand {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--ink-dim);
 }
 .new-btn {
-  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
-  font-size: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12.5px;
   line-height: 1;
-  transition: background 0.2s var(--ease);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease;
 }
 .new-btn:hover {
-  background: rgba(34, 211, 238, 0.12);
+  background: #f0f0f2;
+  border-color: rgba(0, 0, 0, 0.16);
 }
 
 .side-state {
   margin: 0;
-  padding: 28px 18px;
-  font-size: 12px;
+  padding: 24px 14px;
+  font-size: 12.5px;
   line-height: 1.8;
   color: var(--ink-dim);
   text-align: center;
 }
 .side-state.error {
-  color: #f87171;
+  color: #c2410c;
 }
 
 .side-list {
@@ -326,64 +375,49 @@ const suggestions = [
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 0 0 16px;
+  padding: 2px 8px 16px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 .side-list::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 .side-list::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.18);
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 
+/* 会话条目：无分隔线，靠圆角 + hover 底色区分（ChatGPT 的做法） */
 .side-item {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--line);
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s var(--ease);
+  transition: background 0.14s ease;
 }
 .side-item:hover {
-  background: rgba(148, 163, 184, 0.04);
+  background: #f0f0f2;
 }
 .side-item.active {
-  background: rgba(34, 211, 238, 0.06);
-}
-/* 选中态：左缘一条亮线，不用描边卡片 */
-.side-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--brand-lit);
+  background: #ececef;
 }
 
 .side-title {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   /* 弹性的子元素要显式 min-width: 0，否则文字撑破容器、省略号不生效 */
   min-width: 0;
-  transition: color 0.2s var(--ease);
-}
-.side-item:hover .side-title,
-.side-item.active .side-title {
-  color: var(--ink);
 }
 .side-time {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--ink-dim);
 }
 
@@ -393,23 +427,63 @@ const suggestions = [
   min-width: 0;
 }
 
-/* 顶栏右侧的「把这轮做成题」：与 ChatRoom 的闲聊色系保持一致 */
-.make-quiz {
-  padding: 8px 16px;
+/* 输入框右侧的操作图标：默认灰、悬停深底，开启态黑底反白；
+   功能说明放 ::after，用 data-tip 的内容，悬停或键盘聚焦时浮出 */
+.tool-btn {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(34, 211, 238, 0.35);
-  color: var(--brand-lit);
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-  transition: background 0.2s var(--ease), opacity 0.2s var(--ease);
+  color: var(--ink-soft);
+  background: transparent;
+  transition: background 0.16s ease, color 0.16s ease;
 }
-.make-quiz:not(:disabled):hover {
-  background: rgba(34, 211, 238, 0.12);
+.tool-btn svg {
+  display: block;
 }
-.make-quiz:disabled {
+.tool-btn:hover:not(:disabled) {
+  background: #f0f0f2;
+  color: var(--ink);
+}
+.tool-btn.on {
+  background: #0d0d0d;
+  color: #ffffff;
+}
+.tool-btn.on:hover:not(:disabled) {
+  background: #2f2f2f;
+}
+.tool-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+.tool-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 6;
+  width: max-content;
+  max-width: 216px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0d0d0d;
+  color: #ffffff;
+  font-size: 11.5px;
+  line-height: 1.6;
+  text-align: center;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+.tool-btn:hover::after,
+.tool-btn:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .make-error {
@@ -421,10 +495,11 @@ const suggestions = [
   margin: 0;
   padding: 11px 15px;
   border-radius: 12px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: #1b1417;
-  color: #f9a8a8;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #b4341a;
   font-size: 12.5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .make-mask {
@@ -434,15 +509,16 @@ const suggestions = [
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(6, 10, 14, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
 }
 .make-card {
   width: 320px;
   padding: 26px;
-  border-radius: 20px;
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  background: var(--surface);
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
   text-align: center;
 }
 .make-card p {
@@ -453,17 +529,16 @@ const suggestions = [
 .make-card span {
   display: block;
   margin-top: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-dim);
 }
 .make-spinner {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   margin: 0 auto 16px;
   border-radius: 50%;
-  border: 2px solid rgba(34, 211, 238, 0.22);
-  border-top-color: var(--brand-lit);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #0d0d0d;
   animation: make-spin 0.9s linear infinite;
 }
 @keyframes make-spin {
@@ -472,13 +547,13 @@ const suggestions = [
 
 @media (max-width: 820px) {
   .sidebar {
-    width: 200px;
+    width: 216px;
   }
   .side-head {
-    padding: 18px 14px 12px;
+    padding: 14px 12px 8px;
   }
   .side-item {
-    padding: 12px 14px;
+    padding: 9px 10px;
   }
 }
 /* 窄屏放不下「侧栏 + 聊天区」两列：会话列表改成顶部横向条，聊天区占满剩余高度 */
@@ -493,7 +568,7 @@ const suggestions = [
     border-bottom: 1px solid var(--line);
   }
   .side-head {
-    padding: 12px 14px 10px;
+    padding: 10px 14px 8px;
   }
   .side-list {
     flex-direction: row;
@@ -504,20 +579,18 @@ const suggestions = [
   }
   .side-item {
     flex: none;
-    min-width: 190px;
+    min-width: 180px;
     max-width: 220px;
-    padding: 10px 12px;
+    padding: 9px 11px;
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 10px;
   }
-  .side-item.active::before {
-    top: 8px;
-    bottom: 8px;
-    left: -1px;
+  .side-item.active {
+    border-color: rgba(0, 0, 0, 0.18);
   }
-  .make-quiz {
-    padding: 7px 12px;
-    font-size: 11px;
+  .tool-btn {
+    width: 32px;
+    height: 32px;
   }
   .room {
     min-height: 0;
@@ -527,7 +600,7 @@ const suggestions = [
   .side-item,
   .side-title,
   .new-btn,
-  .make-quiz,
+  .tool-btn,
   .make-spinner {
     transition: none;
     animation: none;

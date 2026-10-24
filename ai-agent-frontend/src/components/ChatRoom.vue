@@ -14,8 +14,6 @@
         </div>
       </div>
       <div class="h-right">
-        <!-- 父组件往顶栏右侧塞按钮（GuideChatView 用它放「把这轮做成题」） -->
-        <slot name="header-extra" />
         <div v-if="chatId" class="room-id" :title="chatId">
           <span class="rid-label">CHAT ID</span>
           <span class="rid-value">{{ shortChatId }}</span>
@@ -49,7 +47,7 @@
                     <span class="step-badge">Step {{ seg.num }}</span>
                     <span class="step-text">{{ seg.text }}</span>
                   </div>
-                  <div v-else class="text-seg">{{ seg.text }}</div>
+                  <div v-else class="text-seg md" v-html="renderMarkdown(seg.text)"></div>
                 </template>
               </template>
               <template v-else-if="m.content">{{ m.content }}</template>
@@ -74,14 +72,21 @@
           @input="autoResize"
         ></textarea>
         <div class="actions">
+          <!-- 父组件往输入框右侧塞图标按钮（GuideChatView 放检索 / 工具 / 做成题） -->
+          <slot name="composer-extra" />
           <button v-if="streaming" type="button" class="stop" @click="stop">■ 停止</button>
           <button
             type="button"
             class="send"
             :disabled="streaming || !input.trim()"
+            aria-label="发送"
             @click="send()"
           >
-            发送 ↑
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 19V5" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
           </button>
         </div>
       </div>
@@ -93,6 +98,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { streamChat } from '../api/chatStream.js'
+import { renderMarkdown } from '../utils/markdown.js'
 
 const props = defineProps({
   // 主题：guide（清新蓝青·答疑辅导）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
@@ -116,6 +122,9 @@ const props = defineProps({
   // 用户在空白会话里发出第一条消息时，才真正去 POST /conversations。
   resolveChatId: { type: Function, default: null },
   placeholder: { type: String, default: '输入你想说的话…' },
+  // 本轮是否检索本人资料 / 是否允许只读工具：由父组件持有的开关控制，这里只透传给接口
+  useRag: { type: Boolean, default: false },
+  useTools: { type: Boolean, default: false },
   idleText: { type: String, default: '在线' },
   streamingText: { type: String, default: '正在输入…' },
   greeting: { type: String, default: '你好，我是你的 AI 助手' },
@@ -202,6 +211,8 @@ async function send(picked) {
   streamChat({
     conversationId: cid,
     message: text,
+    useRag: props.useRag,
+    useTools: props.useTools,
     signal: controller.signal,
     onMessage,
     onDone,
@@ -322,108 +333,102 @@ onBeforeUnmount(closeSource)
   height: 100%;
   display: flex;
   flex-direction: column;
-  --bg: #0e1116;
-  --surface: #141b23;
-  --text: #eef4fa;
-  --muted: #6b7f92;
-  --ink-soft: #8ba3b8;
-  --accent: #22d3ee;
-  --panel: rgba(14, 17, 22, 0.88);
-  --ai-bubble: #141b23;
-  --user-bubble: linear-gradient(140deg, #0284c7, #0ea5c9);
-  --border: rgba(148, 163, 184, 0.13);
-  --radius-pill: 999px;
+  /* 浅色聊天界面：白底、AI 回答平铺、用户消息浅灰气泡（参考 ChatGPT 网页版） */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --text: #0d0d0d;
+  --muted: #8e8ea0;
+  --ink-soft: #565869;
+  --accent: #4d6bfe;
+  --panel: #ffffff;
+  --ai-bubble: transparent;
+  --user-bubble: #f4f4f5;
+  --border: rgba(0, 0, 0, 0.08);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  background: var(--bg);
+  color: var(--text);
 }
 
-/* ===== 问题引导解决助手：深色底 + 青色 ===== */
+/* ===== 问题引导解决助手：浅色中性 + DeepSeek 蓝强调 ===== */
 .theme-guide {
-  --text: #eef4fa;
-  --muted: #6b7f92;
-  --accent: #22d3ee;
-  --panel: rgba(14, 17, 22, 0.88);
-  --ai-bubble: #141b23;
-  --user-bubble: linear-gradient(140deg, #0284c7, #0ea5c9);
-  --border: rgba(148, 163, 184, 0.13);
-  background: #0e1116;
+  --text: #0d0d0d;
+  --muted: #8e8ea0;
+  --accent: #4d6bfe;
+  --panel: #ffffff;
+  --ai-bubble: transparent;
+  --user-bubble: #f4f4f5;
+  --border: rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 
-/* ===== 超级智能体：深色 + 电光青 ===== */
+/* ===== 超级智能体：同一套浅色令牌（该主题当前没有路由使用） ===== */
 .theme-manus {
-  --text: #d8e4ee;
-  --muted: #6b7f92;
-  --accent: #22d3ee;
-  --panel: rgba(13, 20, 29, 0.82);
-  --ai-bubble: #111b27;
-  --user-bubble: linear-gradient(135deg, #0891b2, #2563eb);
-  --border: rgba(34, 211, 238, 0.2);
-  background:
-    linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px),
-    radial-gradient(1000px 500px at 80% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
-    #0b0f14;
-  background-size: 36px 36px, 36px 36px, 100% 100%, 100% 100%;
+  --text: #0d0d0d;
+  --muted: #8e8ea0;
+  --accent: #4d6bfe;
+  --panel: #ffffff;
+  --ai-bubble: transparent;
+  --user-bubble: #f4f4f5;
+  --border: rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 
-/* ===== 顶栏 ===== */
+/* ===== 顶栏：56px、无渐变、只留一条极浅分割线 ===== */
 .chat-header {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 18px 24px;
-  background:
-    radial-gradient(700px 200px at 88% -40%, rgba(34, 211, 238, 0.1), transparent 62%),
-    var(--bg);
+  padding: 10px 16px;
+  min-height: 56px;
+  background: #ffffff;
   border-bottom: 1px solid var(--border);
 }
 
 .h-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .back {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  color: var(--text);
+  border-radius: 8px;
+  color: var(--ink-soft);
   font-size: 15px;
-  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+  transition: background 0.16s ease;
 }
 .back:hover {
-  transform: translateX(-3px);
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--user-bubble);
+  color: var(--text);
 }
 
 .avatar {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  background: #0d0d0d;
 }
 .avatar.sm {
-  width: 32px;
-  height: 32px;
-  font-size: 11px;
+  width: 26px;
+  height: 26px;
+  font-size: 9.5px;
 }
 .avatar.user-av {
-  border-color: rgba(34, 211, 238, 0.3);
-  color: var(--accent);
+  background: #ececef;
+  color: var(--ink-soft);
 }
 
 /* 标题占剩余宽度并允许收缩，窄屏才不会把右侧按钮挤出边界 */
@@ -433,8 +438,8 @@ onBeforeUnmount(closeSource)
 }
 .title-box h1 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 14.5px;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
   white-space: nowrap;
@@ -442,47 +447,38 @@ onBeforeUnmount(closeSource)
   text-overflow: ellipsis;
 }
 .theme-manus .title-box h1 {
-  letter-spacing: 1px;
+  letter-spacing: 0;
 }
 
 .status {
-  margin: 3px 0 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  margin: 2px 0 0;
+  font-size: 11.5px;
   color: var(--muted);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--muted);
 }
 .dot.on {
-  background: var(--accent);
-  box-shadow: 0 0 0 0 var(--accent);
+  background: #10a37f;
+  box-shadow: 0 0 0 0 rgba(16, 163, 127, 0.4);
   animation: pulse 1.2s infinite;
 }
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.35); }
-  70% { box-shadow: 0 0 0 7px rgba(14, 165, 233, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
-}
-.theme-manus .dot.on {
-  animation: pulse-cyan 1.2s infinite;
-}
-@keyframes pulse-cyan {
-  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.35); }
-  70% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(16, 163, 127, 0.35); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 163, 127, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 163, 127, 0); }
 }
 
 .h-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -490,111 +486,112 @@ onBeforeUnmount(closeSource)
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  border: 1px dashed var(--border);
+  gap: 1px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 .rid-label {
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: 9px;
+  letter-spacing: 1.4px;
   color: var(--muted);
 }
 .rid-value {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
 }
 
-/* ===== 消息区 ===== */
+/* ===== 消息区：768px 居中单列 ===== */
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 34px 6vw 12px;
+  padding: 28px 20px 8px;
   scroll-behavior: smooth;
 }
 .messages::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 .messages::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.18);
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
 }
 
 .empty {
-  height: 100%;
+  min-height: 100%;
+  max-width: 768px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 10px;
-  animation: rise 0.5s ease both;
+  gap: 8px;
+  animation: rise 0.4s ease both;
 }
 @keyframes rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .empty-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 15px;
-  letter-spacing: 0.5px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  background: #0d0d0d;
+  margin-bottom: 8px;
 }
 .empty h2 {
   margin: 0;
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--text);
 }
 .empty p {
-  margin: 0 0 14px;
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.8;
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
   max-width: 620px;
 }
 .suggestions button {
-  padding: 9px 16px;
-  font-size: 12.5px;
+  padding: 9px 14px;
+  font-size: 13px;
   color: var(--ink-soft);
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: transparent;
-  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 .suggestions button:hover {
-  transform: translateY(-2px);
-  border-color: rgba(34, 211, 238, 0.4);
+  background: var(--user-bubble);
+  border-color: rgba(0, 0, 0, 0.22);
   color: var(--text);
 }
 
 /* 消息行 */
 .msg-row {
   display: flex;
-  gap: 10px;
-  max-width: 860px;
-  margin: 0 auto 26px;
-  animation: msgIn 0.28s ease both;
+  gap: 12px;
+  max-width: 768px;
+  margin: 0 auto 24px;
+  animation: msgIn 0.24s ease both;
 }
 @keyframes msgIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .msg-row.user {
@@ -603,55 +600,48 @@ onBeforeUnmount(closeSource)
 .col {
   display: flex;
   flex-direction: column;
-  max-width: min(86%, 720px);
+  max-width: min(84%, 672px);
+  min-width: 0;
 }
 .msg-row.user .col {
   align-items: flex-end;
 }
 .name {
-  margin: 0 4px 6px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+  margin: 0 2px 4px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .bubble {
-  padding: 13px 17px;
-  border-radius: 16px;
-  font-size: 14.5px;
-  line-height: 1.8;
+  font-size: 15.5px;
+  line-height: 1.78;
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* AI 回答不套气泡，直接平铺成正文（ChatGPT 的做法） */
 .bubble.ai {
-  background: var(--ai-bubble);
+  padding: 0;
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-top-left-radius: 5px;
 }
+/* 用户消息：浅灰气泡、右侧、大圆角、不加粗 */
 .bubble.user {
+  padding: 10px 15px;
+  border-radius: 20px;
   background: var(--user-bubble);
-  color: #04121b;
-  font-weight: 600;
-  border-top-right-radius: 5px;
-}
-.theme-manus .bubble.user {
-  box-shadow: 0 10px 26px rgba(8, 145, 178, 0.3);
-}
-.theme-manus .bubble.ai {
-  font-family: 'IBM Plex Mono', 'Noto Sans SC', monospace;
-  font-size: 13.5px;
+  color: var(--text);
+  font-weight: 400;
 }
 
-/* AI 气泡内的步骤段 / 最终文本段 */
+/* AI 回答内的步骤段 / 最终文本段 */
 .step-seg {
   display: flex;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   margin-bottom: 10px;
   border-radius: 10px;
-  border-left: 3px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
+  background: #f7f7f8;
 }
 .step-seg:last-child {
   margin-bottom: 0;
@@ -659,13 +649,13 @@ onBeforeUnmount(closeSource)
 .step-badge {
   flex: none;
   align-self: flex-start;
-  padding: 2px 8px;
-  font-size: 11px;
+  padding: 1px 7px;
+  font-size: 10.5px;
   font-weight: 600;
-  font-family: 'IBM Plex Mono', monospace;
-  color: #fff;
-  background: var(--accent);
-  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #ffffff;
+  background: #0d0d0d;
+  border-radius: 5px;
   white-space: nowrap;
 }
 .step-text {
@@ -679,6 +669,121 @@ onBeforeUnmount(closeSource)
   white-space: pre-wrap;
   word-break: break-word;
   margin-bottom: 10px;
+}
+/* markdown 渲染后是块级元素，不能再保留 pre-wrap，否则列表与代码块的换行会多出一层 */
+.text-seg.md {
+  white-space: normal;
+  line-height: 1.78;
+}
+/* 气泡内的 markdown：只做「读得舒服」的排版，不改主题色 */
+.text-seg.md :deep(p) {
+  margin: 0 0 10px;
+}
+.text-seg.md :deep(p:last-child),
+.text-seg.md :deep(ul:last-child),
+.text-seg.md :deep(ol:last-child),
+.text-seg.md :deep(pre:last-child) {
+  margin-bottom: 0;
+}
+.text-seg.md :deep(h1),
+.text-seg.md :deep(h2),
+.text-seg.md :deep(h3),
+.text-seg.md :deep(h4) {
+  margin: 16px 0 8px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+}
+.text-seg.md :deep(h1) { font-size: 18px; }
+.text-seg.md :deep(h2) { font-size: 16.5px; }
+.text-seg.md :deep(h3) { font-size: 15px; }
+.text-seg.md :deep(h4) { font-size: 14.5px; }
+.text-seg.md :deep(h1:first-child),
+.text-seg.md :deep(h2:first-child),
+.text-seg.md :deep(h3:first-child) {
+  margin-top: 2px;
+}
+.text-seg.md :deep(strong) {
+  color: var(--text);
+  font-weight: 700;
+}
+.text-seg.md :deep(em) {
+  color: var(--muted);
+}
+.text-seg.md :deep(ul),
+.text-seg.md :deep(ol) {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.text-seg.md :deep(li) {
+  margin: 4px 0;
+}
+.text-seg.md :deep(li > p) {
+  margin: 0;
+}
+/* 行内代码与代码块分开处理：行内不能有外框，代码块才需要横向滚动 */
+.text-seg.md :deep(code) {
+  padding: 1px 5px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.text-seg.md :deep(pre) {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f7f7f8;
+  overflow-x: auto;
+}
+.text-seg.md :deep(pre code) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 12.8px;
+  line-height: 1.65;
+}
+.text-seg.md :deep(blockquote) {
+  margin: 0 0 10px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+}
+.text-seg.md :deep(table) {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.text-seg.md :deep(th),
+.text-seg.md :deep(td) {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.text-seg.md :deep(th) {
+  color: var(--text);
+  font-weight: 700;
+}
+.text-seg.md :deep(hr) {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.text-seg.md :deep(a) {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text-seg.md :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
 }
 .text-seg:last-child {
   margin-bottom: 0;
@@ -701,25 +806,29 @@ onBeforeUnmount(closeSource)
   50% { opacity: 0; }
 }
 
-/* ===== 输入区 ===== */
+/* ===== 输入区：768px 居中、28px 圆角、52px 高的白色胶囊（参考 ChatGPT） ===== */
 .composer {
   flex: none;
-  padding: 14px 24px 18px;
+  padding: 12px 20px 20px;
   background: var(--bg);
-  border-top: 1px solid var(--border);
 }
 .composer-box {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  transition: border-color 0.2s var(--ease);
+  gap: 8px;
+  width: 100%;
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 7px 8px 7px 18px;
+  border-radius: 26px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 .composer-box:focus-within {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
 }
 .composer-box textarea {
   flex: 1;
@@ -728,49 +837,61 @@ onBeforeUnmount(closeSource)
   outline: none;
   background: transparent;
   color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.7;
-  max-height: 120px;
+  font-size: 16px;
+  line-height: 1.6;
+  padding: 12px 0;
+  max-height: 136px;
 }
 .composer-box textarea::placeholder {
-  color: #53687a;
+  color: #9b9ba8;
 }
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex: none;
+  align-items: center;
 }
 .send,
 .stop {
-  padding: 9px 18px;
-  border-radius: var(--radius-pill);
-  font-size: 13px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 12.5px;
   line-height: 1;
-  transition: filter 0.2s var(--ease), opacity 0.2s var(--ease);
+  transition: background 0.16s ease, opacity 0.16s ease;
 }
+/* 发送按钮：38px 圆形实心、只有图标（与 ChatGPT 一致） */
 .send {
-  background: var(--user-bubble);
-  color: #04121b;
-  font-weight: 700;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  background: #0d0d0d;
+  color: #ffffff;
+}
+.send svg {
+  display: block;
 }
 .send:disabled {
-  opacity: 0.45;
+  background: #e5e5e8;
+  color: #a9a9b4;
   cursor: not-allowed;
 }
 .send:not(:disabled):hover {
-  filter: brightness(1.08);
+  background: #2f2f2f;
 }
 .stop {
-  border: 1px solid var(--border);
-  color: var(--text);
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: var(--ink-soft);
+  background: #ffffff;
 }
 .stop:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--user-bubble);
 }
 .tip {
-  margin: 10px 4px 0;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+  margin: 8px 4px 0;
+  font-size: 11px;
   color: var(--muted);
   text-align: center;
 }
@@ -789,6 +910,8 @@ onBeforeUnmount(closeSource)
   .h-right {
     width: 100%;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .title-box {
     min-width: 0;
@@ -808,6 +931,17 @@ onBeforeUnmount(closeSource)
   }
   .composer {
     padding: 10px 12px 14px;
+  }
+  /* 窄屏一行放不下「输入 + 3 个图标 + 发送」：图标行换到输入框下方，输入区保留整行宽度 */
+  .composer-box {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 8px 6px 16px;
+    border-radius: 22px;
+  }
+  .actions {
+    justify-content: flex-end;
+    padding-bottom: 2px;
   }
   .col {
     max-width: 88%;
