@@ -30,7 +30,7 @@
       class="room"
       theme="guide"
       title="授人以渔"
-      ai-name="考官"
+      ai-name="小思"
       user-name="我"
       user-avatar="我"
       stream-mode="token"
@@ -43,7 +43,7 @@
       idle-text="在听，说说你卡在哪"
       streaming-text="正在想下一步给你什么提示…"
       greeting="授人以鱼，不如授人以渔"
-      greeting-sub="这里不直接给答案。先给你方向，再给关键词，实在卡住才给最小示例。"
+      greeting-sub="这里不直接给答案。先给方向，再给关键词，实在卡住才给最小示例——目标是让你搞懂答案是怎么来的。"
       :suggestions="suggestions"
       @done="onRoundDone"
     >

@@ -105,7 +105,7 @@ const props = defineProps({
   // 主题：guide（浅色答疑）/ manus（科技深色，当前无路由使用，留给后续工具调用接入）
   theme: { type: String, default: 'guide' },
   title: { type: String, default: '' },
-  aiName: { type: String, default: '考官' },
+  aiName: { type: String, default: '小思' },
   userName: { type: String, default: '我' },
   userAvatar: { type: String, default: '我' },
   // 流式模式：token = 逐字追加（当前唯一入口 GuideChatView 走这条）；
