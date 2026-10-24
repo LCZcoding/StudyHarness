@@ -191,7 +191,7 @@ function newConversation() {
 async function ensureChatId() {
   if (chatId.value) return chatId.value
   try {
-    const data = await createConversation('PRACTICE')
+    const data = await createConversation('FREE_CHAT')
     chatId.value = data.conversationId
     await loadConversations()
     router.replace({ name: 'guide-conversation', params: { conversationId: chatId.value } })
@@ -466,7 +466,9 @@ const suggestions = [
   bottom: calc(100% + 10px);
   z-index: 6;
   width: max-content;
-  max-width: 216px;
+  max-width: 236px;
+  /* 两行时让断行落在逗号附近，避免最后一行只剩一两个字 */
+  text-wrap: balance;
   padding: 6px 10px;
   border-radius: 8px;
   background: #0d0d0d;
