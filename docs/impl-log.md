@@ -1066,3 +1066,21 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 
 契约同步：`docs/api-conversation-history.md` §3.1、§3.2。
 
+## 修复：测验页的求助回答与判分意见未做 markdown 渲染
+
+现象：在求助抽屉里，AI 回答直接显示 `**副本**`、`` `obj = method(obj)` ``、`- ` 列表符号；判分意见同理。聊天页早已接入 `utils/markdown.js`，这两处漏了。
+
+原因：`QuizView.vue` 里两段 AI 产出的文本都用插值 `{{ }}` 输出，而富文本要走 `v-html` + `renderMarkdown`。
+
+改法：
+
+| 位置 | 改动 |
+| --- | --- |
+| 求助抽屉 | `m.role === 'me'` 仍用插值（用户手打的字不该被当成 markdown）；AI 回答改为 `.md` + `v-html="renderMarkdown(m.content)"` |
+| 判分意见 | `<p class="feedback">{{ … }}</p>` → `<div class="feedback md" v-html="renderMarkdown(…)" />`。必须换成 `div`：渲染后的内容可能含 `<ul>`/`<pre>`，`p` 里塞块级元素会被浏览器拆散 |
+| 样式 | 新增 `.md` 作用域样式（段落/标题/加粗/列表/行内代码/代码块/引用/表格/链接），并把 `.md` 的 `white-space` 改回 `normal`——`.bubble` 上的 `pre-wrap` 会让 markdown 的换行失效 |
+
+题面 `.qtext` 保持纯文本：题面是短句，不需要排版。
+
+验收：11-30。
+
