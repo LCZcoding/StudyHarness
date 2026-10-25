@@ -1,6 +1,14 @@
 <template>
   <nav class="rail">
-    <RouterLink to="/" class="rail-logo" title="返回应用中心">AS</RouterLink>
+    <!-- 首页入口：房子图标，比品牌缩写更直白地表达「回到主页」 -->
+    <RouterLink to="/" class="rail-logo" title="返回主页" aria-label="返回主页">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.2 9.9 12 3.2l8.8 6.7" />
+        <path d="M5.4 9.2V19a1.6 1.6 0 0 0 1.6 1.6h10a1.6 1.6 0 0 0 1.6-1.6V9.2" />
+        <path d="M9.7 20.6v-5.4h4.6v5.4" />
+      </svg>
+    </RouterLink>
 
     <RouterLink
       v-for="item in items"
@@ -71,17 +79,23 @@ const avatarText = computed(() => (currentUsername.value || '我').slice(0, 1))
 }
 
 .rail-logo {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 10px;
   margin-bottom: 12px;
   background: #0d0d0d;
   color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.rail-logo svg {
+  width: 17px;
+  height: 17px;
+}
+.rail-logo:hover {
+  background: #26262b;
+  transform: translateY(-1px);
 }
 
 .rail-item {
