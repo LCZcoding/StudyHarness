@@ -1,0 +1,418 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "StudyHarness 系统架构图",
+    "subtitle": "不直接给答案的学习系统：自由提问与资料驱动的双链路",
+    "locale": "zh-CN",
+    "output": ".archify/architecture-studyharness/architecture.html",
+    "animation": "trace",
+    "visual_preset": "classic",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/LCZcoding/StudyHarness.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "80a9c03114362eab8c278122935b95d0b1174cb8"
+    },
+    "viewBox": [1200, 910],
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "frontend": { "label": "前端" },
+        "backend": { "label": "后端服务" },
+        "security": { "label": "横切能力" },
+        "database": { "label": "数据存储" },
+        "cloud": { "label": "模型服务" },
+        "external": { "label": "外部依赖" }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "浏览器",
+      "sublabel": "localhost:5173",
+      "tag": "Web 客户端",
+      "icon": "frontend",
+      "pos": [350, 36],
+      "size": [180, 46]
+    },
+    {
+      "id": "liManus",
+      "type": "backend",
+      "label": "LiManus",
+      "sublabel": "ToolCallAgent · allTools",
+      "tag": "未接前端 · maxSteps 20",
+      "icon": "neutral",
+      "pos": [40, 120],
+      "size": [240, 66],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/agent/LiManus.java", "line": 10, "end_line": 32, "label": "ReAct 智能体" },
+        { "path": "README.md", "line": 274, "label": "早期 manus 入口" }
+      ]
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Vue 3 前端",
+      "sublabel": "Vue 3 · Vite 5 · :5173",
+      "tag": "Axios + SSE",
+      "icon": "frontend",
+      "pos": [320, 120],
+      "size": [380, 66],
+      "sources": [
+        { "path": "ai-agent-frontend/package.json", "label": "前端依赖" },
+        { "path": "ai-agent-frontend/src/api/chatStream.js", "line": 23, "label": "fetch 流式读取" },
+        { "path": "README.md", "line": 187, "end_line": 195, "label": "前端技术栈" }
+      ]
+    },
+    {
+      "id": "resolver",
+      "type": "security",
+      "label": "CurrentUserResolver",
+      "sublabel": "HttpSession → userId",
+      "tag": "服务端身份",
+      "icon": "person",
+      "pos": [40, 236],
+      "size": [210, 58],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/web/CurrentUserResolver.java", "label": "会话身份解析" },
+        { "path": "README.md", "line": 282, "label": "身份只认服务端会话" }
+      ]
+    },
+    {
+      "id": "exception",
+      "type": "security",
+      "label": "GlobalExceptionHandler",
+      "sublabel": "统一异常 → 4xx/5xx",
+      "tag": "401 / 403 / 400",
+      "icon": "security",
+      "pos": [40, 310],
+      "size": [210, 58],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/web/GlobalExceptionHandler.java", "label": "统一异常映射" },
+        { "path": "README.md", "line": 294, "label": "异常责任收敛" }
+      ]
+    },
+    {
+      "id": "controllers",
+      "type": "backend",
+      "label": "Controller 层",
+      "sublabel": "11 个 · RESTful · /api",
+      "tag": "8123",
+      "icon": "backend",
+      "pos": [300, 250],
+      "size": [440, 70],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/controller/AiChatController.java", "label": "AiChatController" },
+        { "path": "README.md", "line": 221, "end_line": 276, "label": "接口清单" }
+      ]
+    },
+    {
+      "id": "services",
+      "type": "backend",
+      "label": "业务服务层",
+      "sublabel": "对话 / 出题 / 判分 / 复习 / 演练 / 观测",
+      "tag": "业务编排",
+      "icon": "backend",
+      "pos": [300, 410],
+      "size": [420, 70],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/service/ChatService.java", "label": "ChatService" },
+        { "path": "README.md", "line": 155, "label": "service 层" }
+      ]
+    },
+    {
+      "id": "repositories",
+      "type": "backend",
+      "label": "Repository 层",
+      "sublabel": "12 个 · JdbcTemplate · 手写 SQL",
+      "tag": "无 JPA",
+      "icon": "database",
+      "pos": [80, 560],
+      "size": [320, 66],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/repository/ConversationRepository.java", "label": "ConversationRepository" },
+        { "path": "README.md", "line": 156, "label": "JdbcTemplate 仓储" }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "10 张业务表 + vector_store",
+      "tag": "pgvector",
+      "icon": "database",
+      "pos": [80, 710],
+      "size": [320, 66],
+      "sources": [
+        { "path": "db/schema.sql", "label": "业务表与索引" },
+        { "path": "README.md", "line": 199, "end_line": 217, "label": "数据模型" }
+      ]
+    },
+    {
+      "id": "loveApp",
+      "type": "backend",
+      "label": "LoveApp",
+      "sublabel": "ChatClient · 提示词 · 记忆 · RAG · 工具",
+      "tag": "qwen-plus",
+      "icon": "backend",
+      "pos": [800, 410],
+      "size": [300, 70],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/app/LoveApp.java", "line": 107, "end_line": 123, "label": "ChatClient 装配" },
+        { "path": "README.md", "line": 157, "label": "LoveApp 装配" }
+      ]
+    },
+    {
+      "id": "chatMemory",
+      "type": "backend",
+      "label": "BudgetedChatMemory",
+      "sublabel": "8000 字符 · 30 条窗口",
+      "tag": "本地文件",
+      "icon": "backend",
+      "pos": [800, 250],
+      "size": [300, 64],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/chatmemory/BudgetedChatMemory.java", "label": "上下文预算裁剪" },
+        { "path": "README.md", "line": 285, "label": "上下文预算" }
+      ]
+    },
+    {
+      "id": "pgVector",
+      "type": "database",
+      "label": "PgVectorStore",
+      "sublabel": "1024 维 · 余弦 · HNSW",
+      "tag": "metadata.userId",
+      "icon": "database",
+      "pos": [800, 540],
+      "size": [300, 64],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/rag/PgVectorStoreConfig.java", "line": 32, "end_line": 43, "label": "向量存储参数" },
+        { "path": "README.md", "line": 283, "label": "RAG 按用户隔离" }
+      ]
+    },
+    {
+      "id": "dashscope",
+      "type": "cloud",
+      "label": "DashScope",
+      "sublabel": "qwen-plus · 对话 + 向量化",
+      "tag": "阿里云百炼",
+      "icon": "cloud",
+      "pos": [800, 660],
+      "size": [300, 64],
+      "sources": [
+        { "path": "README.md", "line": 163, "label": "DashScope 依赖" },
+        { "path": "README.md", "line": 178, "end_line": 179, "label": "模型选型" }
+      ]
+    },
+    {
+      "id": "toolReg",
+      "type": "backend",
+      "label": "ToolRegistration",
+      "sublabel": "chatClockTool 常挂 · 按需合并",
+      "tag": "chatWebTools 开关 · MCP",
+      "icon": "backend",
+      "pos": [440, 530],
+      "size": [300, 66],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/tools/ToolRegistration.java", "line": 28, "end_line": 88, "label": "工具注册与合并" },
+        { "path": "README.md", "line": 293, "label": "工具两级挂载" }
+      ]
+    },
+    {
+      "id": "localTools",
+      "type": "backend",
+      "label": "本地工具 ×8",
+      "sublabel": "文件 / 搜索 / 抓取 / 下载 / 终端 / PDF / 时间 / 终止",
+      "tag": "只读挂载",
+      "icon": "backend",
+      "pos": [440, 660],
+      "size": [300, 60],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/tools/FileOperationTool.java", "label": "FileOperationTool" },
+        { "path": "README.md", "line": 159, "label": "本地工具 + MCP" }
+      ]
+    },
+    {
+      "id": "tavily",
+      "type": "external",
+      "label": "Tavily",
+      "sublabel": "仅 WebSearchTool 使用",
+      "tag": "可选",
+      "icon": "external",
+      "pos": [440, 790],
+      "size": [300, 56],
+      "sources": [
+        { "path": "src/main/java/com/lcz/aiagentstudy/tools/WebSearchTool.java", "label": "联网搜索" },
+        { "path": "README.md", "line": 164, "label": "Tavily 可选" }
+      ]
+    }
+  ],
+  "connections": [
+    { "from": "browser", "to": "frontend", "width": 1.4 },
+    {
+      "from": "frontend",
+      "to": "controllers",
+      "label": "SSE /ai/chat/stream",
+      "variant": "emphasis",
+      "width": 1.8
+    },
+    {
+      "from": "frontend",
+      "to": "controllers",
+      "label": "Axios 普通请求",
+      "width": 1.2
+    },
+    {
+      "from": "controllers",
+      "to": "resolver",
+      "variant": "dashed"
+    },
+    {
+      "from": "controllers",
+      "to": "exception",
+      "variant": "dashed"
+    },
+    {
+      "from": "controllers",
+      "to": "services",
+      "label": "业务编排",
+      "variant": "emphasis",
+      "width": 1.8
+    },
+    {
+      "from": "services",
+      "to": "repositories",
+      "label": "手写 SQL"
+    },
+    {
+      "from": "repositories",
+      "to": "postgres",
+      "label": "10 张业务表 + 索引",
+      "width": 1.4
+    },
+    {
+      "from": "services",
+      "to": "loveApp",
+      "label": "对话 / 判分调用",
+      "variant": "emphasis",
+      "width": 1.6
+    },
+    {
+      "from": "loveApp",
+      "to": "chatMemory",
+      "label": "8000 字符预算",
+      "variant": "dashed"
+    },
+    {
+      "from": "loveApp",
+      "to": "pgVector",
+      "label": "RAG topK=5 · userId 过滤",
+      "width": 1.4
+    },
+    {
+      "from": "loveApp",
+      "to": "toolReg",
+      "label": "只读工具",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "from": "toolReg",
+      "to": "localTools",
+      "label": "注册 ×8"
+    },
+    {
+      "from": "localTools",
+      "to": "tavily",
+      "label": "搜索 · 可选",
+      "variant": "dashed"
+    },
+    {
+      "from": "pgVector",
+      "to": "dashscope",
+      "label": "向量化"
+    },
+    {
+      "from": "pgVector",
+      "to": "postgres",
+      "label": "vector_store · HNSW 余弦",
+      "variant": "dashed"
+    },
+    {
+      "from": "loveApp",
+      "to": "dashscope",
+      "label": "qwen-plus 对话 · 判分",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [[1150, 445], [1150, 760], [950, 760]]
+    },
+    {
+      "from": "controllers",
+      "to": "liManus",
+      "label": "未接前端",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "前端交互",
+      "items": [
+        "Vue 3.5 + Vite 5，开发端口 5173，Vue Router 4 组织页面",
+        "普通接口走 Axios；流式对话用 fetch + ReadableStream 逐帧解析，绕开 Axios 的整包响应拦截器",
+        "marked + DOMPurify 渲染对话、题面与材料的 markdown"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "身份与异常",
+      "items": [
+        "登录下发 HttpOnly JSESSIONID，CurrentUserResolver 从服务端会话取 userId，客户端不自报身份",
+        "11 个 Controller 只做参数与状态码，GlobalExceptionHandler 统一映射 401 / 403 / 400",
+        "早期入口 GET /ai/manus/chat 无鉴权且未接前端，保留待接入"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "学习闭环",
+      "items": [
+        "资料 .md / .txt / .pdf 上传后按标题切章，章节是知识最小单元",
+        "每章出 3 题（至少 1 道 EXPLAIN）；作答判分 PASS / PARTIAL / FAIL，单题最多 2 次",
+        "复习按 1 → 3 → 7 天排期：PASS 走完置 DONE，PARTIAL 3 天，FAIL 次日，跳过推后 1 天"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "RAG 与模型",
+      "items": [
+        "LoveApp 用 ChatClient 组合系统提示词、会话记忆、RAG 与工具，底层为 qwen-plus",
+        "BudgetedChatMemory 默认保留最近 8000 字符（30 条窗口），防止长会话顶爆上下文",
+        "PgVectorStore 1024 维、余弦、HNSW；检索 filterExpression userId + topK 5，跨用户隔离"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "智能体与工具",
+      "items": [
+        "BaseAgent → ReActAgent → ToolCallAgent → LiManus，maxSteps 20",
+        "8 个本地工具经 ToolRegistration 统一注册；chatClockTool 每轮常挂，chatWebTools 由联网开关控制",
+        "MCP 工具经 SSE 合并；服务不可用时降级为仅本地工具"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "数据与观测",
+      "items": [
+        "12 个 JdbcTemplate 仓储手写 SQL，不引入 JPA",
+        "10 张业务表 + vector_store；t_ai_call 记录场景、延迟、首 token、token 用量与成败",
+        "MetricsService 汇总调用量、token、失败数与场景分布"
+      ]
+    }
+  ]
+}

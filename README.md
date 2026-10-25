@@ -165,7 +165,7 @@ Vue 3 (5173)
   └─► Tavily（联网搜索，可选）
 ```
 
-交互式架构图：[architecture.html](./.archify/architecture-ai-agent-study/architecture.html)（下载后浏览器打开，支持深浅色与导出）。
+交互式架构图：[architecture.html](./.archify/architecture-studyharness/architecture.html)（下载后浏览器打开，支持深浅色与导出）。
 
 ---
 
