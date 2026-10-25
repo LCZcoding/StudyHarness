@@ -2,4 +2,4 @@
 *.cmd text eol=crlf
 
 # 架构图等生成产物不参与 GitHub 语言统计
-.archify/** linguist-vendored
+docs/architecture-studyharness/** linguist-vendored
