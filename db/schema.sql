@@ -1,5 +1,5 @@
 -- ============================================================
--- ai-agent-study · 数据库建表脚本
+-- StudyHarness · 数据库建表脚本
 -- 目标库：ai_agent_study（PostgreSQL 16）
 -- 验证环境：PostgreSQL 16.15，已实测通过（FK / CHECK 约束生效）
 --

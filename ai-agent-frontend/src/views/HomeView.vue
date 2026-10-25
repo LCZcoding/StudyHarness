@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <header class="topbar">
-      <span class="brand">AI AGENT STUDY</span>
+      <span class="brand">STUDY HARNESS</span>
       <div class="top-right">
         <span class="tag">应用中心 · APPLICATION HUB</span>
         <!-- 登录态由 stores/auth.js 的 isAuthenticated 显式标记决定，不依赖 Cookie -->
