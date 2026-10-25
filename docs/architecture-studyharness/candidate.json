@@ -5,7 +5,7 @@
     "title": "StudyHarness 系统架构图",
     "subtitle": "不直接给答案的学习系统：自由提问与资料驱动的双链路",
     "locale": "zh-CN",
-    "output": ".archify/architecture-studyharness/architecture.html",
+    "output": "docs/architecture-studyharness/architecture.html",
     "animation": "trace",
     "visual_preset": "classic",
     "quality_profile": "showcase",
