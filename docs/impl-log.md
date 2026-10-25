@@ -1109,3 +1109,49 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 
 数据库变更已在远程库执行（`CREATE TABLE` + 索引，`11 行`表清单确认）。验收记录见 `acceptance-log.md` 11-31 / 11-32。
 
+## 修复：「把这轮对话做成题」报 knowledgeItemId 不能为空（2026-10-24）
+
+**现象**：在 `/guide` 打开任一会话，点输入框里的剪贴板图标，右上角浮出红字「knowledgeItemId 不能为空」；
+提示一直挂在那里不消失，用户接着聊天它也还在，没有任何关闭入口。
+
+**根因两条**
+
+1. **出题参数取错了层级**。`POST /api/knowledge-items` 的响应体是 `{ docTitle, sections: [...] }`
+   （见 [`KnowledgeItemController.CreateResponse`](../src/main/java/com/lcz/aiagentstudy/controller/KnowledgeItemController.java)），
+   **没有顶层 `knowledgeItemId`**。前端 `makeQuiz()` 写成 `createItem(...)` 后直接取 `item.knowledgeItemId`，
+   拿到 `undefined`；JSON 序列化时该键被丢掉，服务端 `@NotNull` 校验拒绝，回
+   `400 {"message":"knowledgeItemId 不能为空"}`。出题单位本来就是**章节**而不是文档，顶层根本没有这个 id。
+2. **报错没有出口**。`makeError` 只在 `makeQuiz()` 开头和成功路径上被清空，失败后既无定时器也无关闭按钮；
+   而 `.make-error` 是 `position: fixed` 的右上角浮层，于是「一次失败 = 永久挂一条红字」。
+
+**改法**
+
+| 位置 | 改动 |
+| --- | --- |
+| `makeQuiz()` 取参 | 改为读 `createItem(...)` 返回的 `sections`，取 `chars` 最大的一章作为出题目标：对话里若出现 `##` 小标题会被 `DocumentSplitter` 切成多章，取最长一章才能保证题目覆盖内容主体 |
+| 空章节兜底 | `sections` 为空时提示「这段对话没能整理成可出题的资料」，不再带着 `undefined` 去调 `/quiz/generate` |
+| 报错生命周期 | 新增 `showMakeError()`：写入文案并起 6 秒定时器自动清空；新增 `clearMakeError()` 供重试、换会话、组件卸载时调用。所有 `makeError.value = ...` 统一改走 `showMakeError()` |
+| 卸载清理 | `onBeforeUnmount` 里 `clearTimeout(errorTimer)`，避免定时器回调去改已销毁组件的状态 |
+
+**顺带修掉：重复点击撞「已存在同名文档」**
+
+改到能取到章节后，第二次点同一个按钮会撞 `createDocument` 的 `BadRequestException("已存在同名文档，请改名后重新上传")`——
+一轮对话按首条 USER 消息前 50 字定标题，标题天然不变。改法：先 `listDocuments()` 按 `docTitle` 找同名资料，
+命中就复用它的 `sections`，没命中才 `createItem`。这样既躲开同名校验，也让「同一资料 = 同一轮题」的幂等口径成立。
+
+**验证**（Playwright，登录 `lcz`，1440×900）
+
+| 路径 | 结果 |
+| --- | --- |
+| 正常点击 | `/guide/e7ddf17b…` 点做成题 → 跳 `/quiz/4a1517c4-74a4-4389-b30c-f90bb81a3031`，3 道题（2 `FACT` + 1 `EXPLAIN`），`console errors = []` |
+| 再点一次 | 复用已建资料 + `/quiz/generate` 幂等，不新建文档、不新建会话，无报错 |
+| 失败路径 | 拦截 `/api/knowledge-items` 返回 500：提示「服务暂时不可用」在第 3 秒仍在、第 7 秒已消失，地址栏未离开 `/guide/...` |
+
+资料总数 6 份（JUC 4 份 + 对话生成的 2 份，各 1 章），确认复用分支不会重复建文档。`npm run build` 通过。
+验收记录见 [`acceptance-log.md`](./acceptance-log.md) 11-33 / 11-34。
+
+**教训**：前端跨两个接口串联时，第二个接口的入参必须从第一个接口**实际返回的结构**里取，而不是从「它应该会返回什么」里取。
+这类字段名对不上的错误不会在编译期暴露，只会在运行期以一句后端校验文案的形式出现——所以接口注释里写清响应形状、
+调用方照着注释写，比事后靠报错反查便宜得多。另外，任何「失败才出现」的提示都必须自带消失机制，
+否则它就成了页面上的常驻噪声，反而遮住真正的问题。
+
