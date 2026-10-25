@@ -16,21 +16,50 @@
     </header>
 
     <main class="grid">
-      <!-- 唯一入口：原「AI 超级智能体」(/manus) 已下线，入口并入这里。
-           后端 /api/ai/manus/chat 与 LiManus 保留，待后续作为「工具调用」接入本页。 -->
-      <RouterLink to="/guide" class="card guide">
-        <div class="card-inner">
-          <span class="emoji"><BrandMark /></span>
-          <h2>授人以渔</h2>
-          <p>不直接给答案，先给方向。</p>
-          <ul class="feats">
-            <li>把你自己的资料切成章节</li>
-            <li>每章 3 道题，答完判你讲清楚没有</li>
-            <li>答不出的，下次复习先问你</li>
-          </ul>
-          <span class="enter">进去讲两句 <b>→</b></span>
-        </div>
-      </RouterLink>
+      <!-- 两个入口并列，一句文案对一个功能：
+           左「不会的，问出来」→ 引导式对话（不给答案，只给方向和提示）；
+           右「要学的，读进去」→ 资料精读（切章 + 每章 3 题验收）。
+           原「AI 超级智能体」(/manus) 已下线，入口并入左侧对话卡。 -->
+      <div class="entries">
+        <RouterLink to="/guide" class="card">
+          <div class="card-inner">
+            <span class="emoji">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.6 9.6 0 0 1-3.3-.6L3 21l1.7-4.7A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z" />
+              </svg>
+            </span>
+            <p class="kind">GUIDE · 引导式答疑</p>
+            <h2>不会的，问出来</h2>
+            <p class="desc">不直接给答案。先给方向，再给关键词，实在卡住才给最小示例。</p>
+            <ul class="feats">
+              <li>只给提示，不给结论</li>
+              <li>直到你彻底搞清楚</li>
+            </ul>
+            <span class="enter">说说你卡在哪 <b>→</b></span>
+          </div>
+        </RouterLink>
+
+        <RouterLink to="/materials" class="card">
+          <div class="card-inner">
+            <span class="emoji">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z" />
+                <path d="M8 7h7M8 11h7M8 15h4" />
+              </svg>
+            </span>
+            <p class="kind">MATERIALS · 资料学习</p>
+            <h2>要学的，传进去</h2>
+            <p class="desc">上传讲义、笔记或 PDF，按标题切成章节；读完一章立刻用 3 道题验收。</p>
+            <ul class="feats">
+              <li>按标题自动分章</li>
+              <li>每章 3 题验收</li>
+            </ul>
+            <span class="enter">上传我的资料 <b>→</b></span>
+          </div>
+        </RouterLink>
+      </div>
     </main>
   </div>
 </template>
@@ -39,7 +68,6 @@
 import { ref } from 'vue'
 import { isAuthenticated, currentUsername, clearAuth } from '../stores/auth.js'
 import { logout } from '../api/auth.js'
-import BrandMark from '../components/BrandMark.vue'
 
 const loggingOut = ref(false)
 
@@ -160,13 +188,21 @@ async function handleLogout() {
   padding: 0 24px 24px;
 }
 
+/* 两张入口卡并排；撑不满时整体居中，窄屏自动落成单列 */
+.entries {
+  margin: auto;
+  width: 100%;
+  max-width: 1000px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 /* ---------- 入口卡：白面、发丝描边、极轻阴影 ---------- */
 .card {
-  margin: auto;
   position: relative;
   display: flex;
   width: 100%;
-  max-width: 720px;
   height: auto;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -175,9 +211,6 @@ async function handleLogout() {
   border: 1px solid var(--line);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.card.guide {
-  background: var(--surface);
 }
 
 .card-inner {
@@ -189,39 +222,48 @@ async function handleLogout() {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: clamp(32px, 5vw, 56px);
+  padding: clamp(28px, 3.4vw, 40px) clamp(22px, 2.6vw, 32px);
 }
 
 .emoji {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
   background: #0d0d0d;
   color: #ffffff;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
   line-height: 1;
+}
+.emoji svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* 功能名：给两张卡一个统一的「是哪一类」标签，避免只靠标题猜 */
+.kind {
+  margin: 16px 0 0;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
 }
 
 h2 {
-  margin: 20px 0 12px;
+  margin: 8px 0 10px;
   color: var(--ink);
-  font-size: clamp(24px, 3vw, 30px);
+  font-size: clamp(20px, 2vw, 23px);
   font-weight: 400;
   line-height: 1.35;
   letter-spacing: -0.02em;
 }
 
-.card p {
+.card .desc {
   margin: 0;
-  max-width: 44ch;
+  max-width: 30ch;
   color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.8;
+  font-size: 13px;
+  line-height: 1.75;
 }
 
 .feats {
@@ -231,14 +273,14 @@ h2 {
   gap: 8px;
   list-style: none;
   padding: 0;
-  margin: 22px 0 0;
+  margin: 16px 0 0;
 }
 .feats li {
-  padding: 6px 13px;
+  padding: 5px 11px;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(0, 0, 0, 0.1);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 11.5px;
   transition: background 0.16s ease, color 0.16s ease;
 }
 
@@ -246,12 +288,12 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 28px;
-  padding: 10px 20px;
+  margin-top: 22px;
+  padding: 9px 18px;
   border-radius: var(--radius-pill);
   background: #0d0d0d;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
 }
 .enter b {
@@ -284,6 +326,11 @@ h2 {
   .grid {
     padding: 0 20px 20px;
   }
+  /* 窄屏落成单列，两卡仍保持统一节奏 */
+  .entries {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
   .card {
     min-height: 0;
   }
@@ -297,7 +344,7 @@ h2 {
     max-width: 88px;
   }
   .card-inner {
-    padding: 36px 22px;
+    padding: 28px 20px;
   }
 }
 
