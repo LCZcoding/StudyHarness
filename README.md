@@ -1,4 +1,4 @@
-# ai-agent-study
+# StudyHarness
 
 <img src="./docs/images/chat-empty.png" alt="对话页：三个开关在输入框右侧，悬停显示说明" width="100%">
 
@@ -414,7 +414,7 @@ curl -b cookie.txt "http://localhost:8123/api/metrics/summary?days=7"
 ## 十二、项目结构
 
 ```
-ai-agent-study/
+study-harness/
 ├── db/schema.sql                      # 建库脚本
 ├── docs/                              # 需求、契约、实施与验收记录
 ├── images-search-mcp-server/          # 独立 MCP 图片搜索服务

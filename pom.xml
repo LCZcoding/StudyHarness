@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.lcz</groupId>
-    <artifactId>ai-agent-study</artifactId>
+    <artifactId>study-harness</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>ai-agent-study</name>
-    <description>ai-agent-study</description>
+    <name>StudyHarness</name>
+    <description>StudyHarness - a Feynman harness learning system</description>
     <url/>
     <licenses>
         <license/>

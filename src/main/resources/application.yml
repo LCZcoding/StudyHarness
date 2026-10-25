@@ -1,6 +1,6 @@
 spring:
   application:
-    name: ai-agent-study
+    name: study-harness
   profiles:
     active: local
   ai:
