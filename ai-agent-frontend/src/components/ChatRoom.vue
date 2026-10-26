@@ -40,6 +40,29 @@
           <div v-if="m.role === 'ai'" class="avatar sm"><BrandMark /></div>
           <div class="col">
             <span class="name">{{ m.role === 'user' ? userName : aiName }} · {{ m.time }}</span>
+            <!-- 工具调用：只在 AI 消息、且本轮真的调过工具时出现 -->
+            <div v-if="m.role === 'ai' && m.tools?.length" class="trace-block">
+              <div class="trace-title">工具调用 · {{ m.tools.length }}</div>
+              <div
+                v-for="t in m.tools"
+                :key="t.id"
+                :class="['tool-row', { done: t.phase === 'end' && t.ok !== false, bad: t.ok === false }]"
+              >
+                <span class="tool-dot"></span>
+                <span class="tool-name">{{ t.name }}</span>
+                <span v-if="t.phase === 'start'" class="tool-status">调用中…</span>
+                <span v-else-if="t.ok" class="tool-status">完成 · {{ t.ms }}ms</span>
+                <span v-else class="tool-status bad">失败</span>
+
+                <details v-if="t.args || t.result" class="tool-detail">
+                  <summary>详情</summary>
+                  <!-- 参数/结果都是服务端截断过的纯文本，用 pre 保留 JSON 观感 -->
+                  <pre v-if="t.args">参数：{{ t.args }}</pre>
+                  <pre v-if="t.result">结果：{{ t.result }}</pre>
+                </details>
+              </div>
+            </div>
+
             <div :class="['bubble', m.role]">
               <template v-if="m.role === 'ai' && m.content">
                 <template v-for="(seg, idx) in parseAiContent(m.content)" :key="idx">
@@ -53,6 +76,29 @@
               <template v-else-if="m.content">{{ m.content }}</template>
               <span v-else-if="streaming && m.role === 'ai'" class="caret"></span>
             </div>
+
+            <!-- RAG 召回片段：只在 AI 消息、且本轮开了资料检索时出现 -->
+            <div v-if="m.role === 'ai' && m.sources?.length" class="sources-block">
+              <div class="sources-title">参考了 {{ m.sources.length }} 段资料</div>
+              <ul>
+                <li
+                  v-for="(s, i) in m.sources"
+                  :key="`${s.knowledgeItemId || 'x'}-${s.chunkSeq}-${i}`"
+                >
+                  <!-- 有 knowledgeItemId 就跳到章节阅读页；没有就退化成纯文本 -->
+                  <RouterLink
+                    v-if="s.knowledgeItemId"
+                    class="src-title"
+                    :to="{ name: 'section-read', params: { knowledgeItemId: s.knowledgeItemId } }"
+                  >{{ i + 1 }}. {{ s.title || '未命名章节' }}</RouterLink>
+                  <span v-else class="src-title">{{ i + 1 }}. {{ s.title || '未命名章节' }}</span>
+                  <p class="src-snippet">{{ s.snippet }}</p>
+                </li>
+              </ul>
+            </div>
+
+            <!-- 流内错误：模型中断 / 本轮没存上 -->
+            <p v-if="m.errorText" class="ai-error">{{ m.errorText }}</p>
           </div>
           <div v-if="m.role === 'user'" class="avatar sm user-av">{{ userAvatar }}</div>
         </div>
@@ -151,7 +197,16 @@ function nowText() {
 }
 
 function addMessage(role, content = '') {
-  const msg = { id: ++msgSeq, role, content, time: nowText() }
+  const msg = {
+    id: ++msgSeq,
+    role,
+    content,
+    time: nowText(),
+    // 这三个字段不落库：只活在本次会话的内存里，刷新即消失（本次刻意不做持久化）
+    sources: [], // RAG 召回片段
+    tools: [], // 工具调用记录，按 id 合并 start/end
+    errorText: '' // 流内错误（SSE 已经发不出状态码）
+  }
   messages.value.push(msg)
   return messages.value[messages.value.length - 1]
 }
@@ -170,23 +225,45 @@ async function send(picked) {
   // 先清掉上一轮的请求（与具体内容无关）
   closeSource()
 
-  let firstChunk = true
+  // 只有真正的正文 delta 才会让它变 true。
+  // 注意别用"收到任何事件"来判断：sources 往往比第一个字先到，用它会误判"已经吐过内容"。
+  let hasDelta = false
 
-  const onMessage = (chunk) => {
-    if (props.streamMode === 'step') {
-      aiMsg.content += firstChunk ? chunk : `\n${chunk}`
-    } else {
-      aiMsg.content += chunk
+  const appendText = (text) => {
+    if (!text) return
+    aiMsg.content += hasDelta && props.streamMode === 'step' ? `\n${text}` : text
+    hasDelta = true
+  }
+
+  const onEvent = (name, payload) => {
+    if (name === 'delta') {
+      appendText(payload?.text || '')
+      return
     }
-    firstChunk = false
+    if (name === 'sources') {
+      aiMsg.sources = payload?.sources || []
+      return
+    }
+    if (name === 'tool') {
+      upsertTool(aiMsg, payload)
+      return
+    }
+    if (name === 'done') {
+      // 后端明确说"本轮已落库"，可以立刻收尾；随后流关闭还会再调一次 finish，靠幂等挡住
+      finish()
+      return
+    }
+    if (name === 'error') {
+      aiMsg.errorText = payload?.message || '回答中断'
+    }
   }
 
   const onDone = () => finish()
 
   const onError = (err) => {
-    aiMsg.content = firstChunk
-      ? `（${err.message}）`
-      : `${aiMsg.content}\n（连接中断，以上为已接收内容）`
+    aiMsg.content = hasDelta
+      ? `${aiMsg.content}\n（连接中断，以上为已接收内容）`
+      : `（${err.message}）`
     finish()
   }
 
@@ -214,10 +291,29 @@ async function send(picked) {
     useRag: props.useRag,
     useTools: props.useTools,
     signal: controller.signal,
-    onMessage,
+    onEvent,
     onDone,
     onError
   })
+}
+
+/**
+ * 工具事件是"两半"发过来的：start 只有参数，end 只有结果/耗时。
+ * 按 id 合并成一行，前端就不会出现两条记录。
+ */
+function upsertTool(msg, trace) {
+  const index = msg.tools.findIndex((t) => t.id === trace.id)
+  if (index === -1) {
+    msg.tools.push({ ...trace })
+    return
+  }
+  // 别直接 {...旧, ...新}：end 帧的 args 是 null、start 帧的 ok/ms/result 是 null，
+  // 覆盖上去会把 start 帧已有的参数抹掉。只合并非 null 的键。
+  const merged = { ...msg.tools[index] }
+  for (const [key, value] of Object.entries(trace)) {
+    if (value !== null && value !== undefined) merged[key] = value
+  }
+  msg.tools[index] = merged
 }
 
 function stop() {
@@ -230,6 +326,8 @@ function stop() {
 }
 
 function finish() {
+  // done 帧和流关闭会各触发一次，不挡住的话父组件会被通知两次去刷新侧栏
+  if (!streaming.value) return
   streaming.value = false
   emit('done')
   nextTick(() => inputEl.value?.focus())
@@ -304,11 +402,15 @@ watch(
     const items = list || []
     // 让新的本地消息 id 从「历史里最大 messageId」往后排，避免与历史行的 :key 撞号
     msgSeq = items.reduce((max, m) => Math.max(max, Number(m.messageId) || 0), 0)
+    // 历史消息没有工具/来源事件（本次不做事件落库），但字段必须存在，否则模板里到处判空
     messages.value = items.map((m) => ({
       id: m.messageId,
       role: m.role === 'USER' ? 'user' : 'ai',
       content: m.content,
-      time: formatHistoryTime(m.createdAt)
+      time: formatHistoryTime(m.createdAt),
+      sources: [],
+      tools: [],
+      errorText: ''
     }))
   },
   { immediate: true }
@@ -316,7 +418,7 @@ watch(
 
 // 内容变化时自动滚动到底部
 watch(
-  () => messages.value.map((m) => m.content).join(''),
+  () => messages.value.map((m) => `${m.content}·${(m.tools || []).length}·${(m.sources || []).length}`).join(''),
   async () => {
     await nextTick()
     const el = listEl.value
@@ -949,5 +1051,138 @@ onBeforeUnmount(closeSource)
   .room-id {
     display: none;
   }
+}
+
+/* ===== 本轮可观测性：工具调用 ===== */
+.trace-block {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.trace-title {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.2px;
+}
+
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border-top: 1px dashed var(--border);
+}
+.tool-row:first-of-type {
+  border-top: 0;
+}
+
+/* 小圆点承担状态：调用中闪烁、完成变绿、失败变红 */
+.tool-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: toolBlink 1s ease-in-out infinite;
+}
+.tool-row.done .tool-dot {
+  background: #10a37f;
+  animation: none;
+}
+.tool-row.bad .tool-dot {
+  background: #d14343;
+  animation: none;
+}
+@keyframes toolBlink {
+  50% { opacity: 0.25; }
+}
+
+.tool-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+.tool-status {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tool-status.bad {
+  color: #d14343;
+}
+
+.tool-detail {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.tool-detail summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tool-detail pre {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ===== 本轮可观测性：RAG 来源 ===== */
+.sources-block {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.sources-title {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.sources-block ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.src-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+a.src-title:hover {
+  text-decoration: underline;
+}
+/* 片段最多两行：详细内容让用户点进章节看，聊天区不当阅读器 */
+.src-snippet {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ai-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #d14343;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-dot { animation: none; }
 }
 </style>
