@@ -1155,3 +1155,28 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 调用方照着注释写，比事后靠报错反查便宜得多。另外，任何「失败才出现」的提示都必须自带消失机制，
 否则它就成了页面上的常驻噪声，反而遮住真正的问题。
 
+## 对话可观测性：事件化流式（工具调用 + RAG 来源，2026-10-26）
+
+设计稿见 [`impl-chat-trace.md`](./impl-chat-trace.md)，本格按它实施 B1~B6 + F1~F4。
+
+**产出**
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| model | `ChatEvent` | `sealed interface` + 5 个嵌套 record（`Delta`/`Sources`/`Tool`/`Done`/`Error`）+ `Source`；`type()` 是帧名，前后端唯一的契约字符串 |
+| tools | `ToolTraceCallback` | `ToolCallback` 装饰器：start/end 两帧共享 `id`，参数/结果按 400 字截断（只截展示副本，模型拿到的仍是全文）；`ToolDefinition` 原样透出，否则模型看到的 schema 就变了 |
+| app | `LoveApp.doChatByStream(5 参)` | 返回 `Flux<ChatEvent>`；工具套装饰器；`Sinks` 旁路 + `merge` 合流；来源在开流前检索一次，`concat` 保证 `sources` 早于任何 `delta` |
+| service | `ChatService.stream` | `Flux<ChatEvent>`；只把 `Delta` 追加进 `StringBuilder`；`concatWith(Flux.defer(...))` 让「落库 → done」有顺序，落库失败走 `onError` |
+| controller | `AiChatController` | 注入 `ObjectMapper`；`writeValueAsString` 后 `emitter.send(name, json)`，保证 `data` 是单行；错误分支先发 `error` 再 `complete()` |
+| 前端 | `chatStream.js` | 从「挑 `data:` 行」升级为「读 `event:` + 每帧 `JSON.parse` 一次」；保留旧后端的降级分支 |
+| 前端 | `ChatRoom.vue` | 消息加 `sources/tools/errorText`；`upsertTool` 按 id 合并 start/end；工具卡片在气泡上方、来源在下方；`finish()` 幂等（`done` 帧与流关闭都会触发） |
+
+**两处与设计稿的差异（都是实测出来的，不是口味问题）**
+
+1. `ChatServiceTest` 去掉了 `@Transactional`。落库挂在 `publishOn(boundedElastic)` 之后，跑在**另一个线程、另一条连接**上：它看不见测试事务里未提交的会话（`23503` 外键当场报），它插入的行也不会被测试回滚。改成显式建数据 + `@AfterEach` 按外键顺序删（`t_ai_call` → `t_message` → `t_conversation` → `t_user`）。
+2. `upsertTool` 不能直接 `{ ...旧, ...新 }`。end 帧的 `args` 是 `null`，直接展开会把 start 帧拿到的参数**抹掉**，详情里只剩结果。改成只合并非 `null` 的键——设计稿 F2 给的写法有这个问题。
+
+**验证**：后端 `Tests run: 46, Failures: 0, Errors: 0`；`npm run build` 通过；浏览器实测工具卡片（`getCurrentTime` 从「调用中…」变成「完成 · x ms」，展开可见参数与返回值）与 RAG 来源（命中已上传资料时展示片段、可跳章节页）均正常。
+
+**教训**：①「落库跑在别的线程」会同时打破两样东西——测试事务的可见性与回滚，写测试前先想清楚回调落在哪条线程；②两半合并（start/end）时，`null` 的含义是「这一帧没有这个字段」而不是「把它清空」，展开运算符合并前必须先过滤 `null`。
+

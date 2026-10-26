@@ -219,3 +219,25 @@ public Flux<String> stream(UUID conversationId, String message) {
 - 与本文档的差异（按"版本化修订"记，不覆盖本文档）
 - 踩到的坑（**预测外的**同时转记到 [`resume-assets.md`](./resume-assets.md) 的风险预案 → 并进亮点台账）
 - 归属校验的实际形态（`assertOwned` 落点、`MessageService` 之外是否还需要别的类）
+
+***
+
+## 8. 版本化修订（2026-10-26）——事件化
+
+> 原文保留不动，本节只记「改了什么、为什么改」。设计过程与事件负载见 [`impl-chat-trace.md`](./impl-chat-trace.md)。
+
+**契约变化：纯文本帧 → 具名事件帧。** §2.2 那段 `data:文本` 不再成立。
+
+| 项 | 旧 | 新 |
+| --- | --- | --- |
+| 帧形状 | `data:<文本>` | `event:<type>` + `data:<单行 JSON>` |
+| 事件类型 | 无（只有正文） | `delta` / `sources` / `tool` / `done` / `error` |
+| 结束信号 | 连接关闭 | 先发 `done` 再关闭；**`done` 到达时本轮已经落库成功** |
+| 流内失败 | 只能断连 | 发一帧 `error`（HTTP 状态码在开流后改不了） |
+| 落库内容 | 拼接后的全文 | **不变**：仍然只拼 `delta`，工具/来源事件不进 `t_message` |
+
+**为什么必须改**：工具名/参数/结果、章节/片段/序号都是多字段结构。塞进纯文本只有两种下场——要么丢字段，要么用魔法字符串污染正文，而正文会被 `MessageService.appendRound` 原样落库、还会被「把这轮对话做成题」当成学习材料存进知识库。
+
+**兼容**：`chatStream.js` 保留「没有 `event:` 名、`data` 不是 JSON」的降级分支，新前端能连旧后端；反过来不行，所以前后端同一个提交一起发。
+
+**其余不变**：路径、请求体字段、401/403/400 的判定顺序与文案全部沿用 §2。`ChatService.stream` 的返回类型从 `Flux<String>` 变成 `Flux<ChatEvent>` 属于内部类型，不构成 HTTP 契约的变化。
