@@ -71,7 +71,7 @@ public class KnowledgeItemController {
         UUID userId = currentUserResolver.requireUserId(request);
 
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
-        // 扩展名、空文本、超长三处拒绝都在这里抛 BadRequestException（-> 400）
+        // 文件转文本、扩展名、空文本、超长三处拒绝都在这里抛 BadRequestException（-> 400）
         String content = documentTextExtractor.extract(filename, file.getBytes());
 
         // 标题没填就用文件名（去扩展名）；空文件名兜底成"未命名资料"

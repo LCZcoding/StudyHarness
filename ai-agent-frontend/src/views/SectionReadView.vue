@@ -22,12 +22,7 @@
             {{ formatChars(detail.chars) }}
           </p>
 
-          <div class="prose">
-            <template v-for="(block, i) in blocks" :key="i">
-              <h3 v-if="block.heading" class="md-heading">{{ block.text }}</h3>
-              <p v-else class="md-para">{{ block.text }}</p>
-            </template>
-          </div>
+          <div class="prose" v-html="contentHtml"></div>
         </div>
       </article>
 
@@ -82,6 +77,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/PageHeader.vue'
 import { getSection, listDocuments } from '../api/knowledge.js'
+import { renderMarkdown } from '../utils/markdown.js'
 import { generate as generateQuiz } from '../api/quiz.js'
 import { redirectOn401, messageOf } from '../utils/apiError.js'
 
@@ -121,49 +117,21 @@ const nextSection = computed(() => {
 })
 
 /**
- * 正文按空行分块：
- * - 首行是 # 标记的块渲染成小标题（去掉 #）
- * - 其余块保留内部换行（white-space: pre-line），避免把硬换行的段落揉成一行
+ * 正文是 markdown：统一走 marked + DOMPurify（与聊天 / 判分同一条渲染链路），
+ * 代码块、表格、列表、引用都能正常渲染，不再把 ``` 围栏原样显示成纯文本。
  * content 首行通常是 "## 章节标题"，与顶部标题重复，属于已知情况，这里只跳过这一行
  */
-const blocks = computed(() => {
-  if (!detail.value?.content) return []
-  const rawLines = detail.value.content.split(/\r?\n/)
-  let firstContent = true
-  const result = []
-  let buffer = []
-  let heading = false
-
-  const flush = () => {
-    if (!buffer.length) return
-    result.push({ heading, text: buffer.join('\n').replace(/[ \t]+$/gm, '') })
-    buffer = []
-    heading = false
-  }
-
-  for (const line of rawLines) {
-    if (!line.trim()) {
-      flush()
-      continue
-    }
-    const m = line.match(/^(#{1,6})\s+(.*)$/)
-    const text = m ? m[2].trim() : line
+const contentHtml = computed(() => {
+  const content = detail.value?.content
+  if (!content) return ''
+  const lines = content.split(/\r?\n/)
+  const first = lines.findIndex((l) => l.trim())
+  if (first >= 0) {
+    const m = lines[first].match(/^#{1,6}\s+(.*)$/)
     // 跳过与页面标题重复的首行
-    if (firstContent) {
-      firstContent = false
-      if (m && text === detail.value.title) continue
-    }
-    if (m) {
-      flush()
-      buffer.push(text)
-      heading = true
-      flush()
-      continue
-    }
-    buffer.push(line)
+    if (m && m[1].trim() === detail.value.title) lines.splice(first, 1)
   }
-  flush()
-  return result
+  return renderMarkdown(lines.join('\n'))
 })
 
 async function load(id) {
@@ -329,21 +297,105 @@ watch(
   line-height: 1.85;
   color: #1f2023;
 }
-.md-para {
+/* ---------- markdown 渲染排版：v-html 产物用 :deep 穿透 ---------- */
+.prose :deep(p) {
   margin: 0 0 1.15em;
-  white-space: pre-line;
   overflow-wrap: anywhere;
 }
-.md-heading {
+.prose :deep(h1),
+.prose :deep(h2),
+.prose :deep(h3),
+.prose :deep(h4),
+.prose :deep(h5),
+.prose :deep(h6) {
   margin: 2em 0 0.7em;
-  font-size: 19px;
   font-weight: 600;
   line-height: 1.5;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.prose > .md-heading:first-child {
+.prose :deep(h1) { font-size: 22px; }
+.prose :deep(h2) { font-size: 20px; }
+.prose :deep(h3) { font-size: 19px; }
+.prose :deep(h4) { font-size: 17px; }
+.prose :deep(h5),
+.prose :deep(h6) { font-size: 15.5px; }
+.prose :deep(> :first-child) {
   margin-top: 0;
+}
+.prose :deep(ul),
+.prose :deep(ol) {
+  margin: 0 0 1.15em;
+  padding-left: 1.5em;
+}
+.prose :deep(li) {
+  margin: 0.35em 0;
+}
+.prose :deep(li > p) {
+  margin: 0;
+}
+.prose :deep(strong) {
+  font-weight: 600;
+  color: var(--ink);
+}
+.prose :deep(a) {
+  color: var(--brand-lit);
+  text-decoration: none;
+}
+.prose :deep(a:hover) {
+  text-decoration: underline;
+}
+.prose :deep(blockquote) {
+  margin: 0 0 1.15em;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid rgba(0, 0, 0, 0.12);
+  color: var(--ink-soft);
+}
+.prose :deep(hr) {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.prose :deep(table) {
+  display: block;
+  width: 100%;
+  margin: 0 0 1.15em;
+  border-collapse: collapse;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.prose :deep(th),
+.prose :deep(td) {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.prose :deep(th) {
+  background: #f7f7f8;
+  font-weight: 600;
+}
+/* 行内代码与代码块分开：行内只做浅底，代码块才加外框与横向滚动 */
+.prose :deep(code) {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.prose :deep(pre) {
+  margin: 0 0 1.15em;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f7f8;
+  overflow-x: auto;
+}
+.prose :deep(pre code) {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 /* ---------- 底部操作栏：吸底，翻页在左、主操作在右 ---------- */
