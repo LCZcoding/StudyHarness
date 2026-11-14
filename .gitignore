@@ -37,6 +37,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### agent ###
+.workbuddy/memory/**
+
+### docs ###
+docs/interview-cheatsheet.md
+docs/interview-postmortem.md
 docs/AiChatController.png
 docs/video-script.md
-.workbuddy/memory/2026-10-25.md

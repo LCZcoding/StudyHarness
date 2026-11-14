@@ -3,6 +3,12 @@
 -- 目标库：ai_agent_study（PostgreSQL 16）
 -- 验证环境：PostgreSQL 16.15，已实测通过（FK / CHECK 约束生效）
 --
+-- 【基线版本】本文件 = V1 基线，2026-11-14 已与真实库逐项核对同步
+--   （补齐了 t_knowledge_item.doc_title / section_no 两列的历史漂移）。
+--   V2「可批注笔记」的结构改动 **不在本文件**，空库建完后请接着执行
+--   db/migration-v2.sql（NOTE / updated_at / 3 个新 scene / t_annotation）。
+--   完整链路：空库 → schema.sql（V1） → migration-v2.sql（V2）。
+--
 -- 执行顺序不可颠倒（外键依赖）：t_user -> t_conversation -> t_message
 -- 本脚本面向「空库一次性建全」：所有语句都是 CREATE ... IF NOT EXISTS，不会补列、不会改约束。
 -- 已存在同名表时语句会被跳过，旧结构不会自动升级 —— 改结构请手工 ALTER，或删库重建。
@@ -70,7 +76,13 @@ CREATE TABLE IF NOT EXISTS t_knowledge_item (
     source_url VARCHAR(500),
     content    TEXT         NOT NULL,
     summary    VARCHAR(300),
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    -- 以下两列是「embedding 按标题语义切块」那次演进 ALTER 追加的（提交 53123e9），
+    -- 一个文档切成多章、每章一行：doc_title = 整篇文档名，section_no = 第几章。
+    -- 允许为空是为了兼容更早的历史行；代码用 coalesce(doc_title, title) /
+    -- coalesce(section_no, 1) 兜底。真实库 9 条资料章这两列全部有值。
+    doc_title  VARCHAR(100),
+    section_no INT
 );
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_item_user ON t_knowledge_item(user_id);
@@ -169,11 +181,16 @@ CREATE INDEX IF NOT EXISTS idx_ai_call_user_time ON t_ai_call(user_id, created_a
 -- ============================================================
 -- 自检：执行完上面全部语句后可跑这一段确认结果
 -- ============================================================
--- ① 应列出 10 张表（若已启用 pgvector，还会多出一张 vector_store）
+-- ① 仅执行本脚本、尚未跑 V2 迁移时，应列出 10 张表
+--    （若已启用 pgvector 还会多出 vector_store；跑了 migration-v2.sql 再多 t_annotation）
 -- select tablename from pg_tables where schemaname = 'public' order by tablename;
 --
--- ② 应列出 9 条显式索引
+-- ② 应列出 9 条显式索引（跑了 V2 迁移后为 11 条）
 -- select indexname from pg_indexes where schemaname = 'public' and indexname like 'idx_%' order by indexname;
 --
 -- ③ t_conversation 不应再有 title / knowledge_item_id 两列
 -- \d t_conversation
+--
+-- ④ t_knowledge_item 应有 doc_title / section_no 两列（V1 基线已同步的标志）
+-- select column_name from information_schema.columns
+--  where table_schema='public' and table_name='t_knowledge_item' order by ordinal_position;
