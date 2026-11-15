@@ -48,6 +48,12 @@ const items = [
     path: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z"/><path d="M8 7h7M8 11h7M8 15h4"/>'
   },
   {
+    // 笔记：折角纸 + 两条文字，与「资料库」那本带书脊的书区分开
+    to: '/notes',
+    label: '笔记',
+    path: '<path d="M6 3h8.2L19 7.8V21H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>'
+  },
+  {
     to: '/todo',
     label: '待办',
     path: '<path d="M9 5h9M9 12h9M9 19h9"/><path d="M4 5l1.4 1.4L7.5 4.5M4 12l1.4 1.4L7.5 10.5M4 19l1.4 1.4L7.5 17.5"/>'

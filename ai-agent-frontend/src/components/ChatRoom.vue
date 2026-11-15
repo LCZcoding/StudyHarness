@@ -63,7 +63,30 @@
               </div>
             </div>
 
-            <div :class="['bubble', m.role]">
+            <!-- 笔记消息：聊天里只留一张卡片，不铺全文（spec FR-03） -->
+            <div v-if="m.role === 'ai' && m.type === 'NOTE'" class="note-slot">
+              <!-- 收到 note 帧 = 后端确认已落库，这时才有可点开的笔记 -->
+              <div v-if="m.noteId" class="note-card">
+                <div class="note-card-head">
+                  <span class="note-tag">NOTE</span>
+                  <span class="note-meta">{{ noteCard(m).chars }} 字 · 可批注</span>
+                </div>
+                <h3 class="note-card-title">{{ noteCard(m).title }}</h3>
+                <p v-if="noteCard(m).summary" class="note-card-summary">{{ noteCard(m).summary }}</p>
+                <RouterLink
+                  class="note-card-open"
+                  :to="{ name: 'note-detail', params: { messageId: m.noteId } }"
+                >打开笔记 →</RouterLink>
+              </div>
+              <!-- 生成中：半篇 Markdown 铺在聊天里对用户没用，只报一句进行中 -->
+              <div v-else-if="streaming" class="note-pending">
+                <span class="note-pending-dot"></span>正在写成一篇笔记…
+              </div>
+              <!-- 没拿到 noteId（流中断 / error 帧）：把已收到的内容降级成正文，别让内容白丢 -->
+              <p v-else class="note-fallback">{{ m.content || '（这篇笔记没有生成成功，可以再试一次）' }}</p>
+            </div>
+
+            <div v-else :class="['bubble', m.role]">
               <template v-if="m.role === 'ai' && m.content">
                 <template v-for="(seg, idx) in parseAiContent(m.content)" :key="idx">
                   <div v-if="seg.type === 'step'" class="step-seg">
@@ -145,6 +168,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { streamChat } from '../api/chatStream.js'
 import { renderMarkdown } from '../utils/markdown.js'
+import { noteCardOf } from '../utils/noteCard.js'
 import BrandMark from './BrandMark.vue'
 
 const props = defineProps({
@@ -171,6 +195,9 @@ const props = defineProps({
   // 本轮是否检索本人资料 / 是否允许只读工具：由父组件持有的开关控制，这里只透传给接口
   useRag: { type: Boolean, default: false },
   useTools: { type: Boolean, default: false },
+  // 本轮是否直接写成笔记：同样由父组件持有，这里在「发送那一刻」取值透传；
+  // 发送后父组件会立刻把它复位成 false，所以必须在 send() 开头先存一份
+  asNote: { type: Boolean, default: false },
   idleText: { type: String, default: '在线' },
   streamingText: { type: String, default: '正在输入…' },
   greeting: { type: String, default: '说说你卡在哪' },
@@ -179,7 +206,8 @@ const props = defineProps({
 })
 
 // 一轮对话结束（正常完成 / 出错 / 被停止）时通知父组件，用于刷新侧栏列表
-const emit = defineEmits(['done'])
+// sent：用户消息已经进入本轮，父组件据此把「生成笔记」开关复位（FR-01 只作用于当前这一条）
+const emit = defineEmits(['done', 'sent'])
 
 const listEl = ref(null)
 const inputEl = ref(null)
@@ -192,16 +220,37 @@ let msgSeq = 0
 
 const shortChatId = computed(() => props.chatId.replace(/-/g, '').slice(0, 12))
 
+/**
+ * 卡片文案（标题 / 摘要 / 字数）按「笔记 id + 正文长度」缓存。
+ * 模板里要取三样，而列表在流式期间会因为别的消息变化反复重渲染；
+ * 每条都重新扫一遍整篇 Markdown 是白烧 CPU。笔记卡片只在 note 帧之后才渲染，
+ * 那时正文已定稿，缓存基本不会失效。
+ */
+const cardCache = new Map()
+function noteCard(m) {
+  const key = `${m.noteId}:${m.content.length}`
+  let card = cardCache.get(key)
+  if (!card) {
+    card = noteCardOf(m.content)
+    cardCache.set(key, card)
+  }
+  return card
+}
+
 function nowText() {
   return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function addMessage(role, content = '') {
+function addMessage(role, content = '', type = 'ANSWER') {
   const msg = {
     id: ++msgSeq,
     role,
     content,
     time: nowText(),
+    // type=NOTE 的消息在聊天里渲染成卡片；noteId 是 note 帧带回来的落库 id，
+    // 没有它就只能退化成普通正文（生成失败时内容不至于丢）
+    type,
+    noteId: null,
     // 这三个字段不落库：只活在本次会话的内存里，刷新即消失（本次刻意不做持久化）
     sources: [], // RAG 召回片段
     tools: [], // 工具调用记录，按 id 合并 start/end
@@ -215,13 +264,17 @@ async function send(picked) {
   if (streaming.value) return
   const text = (picked !== undefined ? picked : input.value).trim()
   if (!text) return
+  // 先存一份：父组件收到 sent 会立刻把开关复位，而请求还要等懒创建会话才发出去
+  const wantNote = props.asNote
 
   addMessage('user', text)
   input.value = ''
   nextTick(autoResize)
 
-  const aiMsg = addMessage('ai', '')
+  const aiMsg = addMessage('ai', '', wantNote ? 'NOTE' : 'ANSWER')
   streaming.value = true
+  // 开关只作用于这一条消息：消息已入列就可以复位，下一轮默认回到引导式
+  emit('sent')
   // 先清掉上一轮的请求（与具体内容无关）
   closeSource()
 
@@ -246,6 +299,12 @@ async function send(picked) {
     }
     if (name === 'tool') {
       upsertTool(aiMsg, payload)
+      return
+    }
+    if (name === 'note') {
+      // 笔记已落库：拿到 id 才能渲染卡片、点开详情页。帧序保证它一定在 done 之前
+      aiMsg.type = 'NOTE'
+      aiMsg.noteId = payload?.noteId ?? null
       return
     }
     if (name === 'done') {
@@ -290,6 +349,7 @@ async function send(picked) {
     message: text,
     useRag: props.useRag,
     useTools: props.useTools,
+    asNote: wantNote,
     signal: controller.signal,
     onEvent,
     onDone,
@@ -402,12 +462,18 @@ watch(
     const items = list || []
     // 让新的本地消息 id 从「历史里最大 messageId」往后排，避免与历史行的 :key 撞号
     msgSeq = items.reduce((max, m) => Math.max(max, Number(m.messageId) || 0), 0)
+    // 换会话：上一批笔记的卡片文案缓存一起丢掉，别让旧笔记白占内存
+    cardCache.clear()
     // 历史消息没有工具/来源事件（本次不做事件落库），但字段必须存在，否则模板里到处判空
     messages.value = items.map((m) => ({
       id: m.messageId,
       role: m.role === 'USER' ? 'user' : 'ai',
       content: m.content,
       time: formatHistoryTime(m.createdAt),
+      // 历史里的 NOTE 靠 T004 补的 type 字段认出来（TC-08）；认不出就会铺一整篇正文
+      type: m.type === 'NOTE' ? 'NOTE' : 'ANSWER',
+      // 历史行自己就是那条笔记消息：id 即 messageId，可点进详情页
+      noteId: m.type === 'NOTE' ? m.messageId : null,
       sources: [],
       tools: [],
       errorText: ''
@@ -1182,7 +1248,118 @@ a.src-title:hover {
   color: #d14343;
 }
 
+/* ===== 笔记卡片：一条 NOTE 消息在聊天里只占一张卡（FR-03） ===== */
+.note-slot {
+  max-width: 100%;
+}
+
+.note-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.note-card:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.note-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.note-tag {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #0d0d0d;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  line-height: 1.7;
+}
+
+.note-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.note-card-title {
+  margin: 0 0 6px;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* 摘要固定两行：卡片是入口，不是阅读器 */
+.note-card-summary {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.72;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-card-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  font-size: 12.5px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.note-card-open:hover {
+  background: var(--user-bubble);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* 生成中：只报一句进度，不把半篇 Markdown 摊在聊天里 */
+.note-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.note-pending-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: toolBlink 1s ease-in-out infinite;
+}
+
+/* 失败降级：把已经收到的内容当普通正文显示，用户至少能看到生成到哪儿 */
+.note-fallback {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tool-dot { animation: none; }
+  .note-pending-dot { animation: none; }
 }
 </style>

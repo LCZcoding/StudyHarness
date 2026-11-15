@@ -37,6 +37,7 @@
       :chat-id="chatId"
       :use-rag="useRag"
       :use-tools="useTools"
+      :as-note="asNote"
       :history-messages="historyMessages"
       :resolve-chat-id="ensureChatId"
       placeholder="说出你卡住的地方…"
@@ -46,6 +47,7 @@
       greeting-sub="这里不直接给答案。先给方向，再给关键词，实在卡住才给最小示例——目标是让你搞懂答案是怎么来的。"
       :suggestions="suggestions"
       @done="onRoundDone"
+      @sent="onSent"
     >
       <template #composer-extra>
         <!-- 本轮开关：关 = 纯模型回答；开 = 检索本人资料 / 允许联网搜索与抓取。
@@ -78,6 +80,25 @@
                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" />
             <path d="M20 20l-4.2-4.2" />
+          </svg>
+        </button>
+        <!-- 笔记开关：只管下一条消息。开着时这一轮直接写成一篇笔记（不检索、不联网），
+             发出去就自动复位，免得后面每条都变成笔记 -->
+        <button
+          type="button"
+          class="tool-btn"
+          :class="{ on: asNote }"
+          :aria-pressed="asNote"
+          aria-label="生成笔记"
+          :data-tip="asNote ? '生成笔记 · 已开启，这一轮直接写成一篇笔记（不检索资料、不联网）' : '生成笔记 · 已关闭，这一轮按引导式回答'"
+          @click="asNote = !asNote"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13.5 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5z" />
+            <path d="M13.5 3.5v5h5" />
+            <path d="M9 13h6" />
+            <path d="M9 16.5h4" />
           </svg>
         </button>
         <!-- 对话只答疑、不进待办；点这里把整轮对话沉淀成一份资料，再按资料出题 -->
@@ -129,6 +150,8 @@ const chatId = ref('')
 // 本轮检索 / 工具开关：默认都关，由用户显式打开，服务端不做「猜」的智能判断
 const useRag = ref(false)
 const useTools = ref(false)
+// 生成笔记开关：与上面两个不同，它只作用于「下一条消息」，发送后立即复位（spec FR-01）
+const asNote = ref(false)
 // 当前会话的历史消息（喂给 ChatRoom 渲染）
 const historyMessages = ref([])
 // 左侧栏的会话列表
@@ -206,6 +229,12 @@ async function ensureChatId() {
 // 一轮对话结束 → 刷新侧栏（新会话出现 / 标题更新 / 排序更新）
 function onRoundDone() {
   loadConversations()
+}
+
+// 消息已发出 → 笔记开关复位。放在「发送时」而不是「本轮结束时」：
+// 生成一篇笔记要几十秒，其间用户不该看到一个还亮着、但已经不生效的开关。
+function onSent() {
+  asNote.value = false
 }
 
 /* ---------- 把这轮对话做成题 ---------- */
