@@ -1180,3 +1180,783 @@ tooltip 统一右对齐到按钮右边缘，避免最右侧按钮的气泡在窄
 
 **教训**：①「落库跑在别的线程」会同时打破两样东西——测试事务的可见性与回滚，写测试前先想清楚回调落在哪条线程；②两半合并（start/end）时，`null` 的含义是「这一帧没有这个字段」而不是「把它清空」，展开运算符合并前必须先过滤 `null`。
 
+---
+
+## 2026-11-14 · V2 可批注笔记 T001：数据库结构迁移
+
+**分支**：`vibe`（未建分支、未 PR、未 push）。**交付**：`db/migration-v2.sql`。设计依据 `specs/001-annotatable-note/plan.md` 4.2 / 3.4 的 C3、C6、C7。
+
+**执行**：`psql -f` 打到远程开发库 `ai_agent_study`（PostgreSQL 16.15），`BEGIN … COMMIT` 一次通过（5×`ALTER TABLE` / `CREATE TABLE` / 2×`CREATE INDEX`）。
+
+**迁移前只读预检**：两个 CHECK 的真实名确为 `t_message_type_check` / `t_ai_call_scene_check`（schema.sql 里是列级内联约束，由 PG 自动命名，与 plan 4.2 的判断一致）；`t_annotation` 不存在、`t_message.updated_at` 不存在；库里已有 `t_message` 189 行、`t_ai_call` 171 行。这次只放宽约束 / 加带默认值的列 / 建新表，不改任何现有行。
+
+**验收**（写入自检全部放在会 `ROLLBACK` 的事务里，不留脏数据）：
+
+- 两个 CHECK 定义已含 `NOTE` 与 `NOTE_GENERATE` / `ANNOTATION` / `ANNOTATION_CHILD`。
+- `t_annotation` 11 列齐全，索引为 `t_annotation_pkey` / `idx_annotation_target` / `idx_annotation_parent`。
+- 事务内插入 `type='NOTE'` 的 ASSISTANT 消息成功且 `updated_at` 自动填充；3 个新 scene 依次写入 `t_ai_call` 成功 —— 等价于 TC-09，证明 `AiCallRecorder.recordCall` 不会撞 `23514`。
+- 自引用 `parent_id … ON DELETE CASCADE` 生效：插 1 父 1 子，删父返回 `DELETE 2`，剩余 0（对应 plan 4.3 的不变量 I4）。
+- ROLLBACK 后行数仍是 189 / 171，现有数据一行未动。
+- **TC-10 未跑**：它要求模拟「未执行迁移」的环境，留到 Phase 1 集成测试覆盖。
+
+**三个踩坑**：
+
+1. **回滚段必须整体注释掉**，否则 `psql -f` 会在 `COMMIT` 之后紧接着把迁移撤销。脚本里用 `/* … */` 包住，并在文件头写明「手动去掉块注释再单独执行」。
+2. 从 `application-local.yml` 提口令时，含 `$` 的正则放进 bash 双引号会被 shell 吃掉，`PGPASSWORD` 变空，psql 挂在交互式密码提示上直到超时。改成逐行 `startswith('password:')` 解析，并一律带 `-w`（禁止交互）后正常。
+3. 远程库 16.15、本机 psql 客户端 18.1 可连；脚本含中文注释，执行时带 `PGCLIENTENCODING=UTF8`。
+
+**回滚**：`db/migration-v2.sql` 末尾块注释里的 10 行，去掉 `/* */` 单独执行；仅在尚未写入批注业务数据前使用。
+
+**当前进度**：T001 完成，Phase 0 闸门解除，T002 可开始；尚未写任何 Java / Vue 代码。
+
+---
+
+## 2026-11-14 · `db/schema.sql` 同步到 V1 基线（不含 V2 改动）
+
+**背景**：全量只读核对发现 `schema.sql` 落后于真实库 —— `t_knowledge_item` 缺 `doc_title` / `section_no`。这两列由提交 `53123e9`「embedding 按标题语义切块」ALTER 追加，真实库 9 条资料章全部有值，`KnowledgeItemRepository.createSection` 明确往这两列 INSERT，代码里有 `coalesce(doc_title, title)` / `coalesce(section_no, 1)` 兜底历史行，但建库脚本一直没同步。按用户要求：**本文件只同步 V1 基线，V2 结构一律留在 `db/migration-v2.sql`**。
+
+**改动**（`db/schema.sql`，3 处）：
+
+1. 文件头加「基线版本」说明：完整链路 = 空库 → `schema.sql`(V1) → `migration-v2.sql`(V2)。
+2. `t_knowledge_item` 补 `doc_title VARCHAR(100)` / `section_no INT`（均可空、无默认值，附来历与兜底说明）。
+3. 末尾自检加 ④（检查这两列存在）；①② 注明跑完 V2 迁移后表数 10→11、索引 9→11。
+
+**明确未带入**：`t_annotation`、`t_message.updated_at`、`idx_annotation_target` / `idx_annotation_parent`、`t_message.type` 的 `NOTE`、`t_ai_call.scene` 的 3 个新值 —— 全部只在 `migration-v2.sql` 里。
+
+**验证**（只读）：解析脚本 DDL 正文（剔除注释），与真实库扣除 V2 四项后逐项比对，缺表 / 多表 / 列 / 类型 / 索引**全部为「无」**；两个 CHECK 仍是 V1 的 4 值 / 6 值。脚本里唯一出现的 `updated_at` 是 `t_conversation` 本来就有的列（第 42 行）及其索引，`t_message` 定义里没有 —— 隔离脚本里这一项报 True 是误报。
+
+**注意**：没有重跑 `schema.sql`。它全是 `CREATE ... IF NOT EXISTS`，跑成功只代表没报错、不补列也不改约束，不能用来验证一致性；本次校验全程 `SELECT`，未改数据库任何对象或数据。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T004：Message 层 NOTE 能力（v1.1 新编号）
+
+**分支**：`vibe`（未建分支、未 PR、未 push）。**依据**：`tasks.md` T004、`plan.md` C1/C2/C3、4.4、5.2 #2/#3、6.1。这是 v1.1 重排后的第一个新任务，也是 T005（重做 `AnnotationService`）、T010、T012、T021 的共享前置。
+
+**改动**（4 个 Java 文件 + 3 个测试文件，业务行为不增加，只把 NOTE 需要的读写能力补齐）：
+
+| 文件 | 内容 |
+|---|---|
+| `model/MessageType.java` | 枚举加 `NOTE` |
+| `model/MessageRow.java` | record 追加末位 `type`，旧 4 字段顺序不变 |
+| `repository/MessageRepository.java` | 历史 SQL 改表别名 `m` 并 SELECT `m.type`；新增内部 record `NoteMessage`（6 字段，对齐 5.2 #2 响应）与 `findNoteById` / `noteBelongsToUser` / `updateContent` 三个方法 |
+| `service/MessageService.java` | 新增 `@Transactional appendNoteRound(...)`：USER/QUESTION + ASSISTANT/NOTE 两条 + `touch`，返回 NOTE 行 id |
+
+**与 tasks.md 描述的一处出入**：任务栏写「加 `insertReturningId`」，实际这个方法 **V1 就有**（`QuizStore` 用它回填 `t_question.message_id`），所以本轮只是复用，没有重复造方法。`tasks.md` 的「实际结果」与 `plan.md` 6.1 已如实标注，并把五个方法的确切签名写进契约，避免 T005 / T012 再出现隐藏依赖。
+
+**三个设计取舍**：
+
+1. `findNoteById` 只读 `type='NOTE'` 的行。归属校验之外再加一层纵深防御，普通聊天消息不会被当成笔记全文交给模型。T005 取全文用 `findNoteById(...).map(NoteMessage::content).orElse("")`。
+2. `updateContent` 返回 `Optional<OffsetDateTime>`（新的 `updated_at`），正好对应 5.2 #3 的 `{messageId, updatedAt}`；非 NOTE / 不存在返回 empty，不抛 `EmptyResultDataAccessException`。
+3. 4.4 的 NOTE 归属 SQL 自带 `m.type='NOTE'`，所以「拿本人普通消息的 id 当笔记」会走 403 而不是 5.2 #2 写的 400；这一处文档口径已在 `plan.md` 6.1 注记，T012 沿用归属校验在前的顺序，不另写 SQL。
+
+**验证**（均为真实库、`@Transactional` 自动回滚）：
+
+- `-Dtest=AnnotationRowTest,AnnotationRepositoryTest,MessageServiceTest,MessageRepositoryTest,ConversationControllerTest` → **27 用例全绿**（T002 / T003 无回归）。新增 `MessageRepositoryTest` 4 用例覆盖历史带 type、跨两层归属（含「非 NOTE 不算」）、笔记全字段读取、正文保存与非 NOTE 拒写；`MessageServiceTest` 新增 1 用例验证两行 + 返回 id + `touch` + `@Transactional`；`ConversationControllerTest` 新增 `messages_returnsNoteType`，把 **TC-08 从 Service 一路验到历史接口 JSON**。
+- 旧链路回归 `-Dtest=AnnotationServiceTest,ChatServiceTest,AiChatControllerTest` → **12 用例全绿**：未开开关时的普通问答、SSE 帧、旧批注服务行为不变。
+- 没跑全量 `mvn test`：其中 `LiManusTest` / RAG 评测类会真实调模型（单类 238s），与本任务无关；留到 T023 全量回归。
+
+**明确未动**：数据库（T001 迁移后无新 DDL）、任何前端文件、旧 `service/AnnotationService.java` 与 `AnnotationServiceTest.java`（按 v1.1 约定留到 T005 重构替换，移除两条临时 SQL 与 `JdbcTemplate` 注入）。
+
+**当前进度**：T001~T004 完成，G1 之前只剩 T005 / T006 / T007。下一步 **T005：按新前置重做 `AnnotationService`**。
+
+---
+
+## 2026-11-14 · 执行方式约定：当前接口不改，后续新接口走垂直切片
+
+**用户决定**（原话）：「当前正在做的接口就不改了，随后写新接口按照垂直接口切片」。起因是用户质疑「一般不是按接口开发吗，现在先写 repo 层是不是顺序不对」。
+
+**结论**：**编译依赖顺序 ≠ 交付/验收顺序**。上一轮为修「隐藏依赖」把共享底座一次做完、把 AT 黑盒全推到 T018，属于把「刚好够用的底座」做成了「全部底座」，导致中间六个任务只能靠单测自证、review 时看不到可调用的接口。但依赖编号单调这条硬约束仍要保留，否则会回到「Service 靠临时 SQL 绕过去」的老路。
+
+**落地**（只改执行与验收方式，**没动任何任务编号、依赖、FR 标签、闸门 AT/TC 覆盖、旧→新映射表**）：`tasks.md` 新增 0.1 节「执行方式约定」，把后续任务分成 G1~G6 六组；`MEMORY.md` 同步登记为项目长期约定。
+
+| 组 | 任务 | 打通的接口 |
+|---|---|---|
+| G1（当前，保持分层） | T005 → T006 → T007 | 批注四接口 |
+| G2 | T008 → T011 | `POST /ai/chat/stream`（`asNote=true`） |
+| G3 | T012 | `GET/PUT /notes/{id}` |
+| G4 / G5 | T013 → T018 / T019 → T022 | 阅读页 M1 / 笔记页 M2 |
+| G6 | T023 | 全量回归 |
+
+组内仍按编号顺序落盘，组按编号顺序推进，所以「按编号做必能编译」依然成立。G2/G3 的验收物改为「真实 HTTP 请求打到真实库」的 MockMvc 端到端测试（模型 mock），浏览器 UI 仍归 G4/G5。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T005：`AnnotationService` 按新前置重做
+
+**分支**：`vibe`（未建分支、未 PR、未 push）。**目标**：移除旧实现里「绕过去」的两条临时 SQL 与 `JdbcTemplate` 注入，NOTE 归属/全文统一走 T004 提供的 `MessageRepository`；其余行为一字不改。
+
+**改动**（2 个文件）：
+
+| 文件 | 内容 |
+|---|---|
+| `service/AnnotationService.java` | 删 `JdbcTemplate` import + 字段，改注入 `MessageRepository`；`assertTargetOwned` 的 NOTE 分支 → `noteBelongsToUser(id, userId)`；`loadFullText` 的 NOTE 分支 → `findNoteById(...).map(NoteMessage::content).orElse("")`；类注释清掉「Phase 1 临时 SQL」措辞 |
+| `service/AnnotationServiceTest.java` | 6 → 8 用例，见下 |
+
+**明确未改**：7 步处理顺序、I1~I4 校验、`EXPLAIN_SYSTEM` / `EXPLAIN_CHILD_SYSTEM` 提示词、`locateBlock` 前后各 300 字、200 字硬截断、两个 scene 埋点、模型失败抛 `IllegalStateException`(500)、`AskRequest` 定义在 Service 内、`ask()` 不标 `@Transactional`、`list` / `updateAnswer` / `delete` 行为。
+
+**测试新增的三个证据**（这是重做是否真的去掉绕过的判据）：
+
+1. `ArgumentCaptor<Prompt>` 捕获模型入参，断言 SECTION 路径的全文来自资料章、NOTE 路径的全文来自那条 `type=NOTE` 的消息 —— 证明 `findNoteById` 真的被用上，而不是传了空串。
+2. 「本人会话里的普通 ANSWER 不能当笔记」→ 403，「`targetId` 非数字」→ 400，且 `verify(chatModel, never()).call(...)`；同时验证 `list()` 走同一条 NOTE 归属路径。
+3. 反射检查 `AnnotationService` 的字段类型：含 `MessageRepository`、**不含 `JdbcTemplate`**。
+
+**验证**：单独 `AnnotationServiceTest` **8/8**；全组 8 个测试类（含 T002/T003/T004、历史接口、ChatService、AiChatController） **41/41 全绿**，无回归。真实库 + `@Transactional` 回滚。
+
+**当前进度（T005 结束时）**：T001~T005 完成。下一步 **T006 `AnnotationController`**（四个薄接口，`AskRequest` 按 `AnnotationService.AskRequest` 引用），按用户决定仍按分层顺序逐个做，G1 闸门 T007 之后才开始垂直切片。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T006：`AnnotationController` 四接口打通
+
+**分支**：`vibe`（未建分支、未 PR、未 push）。**范围**：只新增 Controller 与其 MockMvc 测试，`AnnotationService` / Repository / 数据库 / 前端一行未动。这是 G1 里第一次有「真实 HTTP 请求可调」的产物。
+
+**改动**（2 个新文件）：
+
+| 文件 | 内容 |
+|---|---|
+| `controller/AnnotationController.java` | `GET /annotations`（扁平列表）、`POST /annotations/ask`、`PATCH /annotations/{id}`、`DELETE /annotations/{id}`；方法体首行一律 `requireUserId`；归属 / 限额 / 模型 / 落库全交给 T005 的 Service |
+| `controller/AnnotationControllerTest.java` | 15 个 MockMvc 用例，真实 HTTP → 真实库（`@Transactional` 回滚），`@MockitoBean(name="deepSeekChatModel")` 顶掉模型 |
+
+**两个实现取舍**：
+
+1. `GET` 用 `@RequestParam(required=false)` + 手写 `parseTargetType` / `requireTargetId`，让非法枚举、缺参、超 64 字统一落到 `BadRequestException` → 400 + `{"message":...}`，不依赖 Spring 的缺参默认响应（无 `message`）。
+2. `PATCH` 用 `@RequestBody Map<String,Object>`，要求「恰好一个 `answer` 字符串键」。`plan.md` 5.2 #6 要求「多传 `question` → 400」，但 Jackson 默认忽略未知字段，DTO + `@Valid` 会静默吃掉多余字段；改用 Map 才能真的拒绝。`answer` 非空 / ≤2000 字仍由 Service 统一校验。
+
+**口径注记**：`@Valid` 在参数绑定阶段先于方法体执行，因此「未登录且 body 非法」返回 400 而非 401；单独未登录、单独非法 body 分别按 401 / 400。与项目既有 `QuizController` 一致，已写进 `plan.md` 5.2 供 T014 前端封装参照。
+
+**测试覆盖**（TC-03 / 04 / 05 / 06 的 HTTP 面）：四接口 401；GET 参数形状、扁平列表字段形状（不下发 `userId`/`targetType`/`targetId`）、越权 403；POST 顶层 + 子批注（继承 `blockKey`、两个 scene）、越权 `targetId` / 他人 `parentId` / 链深 8 在模型调用前被拒（`verify never call`）、`@Valid` 三类 400；PATCH 只改 `answer`/`edited`、多传字段与空体 400、越权 403；DELETE 三代级联 `deletedCount=3`、越权 403。
+
+**验证**：单独 `AnnotationControllerTest` **15/15**；全组 9 个测试类 **56/56 全绿**（T002~T005、历史接口、ChatService、AiChatController 无回归）。未跑含真实模型调用的全量 `mvn test`（留 T023）。
+
+**当前进度（T006 结束时）**：T001~T006 完成。下一步 **T007 G1 后端闸门**（跑 TC-03/04/05/06/08，纯后端集成测试，不需要任何前端文件）；闸门通过后，G2 起按用户决定改走垂直切片。
+
+---
+
+## 2026-11-14 · G1 后端闸门（T007）结论：**PASS**
+
+**分支**：`vibe`。闸门不写功能代码，只做「逐条核对 TC 是否真被测到 → 跑一次 → 记结论」。
+
+**开工前审计发现的缺口**：通过标准写的是「越权与**限额**在模型调用前被拒」，但 I3（单目标 ≤200 条）此前只有 `AnnotationServiceTest` 的 Service 单测证据，HTTP 层没有。补了两条测试（**无新增生产代码**）：
+
+1. 新增 `AnnotationControllerTest#ask_限额I3满200_400且模型与埋点均未发生`：`generate_series` 批量插满 200 条 → `POST /annotations/ask` 返回 400；断言 `verify(chatModel, never()).call(...)`、`t_ai_call` 里该用户无 `ANNOTATION` 记账（证明拦在 `start()` 之前）、批注数仍为 200。
+2. 给 TC-03 顶层用例补库内 9 字段断言（`user_id` / `target_type` / `target_id` / `parent_id` / `block_key` / `quote` / `question` / `answer` / `edited`），此前只验了响应形状与埋点。
+
+`AnnotationControllerTest` 用例数 15 → 16。
+
+**执行结果**：`-Dtest=AnnotationRowTest,AnnotationRepositoryTest,MessageServiceTest,MessageRepositoryTest,ConversationControllerTest,AnnotationServiceTest,ChatServiceTest,AiChatControllerTest,AnnotationControllerTest` → **57/57 全绿**（0 失败 / 0 错误 / 0 跳过）。TC-03 / 04 / 05 / 06 由 `AnnotationControllerTest` 的 9 条用例覆盖，TC-08 由 `ConversationControllerTest#messages_returnsNoteType` 覆盖；逐条映射表写在 `tasks.md` T007 栏。真实库 + `@Transactional` 回滚，模型全部 mock。
+
+**通过标准四条全中**：四接口成功路径均有 200 用例；越权 / 链深 / 限额 4 条均带 `verify never call`；历史接口 JSON 返回 `type=NOTE`；T002~T006 九个测试类全绿。
+
+**明确不覆盖（不冒充闸门已过的东西）**：AT-01~14 黑盒留 T018 / T022 / T023；TC-09 此刻只验了 `ANNOTATION` / `ANNOTATION_CHILD` 两个 scene，第三个 `NOTE_GENERATE` 要等 G2 的 TC-07（T001 迁移时只在回滚事务内实测过三个 CHECK 可写）；TC-10 未跑；全量 `mvn test` 留 T023。
+
+**里程碑**：**G1 通过，可在此独立停** —— 后端批注链路已能被集成测试完整覆盖，不需要任何前端文件。按当时的计划，下一组是 G2（T008~T011，`POST /ai/chat/stream` 的 `asNote`）；**该计划在下一节被用户调整**。
+
+---
+
+## 2026-11-14 · 执行方向再调整：前端优先、前后端并行开发后联调
+
+**用户决定**（原话）：「如果这个阶段适合写前端，优先写前端，然后接入后端，这样我可以低成本的通过图形化，看到效果。以后前后端并行开发，开发完联调。」
+
+**核对结论：当前不只是「适合」写前端，而是前端所需的后端已经全通。**
+
+- G4（T013 `splitBlocks` → T014 `api/annotations.js` → T015 `AnnotationCard.vue` → T016 `AnnotatableDoc.vue` → T017 阅读页接入 → T018 M1 闸门）的跨组前置只有 **T006**（批注四接口）和 **T007**（G1 闸门），两者都已完成；组内依赖也全部指向更小编号。
+- 阅读页 T017 用 `:bodyEditable="false"`，编辑态保存只 `emit('save')`，不 import `api/notes.js` —— 所以 **G4 完全不依赖 G3 的笔记接口，也不需要任何 mock**。
+- 前端基建现成：`ai-agent-frontend` 有 Vite dev + proxy 到 `localhost:8123`，`api/request.js` 已带 `withCredentials`，`utils/markdown.js` 与 `views/SectionReadView.vue`（`.prose`）都在。做完 T017 直接 `npm run dev` 就能在浏览器里点出效果。
+
+**因此把 G4 提到 G2/G3 之前**。好处是把用户最想看的那条交互（选中正文 → 右侧短解释 → 在解释里选词追问 → 缩进子批注 → 刷新层级还在 → 换账号看不到）提前到下一组就能演示，而不是等到 T018 之后才第一次看到画面；G4 直接打已通的真接口，连 mock 都省了。G2/G3 的后端随后按 `plan.md` 5.2 同一份契约补上，在 M1/M2 闸门联调。
+
+| 组 | 调整前顺序 | 调整后顺序 |
+|---|---|---|
+| G1 批注后端 | ① 已完成 | ① 已完成 |
+| G4 阅读页批注 UI | ④ | **② 下一步（前端先行）** |
+| G2 SSE 笔记生成 | ② | ③ |
+| G3 笔记读写接口 | ③ | ④ |
+| G5 笔记页与聊天卡片 | ⑤ | ⑤（UI 可先用契约 mock 提前，联调等 G2/G3） |
+| G6 收尾 | ⑥ | ⑥ |
+
+**「并行 + 联调」的可操作定义**（单人 + AI 不是真并发，是交替推进、每一步尽量先交能看见画面的那块）：契约唯一真源 `plan.md` 5.2，前后端都不改字段形状；后端未就绪时 mock 只放 `api/*.js` 一层、不散进组件，后端就绪后删掉这层就切真接口；两边完成后在 M1(T018)/M2(T022) 闸门联调一次。前端验证靠 `npm run dev` + 浏览器手工 + `npm run build`，纯函数 `splitBlocks` / `resolve()` 用 Node 脚本跑 TC-01/TC-02（本项目前端无单测框架）。
+
+**风险与缓解**：前端先行时后端契约若变会返工 —— 靠「契约唯一真源 + mock 只在一层」控制；`G5` 的笔记详情页依赖 G2/G3 的真实接口，所以它的 AT 仍留在 M2 跑，不提前冒充已过。
+
+**只改执行与验收方式**：编号、依赖、FR 标签、闸门 AT/TC 覆盖、旧→新映射表全部未动；组内仍按编号落盘，`tasks.md` 0.1 的组表新增「推进顺序」列。项目长期记忆 `MEMORY.md` 已登记这条约定。
+
+**当前进度（调整时）**：T001~T007 完成，G1 PASS。下一步改为 **T013（`utils/markdown.js` 追加 `splitBlocks`）**，由此进入 G4 前端链。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T013：`splitBlocks`（G4 前端第一小步）
+
+**分支**：`vibe`。用户确认「可以的，下一步」，并追加约定「**每完成一次前端，就提醒我去看效果**」（已写进 `tasks.md` 0.1 与 `MEMORY.md`）。这是前端先行的第一步。
+
+**改动**（2 个文件，均在 `ai-agent-frontend/`）：
+
+| 文件 | 内容 |
+|---|---|
+| `src/utils/markdown.js` | 追加 `splitBlocks(md)`：`marked.lexer` 取顶层 token → 过滤 `space` → 逐块 `{key:'p-N', text:t.raw, html: 已消毒的 marked.parser([t])}`；`renderMarkdown` 保持原语义 |
+| `scripts/verify-splitBlocks.mjs` | 新增 TC-01 可重复验证脚本，`node:assert/strict`，零新依赖 |
+
+**一处对任务栏的更正**：原任务栏写「`renderMarkdown` 保持不变」，实际为了能在 Node 里跑纯函数测试，把 `DOMPurify` 的 hook 注册与消毒收进 `canPurify` 判断 —— Node 下 `dompurify` 只导出 factory（实测 `addHook` / `sanitize` 均为 `undefined`），没有 DOM 就没有消毒能力。`renderMarkdown` 改调同一个 `sanitize()` 包装。**浏览器行为与消毒强度一字不变**，仅无 DOM 环境跳过；NFR-02 无新依赖。`tasks.md` T013 栏已同步更正，不留文档与代码不一致。
+
+**验证**：
+- `node scripts/verify-splitBlocks.mjs` → **TC-01 8/8 断言全过**：空输入、key 连续 `p-0..p-5`、代码块整体一块且没混入后续段落、列表（含嵌套项）整体一块、GFM 表格整体一块、标题与两段互不串内容、稀疏空行不产生空块、Node 下 `renderMarkdown` 不抛错。脚本末尾打印 6 个块的分块预览。
+- `npm run build` → **通过**（2.08s）。
+
+**如实说明**：`html` 的 XSS 消毒只能在有 DOM 的浏览器里验，本步未覆盖；NFR-03 由 T015/T016 承担。**本步是纯函数，页面没有任何视觉变化** —— 已按新约定提醒用户看效果，同时明确告知「现在还看不到画面，第一个能看到界面的是 T017（阅读页接入）」。
+
+**当前进度**：T001~T007 + **T013** 完成（任务勾选不连续是因为 G4 提前执行，编号与依赖未动）。下一步 **T014 `api/annotations.js`**（四个薄封装，接已通的批注四接口）。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T014：`api/annotations.js`（G4 第二小步）
+
+**分支**：`vibe`。用户「下一步」，延续 T013 的方向：前端先行、每完成一次前端就提醒看效果。本步接的是 G1 已通的真接口，**没有加任何 mock/stub**。
+
+**改动**（2 个新文件，均在 `ai-agent-frontend/`，其余代码一行未动）：
+
+| 文件 | 内容 |
+|---|---|
+| `src/api/annotations.js` | `get(targetType,targetId)` / `ask(payload)` / `patch(id,answer)` / `remove(id)` 四个薄封装，对应 `plan.md` 5.2 #4~#7 |
+| `scripts/verify-annotations.mjs` | 请求形状自检：axios 自定义 adapter 拦请求、零出网，`node:assert/strict` |
+
+**两个实现取舍**：
+
+1. `ask` **显式挑六个契约字段**再发，而不是整个 payload 透传：`resolve()` 组树后组件对象上会挂 `children / stale / groupKey`，混进请求体轻则脏数据、重则触发后端字段校验；`parentId` 仅在有值时加入，顶层批注不带这个键。
+2. `patch` 只发 `{answer}`：T006 的落地口径要求「恰好一个 answer 字符串键」，多带 `question` 会被 400 拒。
+
+`import request from './request.js'` 带后缀是唯一与既有 `api/*.js` 不同的写法，目的是让 Node 能直接 import 做形状自检；Vite 与浏览器行为一致，`request.js` 的拦截器 / `baseURL` / `withCredentials` 均未改动。
+
+**验证**：
+
+- `node scripts/verify-annotations.mjs` → **14/14 断言全过**，拦下 7 次请求全部未出网。覆盖：四个导出名、#4 的 GET query（含 NOTE 目标按字符串传 id）、#5 六个字段与派生字段不透传 / 子批注 `parentId`、#6 恰好一个 `answer` 键、#7 无请求体、响应脱壳、失败原样抛出且 `messageOf` 能取到服务端 `message`；另断言 `request.js` 的 `baseURL='/api'` / `withCredentials=true` 没被改坏。
+- `npm run build` → **通过**（1.66s）。
+
+**如实说明**：本步是纯封装，**页面没有任何视觉变化**；`annotations.js` 此刻尚未被组件 import，所以 `npm run build` 产物里不含它，其语法与形状由 Node 脚本实际 import 覆盖，不能把 build 通过当成它已打包。已按约定提醒用户看效果并说明第一个能看到界面的是 T017。
+
+**当前进度**：T001~T007 + **T013、T014** 完成。下一步 **T015 `AnnotationCard.vue`**（递归卡片）。
+
+---
+
+## 2026-11-14 · V2 可批注笔记 T015：递归批注卡片（G4 第三小步）
+
+**分支**：`vibe`。用户「下一步」。这是 G4 里**第一个能看见卡片长相**的任务，按「每完成一次前端就提醒看效果」的约定，本轮额外产出一份可直接打开的静态预览页。
+
+**改动**（3 个新文件，均在 `ai-agent-frontend/`，其余代码一行未动）：
+
+| 文件 | 内容 |
+|---|---|
+| `src/components/AnnotationCard.vue` | 递归卡片，SFC 按文件名隐式自引用；props `{annotation, depth}`，emits `changed / error` |
+| `scripts/verify-AnnotationCard.mjs` | Vite `ssrLoadModule` 加载真实 SFC + `vue/server-renderer` 真渲染，零新依赖（用的是 Vite / Vue 自带包） |
+| `preview/annotation-card.html` | 自检脚本生成的**静态预览产物**：SSR HTML + `compileStyle` 编译出的 scoped CSS + 原样内联的 `global.css`，可直接在浏览器打开看卡片长相 |
+
+**实现要点**：卡片自己调 T014 的 `patch` / `remove`，成功后 `emit('changed')` 让父组件重新拉列表并 `resolve()`，不直接改 prop；失败 `emit('error', 中文文案)`，且**保留编辑态**不弄丢草稿。删除前 `window.confirm` 提示「将同时删除 N 条追问」，N 由递归数 `children` 得到。根元素带 `data-annotation-id` 供 T016 的选区委托 `closest()` 识别，嵌套时命中最内层即正确的 `parentId`。`answer / question / quote` 全部 `{{ }}` 插值，NFR-03 不插入原始 HTML。
+
+**一处对 `plan.md` 6.2 的修正**：原公式 `marginLeft = Math.min(depth,3)*16px` 在嵌套 DOM 下会累加（depth3 已 96px、depth4 144px），继续右移，违背 FR-08「第 3 层后不再右移」。改成**相对父级的增量**：depth 1/2/3 各 +16px，depth≥4 加 0，累计封顶 48px。`plan.md` 6.2 已加「T015 落地口径」注记，`tasks.md` T015 栏同步登记。
+
+**验证**：
+
+- `node scripts/verify-AnnotationCard.mjs` → **14/14 断言全过**。五层链（12→13→14→15→16）真渲染：递归出五张卡、`margin-left:16px` 恰好 3 次 / `0` 恰好 2 次、第 4/5 层有层级标签而第 3 层没有、删除按钮提示「将同时删除 4 条追问」、已编辑 / 原文已修改标签、两个 `changed / error` emit 声明、事件逐层转发、组件确实 import T014 封装、模板区无 `v-html`、XSS 探针 `<img src=x onerror=...>` 被转义为 `&lt;img`；另断言预览页的 scoped 样式能命中渲染元素。
+- `npm run build` → **通过**（1.57s）。
+- 过程中两次自检失败都是脚本自身问题，非组件缺陷：① 四层链最深只到 depth3，验不到封顶，补成五层；② 模板注释里写了「v-html」字样被 `doesNotMatch` 抓到，改注释措辞并把断言收窄到 `descriptor.template.content`。
+
+**如实说明**：自检是 **SSR 静态渲染**，点击编辑 / 删除 / 确认框只能等 T017 在浏览器手工验；组件此刻没被页面 import，`build` 产物不含它，语法与渲染由 SSR 脚本覆盖；预览页**不可点击、不是功能演示**，仅用于低成本看图形化效果。
+
+---
+
+## T015 视觉返工：折叠 + 展开后独立平铺（2026-11-14，同日第二轮）
+
+**起因**：用户看第一版 `preview/annotation-card.html` 后觉得「层层缩进套娃」丑，要求「可折叠隐藏、手动打开，展开后卡片独立」；并澄清「引用词高亮配色」指**引用在原文中的位置高亮**，不是卡片顶部标签。分析结论：三项都是纯前端渲染层，后端 / 接口 / DB 零改动；T016 尚未开工，此刻改不产生跨任务返工。
+
+**改动**（4 个文件，全在 `ai-agent-frontend/`）：
+
+| 文件 | 内容 |
+|---|---|
+| `src/components/AnnotationCard.vue` | 改成多根 fragment：第一根卡片本体、第二根子卡片容器；追问默认折叠成「展开 N 条追问」小横条，`v-if` 控制；去掉 `marginLeft` 缩进与 `is-child` 蓝竖线；`depth>0` 一律显示「第 N 层」标签 |
+| `src/utils/annotationExpand.js` | 新增。`createExpandedIds()` 按 id 管折叠状态，`provideExpandedIds()` 给 T016 用；key 用字符串常量（自检脚本与 Vite SSR 是两份模块实例，`Symbol()` 会不相等） |
+| `scripts/verify-AnnotationCard.mjs` | 重写。折叠态 / 展开态两套 SSR 断言 + 状态模块单测 + 生成可点击预览页 |
+| `preview/annotation-card.html` | 重新生成。全展开 SSR DOM + 约 30 行演示 JS，可逐层点开 / 收起 / 全部展开；左侧加正文与 `.quote-hit` 高亮配色示意 |
+
+**两个实现取舍**：① 折叠状态按 id 提到父组件共享，避免 `emit('changed')` 后重新拉列表把展开的链合上；T016 必须调 `provideExpandedIds()`，卡片 inject 不到时回落局部状态（可独立渲染，但不是生产路径）。② 折叠用 `v-if` 而非 `v-show`，隐藏卡片不留在 DOM 里，T016 的 `closest('[data-annotation-id]')` 选区委托不会命中看不见的卡片。
+
+**需求口径同步**：`spec.md` FR-08 / AT-05 由「缩进挂在该批注下方」改成「默认折叠、点开后独立平铺」；`plan.md` 6.2 原 `marginLeft` 公式与「第 3 层后不再右移」整段作废。正文原句高亮仍按 FR-06 / C10 的 `.quote-hit` 归 T016 / T017，卡片顶部引用词标签不改配色。
+
+**验证**：`node scripts/verify-AnnotationCard.mjs` → **18/18 全过**（折叠态 13~16 不在 DOM、展开态全在且 4 层容器齐、无 `margin-left` / `is-child`、第 2~5 层标签、两态文案与 `aria-expanded`、状态模块 `toggle/openAll/clear`、`v-if` 无 `v-show`、N=4 提示、状态标签、XSS 转义、事件转发、预览页样式命中与折叠 JS）；`npm run build` 通过（1.57s）；`TC-01 8/8`、`T014 14/14` 回归无影响。过程中一次自检失败：Vite SSR 与脚本直接 import 的模块各生成一个 `Symbol`，provide / inject 对不上，改字符串 key 后解决。
+
+**如实说明**：预览页的点击是演示 JS，不是组件真实交互；左侧正文与黄色高亮只是配色示意，真实正文渲染与 `.quote-hit` 要等 T016 / T017；组件仍未被页面 import，build 产物不含它。
+
+---
+
+## T016：可批注正文组件（2026-11-14，G4 第四小步 / 本切片最大件）
+
+**范围**：纯前端，4 个新文件；后端 Java、数据库、任何 `.vue` 页面文件一行未动。按「前端优先」约定，这一步仍是 G4，G2/G3 的笔记后端链未开工。
+
+| 文件 | 内容 |
+|---|---|
+| `src/components/AnnotatableDoc.vue` | 两栏（<1024px 右栏下移）、逐块 `data-block-key`、选区委托、`resolve()` 降级、编辑/预览两态、best-effort 原文高亮、右栏提问面板；渲染 T015 卡片并 `provideExpandedIds()` |
+| `src/utils/annotationResolve.js` | 新增纯函数：`resolve` / `groupAnnotations` / `highlightBlock` / `escapeHtml` / `depthOf` / `normalizeForMatch` |
+| `scripts/verify-AnnotatableDoc.mjs` | TC-02 + 纯函数 + Vite SSR 真渲染自检，兼生成预览页 |
+| `preview/annotatable-doc.html` | 真实 SSR DOM + 编译后 scoped 样式 + 演示 JS（逐层折叠、选中文字提示） |
+
+**用户点名的高亮配色已落地**：「引用词高亮配色」经澄清指**引用在原文中的位置**，即 `<mark class="quote-hit">` 荧光黄（`#faeeda` 底 / `#854f0b` 字 / `#ef9f27` 下划线）；被 `<strong>` / `<code>` 切开匹配不到时降级为段落左侧色条 + 批注数角标。C10 样式写在组件 scoped 内，T017 只调容器宽度即可。
+
+**两处对 `plan.md` 6.2 的精确化**（已同步注记）：① `blockContains()` 用 `normalizeForMatch()` 去掉 markdown 标记再匹配，避免带格式段落被误判 stale；② **子批注 stale 只显示卡片标签、不单独进「原文已修改」组**（进组会断链，也与 spec AT-08 不符），顶层 stale 才进组。
+
+**给 T017 / T020 的契约**：emits `save(draft)` / `cancel` / `unauthorized`；`defineExpose({ finishSave, reload })`；`initialAnnotations` / `initialExpandedIds` 两个可控渲染入口仅供 SSR 与预览页，生产路径不传。父页面保存成功后须调 `finishSave()` 退出编辑态。组件不 import `api/notes.js`、不写 `PUT /notes/{id}`。
+
+**验证**：`node scripts/verify-AnnotatableDoc.mjs` → **29/29 全过**（TC-02 三分支、子批注与父被删兜底、markdown 标记匹配、链深、分组、高亮命中/降级、XSS 转义、SSR 两栏渲染 6 个块、`bodyEditable` 显隐、组件契约与选区委托源码断言、预览页样式命中）。`npm run build` 通过（1.67s）；`TC-01 8/8`、`T014 14/14`、`T015 18/18` 回归无影响。过程中一次自检失败：源码注释里出现「api/notes.js」文件名被 `doesNotMatch` 抓到，断言收窄成只查 import 语句（与 T015 的 `v-html` 注释同类问题）。
+
+**如实说明**：① 预览页的折叠与选区提示是演示 JS，真实提问 / 编辑 / 删除要 T017 接入阅读页后才可点；② 组件未被任何页面 import，`build` 产物不含它，语法与渲染由 SSR 脚本覆盖；③ 正文 DOMPurify 消毒只能在有 DOM 的浏览器验，Node 下跳过，本步未覆盖。已按约定提醒用户去看效果并打开预览页。
+
+## T017 · 阅读页接入（2026-11-14，G4 第五小步 / 第一个真可交互界面）
+
+**只改一个生产文件** `ai-agent-frontend/src/views/SectionReadView.vue`，另新增自检脚本与预览页：
+
+| 文件 | 内容 |
+|---|---|
+| `src/views/SectionReadView.vue` | 整篇 `v-html` 的 `.prose` → `<AnnotatableDoc>` 两栏；`contentHtml` → `contentMarkdown`（原始 markdown，仍跳过重复首行标题）；删整组 `.prose :deep(...)` 排版；`.reader-inner` 720px → 1200px；`.action-bar` / 翻页 / 检测 / `watch(immediate)` / 401 全部保留 |
+| `scripts/verify-SectionReadView.mjs` | 17 条断言：SFC 静态契约 + Vite SSR 真实加载整页 + 两栏组件真渲染 + 预览页结构 |
+| `preview/section-read.html` | 阅读页全貌静态预览（顶栏 + 两栏 + 底栏，真实组件 SSR DOM + 编译后 scoped 样式 + 演示 JS），生成物、不进生产包 |
+
+**六个接线属性**：`:key="detail.knowledgeItemId"` / `:markdown="contentMarkdown"` / `:target-type="'SECTION'"` / `:target-id="detail.knowledgeItemId"` / `:body-editable="false"` / `@unauthorized="onUnauthorized"`。`targetId` 是 `knowledgeItemId` 的 UUID 字符串，与 T005 `assertTargetOwned(SECTION)` 的 `UUID.fromString` 对齐。
+
+**两个本步新增判断**：① 按章节 id 加 `:key`，翻页时重建组件，否则组件复用会让上一章的批注列表与折叠 id 集合残留；② 组件 401 只 emit，父页面 `redirectOn401({response:{status:401}}, router, route)` 跳登录，组件仍不引 router。C10 高亮与 markdown 排版样式**没有在页面重复定义**（自检有 `doesNotMatch` 断言），按 T016 契约执行。
+
+**验证**：`node scripts/verify-SectionReadView.mjs` → **17/17 全过**（10 条接线契约 / SSR 真实加载页面 / 加载态渲染 / 两栏高亮与分组 / XSS 转义 / `bodyEditable=false` 无编辑按钮 / 预览页骨架与 scoped 样式命中）。`npm run build` 通过（1.67s）；**dist 里实测 `SectionReadView` chunk 含 `doc-layout`、`data-block-key`、`quote-hit`、`/annotations/ask`** —— 与前四步「组件未被页面 import、产物不含它」不同，这次真正打包进生产产物。回归：TC-01 8/8、T014 14/14、T015 18/18、T016 29/29 全绿。
+
+**如实说明**：① 预览页的折叠与选区提示仍是**演示 JS**，真实提问 / 编辑 / 删除需启动后端 + `npm run dev` 在浏览器验，自检不能代替 T018 的黑盒 AT；② 页面 SSR 只渲染加载态（不给生产页面加测试用 prop），带正文的两栏由真实组件 SSR 单独提供；③ 数据库、后端 Java、组件文件一行未动。已按约定提醒用户去看效果。
+
+**当前进度**：T001~T007 + **T013、T014、T015、T016、T017** 完成（勾选不连续是 G4 提前执行，编号与依赖未动）。下一步 **T018 M1 验收闸门** —— 浏览器黑盒跑 AT-04/05/06/08/09/10（批注半边）/11 与 TC-01~06；G4 到此可独立停、独立演示。
+
+---
+
+## T017 后 · 提问框就地弹出（2026-11-14 用户实测反馈修补）
+
+**触发**：用户截图反馈「每次提问都要到第一行开头才能输入问题」——提问面板固定在右栏最顶部，正文滚到中段或底部后，选完文字必须滚回页面第一行才能看到输入框。T016 当初为「窄屏不炸、不引入定位逻辑」特意选了不做浮层，实测证明这个取舍牺牲了主流程手感。
+
+**改法**（`components/AnnotatableDoc.vue` + 新增 `utils/annotationAskPosition.js`，后端 / DB / 页面文件一行未动）：
+
+| 点 | 做法 |
+|---|---|
+| 浮层 | `<Teleport to="body">` + `position: fixed`，避开祖先 `transform` / `backdrop-filter` 影响定位；z-index 60 |
+| 定位 | 纯函数 `computeAskPosition()`：宽屏横向贴右栏、纵向与选区齐平；窄屏（右栏已下移）优先选区下方、放不下翻到上方；四边 clamp 不越视口、不产生横向滚动 |
+| 打开即能打字 | `getRangeAt(0).cloneRange()` 留住原选区、`nextTick` 后 `focus({ preventScroll: true })`，不让浏览器把页面滚走 |
+| 跟随与清理 | `scroll`（capture）/ `resize` 时重算位置；`cancelAsk()` 与 `onUnmounted` 解绑；Esc 取消、Ctrl/Cmd+Enter 提交合并进 `onAskKeydown` |
+| 预览 | `preview/annotatable-doc.html` 加了同款演示浮层，注入的是组件**同一个定位函数的源码快照**；仍是演示 JS，不调后端 |
+
+**验证**：T016 自检 29 → **38/38**（新增 6 条定位几何断言 + 2 条组件契约 + 1 条预览页断言）；T015 18/18、T017 17/17、T014 14/14、TC-01 8/8 回归全绿；`npm run build` 通过，dist 的 `SectionReadView` chunk 实测含 `ask-panel` / `preventScroll` / `getBoundingClientRect` / `cloneRange`。
+**排错记录**：自检脚本必须在 `ai-agent-frontend` 目录下跑；从项目根用绝对路径跑会让 Vite SSR 与脚本直接 import 解析到两份 Vue 实例，表现为 `useRoute` 注入找不到、卡片自引用变成 `<Anonymous>`。这不是代码缺陷，串行 + 正确 cwd 即恢复。
+
+**口径同步**：`plan.md` 6.2 与 `tasks.md` T016 的原「右栏顶部、不定位浮层」表述已改写并追加修补注记；T018 通过标准加一条「提问框就地弹出、可直接打字」。**不改编号 / 依赖 / FR 标签 / 闸门 AT-TC 覆盖**，也不改 spec 的 FR/AT 编号。
+
+---
+
+## T018 前 · 批注分组与正文段落对齐（2026-11-15 用户第二次实测反馈）
+
+**触发**：用户截图反馈「生成后的批注跑到第一行了，应该做对齐」——提问框已就地弹出，但生成后的卡片仍按右栏文档流从顶部堆叠，选第 39 段生成的批注显示在右栏第一行。
+
+**难度判断**：不算大，但不能用绝对定位。绝对定位会让 `.note-rail` 高度塌陷、`border-left` 只剩标题高度，而且相邻段落都有批注时卡片会互相盖住。改用「补 `margin-top` 把分组推到对应块高度」，分组仍在流内，右栏高度与分隔线自然撑开。
+
+**改法**（`components/AnnotatableDoc.vue` + 新增 `utils/annotationRailLayout.js`，后端 / DB / 页面文件一行未动）：
+
+| 点 | 做法 |
+|---|---|
+| 对齐 | `alignGroups()` 量 `[data-block-key]` 的 y 坐标与 `[data-group-key]` 的高度，交给纯函数 `computeRailMargins()` 算出每组 `margin-top` |
+| 不折叠 | `.rail-groups` 改 `display:flex; flex-direction:column; gap:18px`，flex 里相邻 margin 不折叠，`cursor` 递推才精确；组间距由 gap 提供 |
+| 防重叠 | 目标位置被前一组占住时 `Math.max(0, desired - cursor)` 顺延，绝不把分组往上拽；`__rest__` / `__stale__` 无对应块，紧接上一组只留一个 gap |
+| 回退 | 窄屏 `≤1024px` 与编辑态清空 margin 回普通流；CSS `@media` 里 `margin-top: 0 !important` 双保险 |
+| 重算时机 | `onMounted`、`watch(markdown / flat / editing)`、`resize`、折叠条点击后 `nextTick`；卸载解绑 |
+| 预览 | `preview/annotatable-doc.html` 注入**同一个 margin 函数的源码快照**，加载 / 折叠 / resize 时按真实 DOM 量算，演示对齐（仍是演示 JS，不调后端） |
+
+**验证**：T016 自检 38 → **45/45**（新增 5 条对齐几何断言：精确对齐、相邻顺延、目标占满、`__stale__` 兜底、脏输入；1 条组件契约；1 条预览页）；T015 18/18、T017 17/17、T014 14/14、TC-01 8/8 回归全绿；`npm run build` 通过，dist 的 `SectionReadView` chunk 实测含 `rail-groups` / `data-group-key` / `marginTop`。
+
+**如实说明**：纯函数与 SSR 自检只能验算法与结构，**真实浏览器里第 39 段卡片是否精确贴住**，仍归 T018 黑盒验收；相邻段落都有批注时按设计会顺序顺延（不重叠但不严格贴齐每一段）；展开 / 收起追问改变卡片高度后组件会在下一帧重算。
+
+**口径同步**：`plan.md` 6.2、`tasks.md` T016 追加第二次修补注记，T018 通过标准补「批注卡片与对应段落对齐」；编号 / 依赖 / FR 标签 / 闸门 AT-TC 覆盖未动。
+
+---
+
+## T018 前 · 真实浏览器白屏修复与首次浏览器验收（2026-11-15 用户第三次实测反馈）
+
+**触发**：用户反馈「正文加载不出来了」，并质疑「你不会浏览器调用一下验证吗」——前两次修补只跑了 Node SSR 自检与 `npm run build`，没在真实浏览器里点开过生产页面。
+
+**浏览器取证**（ego lite / `ego-browser`，导航前注入 `window.onerror` / `console.error` / `unhandledrejection` 钩子）：登录 → `/materials/{UUID}`，抓到
+```
+[Vue warn]: Unhandled error during execution of watcher getter   at <AnnotatableDoc>
+[Vue warn]: Unhandled error during execution of setup function  at <AnnotatableDoc>
+```
+页面只剩 PageHeader，`.doc-body` 不存在、正文块数 0，与用户描述一致。
+
+**根因**：第二次修补新增的 `watch(() => [props.markdown, flat.value, editing.value], ...)` 被放在 `const editing = ref(false)` **之前**。浏览器端 Vue 的 `watch` 在 setup 阶段会立即执行一次 getter 收集依赖，命中 `const` 的 TDZ → 组件 setup 抛错 → 整个正文栏渲染失败。**SSR 下 watch 不跑 getter**，所以 45/45 的 Node 自检、SSR 真渲染、`npm run build` 全部通过却照样白屏。这是自检手段的结构性盲区，不是断言写漏了。
+
+**修法**（只动 `components/AnnotatableDoc.vue` 一行代码位置 + `scripts/verify-AnnotatableDoc.mjs`）：把 `editing` / `draft` 声明提到该 watch 之前，并在源码旁写明原因；自检加一条静态断言「watch getter 引用的 ref 必须在 watch 之前声明」（扫描 `scriptSetup` 的 `const/let` 声明行与 `watch(() => [...])` 行），45 → **46/46**。后端 / 数据库 / 页面文件一行未动。
+
+**真实浏览器复验**（同一页面，修后）：控制台 `errs: []`；`.doc-body` 存在、**141 个块 / 11421 字**；右栏「第 39 段」批注正常显示、`Minor GC` 在原文中有黄色 `.quote-hit` 高亮；模拟选中「大家好，我是小林。」后提问浮层 `position:fixed`、`left=1181px / top=197px`、输入框自动聚焦；1440px 视口下 `p-38` 分组 `top=3554`、对应正文块 `top=3554`、**偏差 0px**，横向滚动 0。截图 `preview/browser-read-page.png`、`preview/browser-rail-align.png`。
+
+**结论与口径**：**前端改动跑完 Node 自检 + build 后必须用真实浏览器复验**，SSR 自检不能替代（不执行 watch getter、不跑客户端生命周期）。已同步 `plan.md` 6.2、`tasks.md` T016 第三次修补注记与项目长期记忆；编号 / 依赖 / FR 标签 / 闸门 AT-TC 覆盖未动。下一步仍是 **T018 M1 验收闸门**。
+
+---
+
+## T018 前 · 卡片内「追问锚点」高亮（2026-11-15 用户第四次实测反馈）
+
+**触发**：用户截图圈出右侧父批注解释里的 `Full GC`，问「批注中被引用的部分没有被高亮标记？这个做起来难度怎么样」。正文里的 `Minor GC` 已有黄色高亮，缺的是**在解释里选词追问后，那个词在父答案里不留痕迹**。用户确认「改吧」后实施，口径取「只标子批注的引用词，不标本卡片自己的引用词」。
+
+**实现**：`utils/annotationResolve.js` 加纯函数 `splitAnswerByQuotes(answer, quotes)` → `[{text, hit}]`，匹配与 `resolve()` 的子批注 stale 判定同源（原样 `indexOf`、不 normalize/trim/正则），长词优先占区间、短词顺延、找不到跳过。`AnnotationCard.vue` 答案区改 `v-for` 分段渲染 `<mark class="quote-hit">` + `{{ seg.text }}`，**只切纯文本、零 `v-html`**，NFR-03 不变；卡片 scoped 样式补同配色（`.doc-body :deep()` 管不到右栏）。后端 / 数据库 / 页面文件一行未动。
+
+**验证**：T015 18 → **26/26**（新增纯函数 4 条 + SSR/口径/XSS/样式 4 条 + 预览页 1 条）；T016 46/46、T017 17/17、T014 14/14、TC-01 8/8、`npm run build` 全绿，生产 CSS 实测含 `.answer mark.quote-hit[data-v-5cdf3db2]`。**ego lite 真实浏览器**：控制台 `errs: []`、141 块 / 11421 字、父答案 `Full GC` 标黄（`rgb(250,238,218)` 底 / `rgb(239,159,39)` 下划线）、正文 `Minor GC` 高亮仍在；选中已被 `<mark>` 包住的词 → 就地浮层 `fixed`、自动聚焦、quote 正确（选区委托没被高亮标签破坏）；1440px 横向滚动 0。截图 `preview/browser-answer-highlight.png`。
+
+**口径同步**：`plan.md` 6.2、`tasks.md` T015 与 T018 通过标准、项目记忆；编号 / 依赖 / FR 标签 / 闸门 AT-TC 覆盖未动。下一步仍是 **T018 M1 验收闸门**。
+
+---
+
+## T018 前 · 编辑保存 403（2026-11-15 用户第五次实测反馈）
+
+**触发**：用户截图「编辑后无法保存」，卡片停在编辑态、提示「保存失败，请稍后重试」。
+
+**浏览器取证**（ego lite，注入 XHR 钩子抓请求与响应）：`PATCH /api/annotations/1779` → **`403 Invalid CORS request`**；`OPTIONS` 预检同样 403；控制台 `[request error] Request failed with status code 403`。同一页面 `GET /api/annotations` 200 正常。
+
+**根因**：`config/CorsConfig.java` 的 `allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")` **漏了 PATCH**。Vite proxy 把浏览器的 `Origin: http://localhost:5173` 原样透传给 8123，Spring 的 `DefaultCorsProcessor` 据此把请求当作跨域请求、按方法白名单校验，且校验发生在 Controller 与鉴权之前；PATCH 不在白名单 → 直接返回裸文本 `Invalid CORS request`，所以看不到业务的「无权修改该批注」。列表(GET) / 提问(POST) / 删除(DELETE) 都在白名单里，因此**只有编辑保存炸**。PATCH + `application/json` 属非简单请求，浏览器先发 OPTIONS 预检，预检同样被拒。**MockMvc 默认不带 `Origin`，CORS 校验根本不触发**，旧 16/16 与 G1 闸门全绿都测不到——与上次白屏事故同属测试环境的结构性盲区，不是断言写漏。
+
+**修法**：白名单加 `"PATCH"` 并写明来龙去脉；`AnnotationControllerTest` 新增 `patch_带浏览器Origin_预检和实际请求都不被CORS拦截`（OPTIONS 预检断言 `Access-Control-Allow-Methods` 含 PATCH；带 Origin 的真实 PATCH 断言 200 且库内答案已改）。red `Status expected:<200> but was:<403>`、响应体 `Invalid CORS request` → 改完 green，**16 → 17/17**。数据库未被探测请求改动（PATCH 403，标记没写进去）。
+
+**重启与浏览器复验**：`CorsConfig` 是启动时加载的配置类，8123 是用户在 **IDEA 里启动的 JVM**（带 `idea_rt.jar`），本轮**未代用户结束该进程**。用户自行重启后 curl 探测：OPTIONS 预检 200、`Access-Control-Allow-Methods: GET,POST,PUT,DELETE,PATCH,OPTIONS`、带 Origin 的 PATCH 只返回业务 401（CORS 已放行）。随后 ego lite 真实浏览器点「编辑 → 保存」：**两次 PATCH 均 200**、控制台零报错、编辑态自动退出、卡片出现「已编辑」标签并显示新答案；随后再编辑去掉临时标记保存，**库内答案与原答案逐字一致、无标记残留**（`edited=true` 是 PATCH 的正常副作用，会留下「已编辑」标签）。截图 `preview/browser-save-fixed.png`。编号 / 依赖 / FR 标签 / 闸门 AT-TC 覆盖未动。
+
+---
+
+## T018 · M1 验收闸门（2026-11-15）**PASS**
+
+**范围**：`AT-04 / AT-05 / AT-06 / AT-08 / AT-09 / AT-10（批注半边）/ AT-11` + `TC-01~06`。本轮**没有改任何生产代码**，只跑验收、清数据、归档。
+
+**自动化**：前端 5 个自检全绿（TC-01 8/8、T014 14/14、T015 26/26、T016 46/46 含 TC-02 三分支、T017 17/17），`npm run build` 通过；后端约定的 9 类回归 **90/90**（0 失败 / 0 错误 / 0 跳过），TC-03~06 由 `AnnotationControllerTest` 17 条承载。
+
+**黑盒**（ego lite 真实浏览器，登录 `lcz`，材料 `99baddae…`，挂 XHR 抓包 + `confirm` 钩子 + 控制台错误钩子）：
+
+- **AT-04**：选 37 字提问 → `POST /annotations/ask` 200，答案 103 字；同期 `chat/stream` 0 次、会话消息 0→0。
+- **AT-05**：在父答案里选词 → 200 生成子批注；默认折叠（`aria-expanded=false`、子卡不在 DOM）；点开后 `.annotation-children` 是父卡片的**兄弟节点**，子卡左边缘偏差 0px、宽同为 349px、带「第 2 层」；刷新后折叠条与 `rail-count` 不变，再展开仍能取到子批注。
+- **AT-06**：删除按钮 `title` 与 `confirm` 都是「将同时删除 2 条追问」，确认后 DELETE 200、列表 7→4、父子三条一起消失、无孤儿。
+- **AT-08**：把父答案里的「新生代」改成「新世代X」→ PATCH 200 → 刷新后子批注带「原文已修改」标签、答案 122 字与问题/引用词一字不少；改回后标签消失。
+- **AT-09**：阅读页无「编辑正文」按钮，正文 141 块 / 11421 字，提问/追问/编辑答案均可用。
+- **AT-10**：A 伪造 `targetId` 与伪造 parentId → 403；临时注册账号 B 后，B 读列表 / 用 A 的批注当 `parentId` / 顶层提交**全部 403**，资料库 0 条看不到 A 的材料；`t_ai_call` 178→178，证明拦截在模型调用之前。
+- **AT-11**：SQL 造 8 层链 → 在最深层选词提示「追问链最多 8 层」；跨段 88 字 → 「请只选一段内的文字」；单段 320 字 → 「选中的文字最多 300 字，请选短一点」；**三次均无面板、零新增请求**。
+
+**观察项**：1440px 分组与 p-38 顶部偏差 0px、父答案 `mark.quote-hit` 10 处（`rgb(250,238,218)`）、正文高亮 1 处、横向滚动 0；提问框 `fixed` 贴右栏且打开即聚焦；900px 横向滚动 0 且右栏落到正文下方（railTop 9024 > colBottom 9000）；全程控制台零报错。
+
+**数据清理**：8 层测试链（3549~3556）、账号 `t018probe`、验收期间新增的 3545/3546/3547/3548 全部删除；库内恢复原有 3 条（1778 → 1779 → 1780），`t_ai_call` 保持 178，用户表恢复 3 个账号。
+
+**如实说明**：① 链深 8 用 SQL 造链只验前端拦截，后端 `ask_链深达8_400` 仍由 T007 覆盖；② 「60~120 字」「明显承接上文」属实测字数核对与人工判读，不是自动断言；③ 换账号用临时注册的 `t018probe`（用后即删），没用既有的 user2 / user3；④ 选区由 Range + `mouseup` 模拟，其余交互均为真实 DOM 操作。
+
+**结论**：**M1 通过，可在此停**。下一组按依赖走 G2（T008~T011，笔记生成后端链），四步全是后端，做完看不到界面变化，前端要到 T020 才重新有画面。截图 `preview/t018-at04-at05.png`、`preview/t018-at06-at08.png`、`preview/t018-chain-depth8.png`、`preview/t018-narrow-900.png`、`preview/t018-at10.png`。
+
+
+---
+
+## 2026-11-15 · G2 笔记生成后端链（T008~T011）
+
+**背景**：M1 闸门通过后按依赖推进 G2。这一组四步全是后端，**界面没有任何变化**，验收物是「SSE 帧序 / 落库类型 / 观测 scene」三件事能被自动化断言。
+
+**改动**
+- `model/ChatEvent.java`（T008）：新增 `record Note(long noteId)`，`type()` = `"note"`；放在 `Done` 之前。sealed 接口加成员后无任何地方需要穷尽匹配，编译一次通过。
+- `app/LoveApp.java`（T009）：新增 `noteChatClient` 与 `NOTE_PROMPT`（附录 A1 逐字）、`doNoteByStream(message, chatId)`。advisor 复用构造函数里同一个 `chatMemory` 实例（笔记的原料就是这轮对话），**刻意不挂 ToolCallback / QuestionAnswerAdvisor**。
+- `service/ChatService.java`（T010）：`stream(...)` 扩为 6 参。分叉只在「事件从哪来」——笔记链路 `.map(ChatEvent::delta)` 之后并进同一条管道，累积全文 / 首 token 计时 / `publishOn(boundedElastic)` / 落库时机全部复用，避免第二份 `concatWith` 出现漏改。`asNote` 分支先 `appendNoteRound` 拿 id、发 `Note`、再发 `Done`；scene 记 `NOTE_GENERATE`。未标 `@Transactional`。
+- `controller/AiChatController.java`（T011）：`StreamRequest` 加 `Boolean asNote`，`Boolean.TRUE.equals(req.asNote())` 作为第 6 参。用包装类型而非基本类型：老前端不发这个字段时必须当作 false，改成 `boolean` 会让 Jackson 直接 400。
+
+**验证**
+- `ChatServiceTest` 1 → **2/2**：新用例断言「两行落库且第二行 `type=NOTE`」「正文 = delta 拼接结果」「倒数第二帧是 `Note` 且 id 等于刚插入行 id」「`t_ai_call.scene=NOTE_GENERATE`」「`loveApp.doChatByStream` 一次未被调用」「`useRag/useTools` 传 true 也不影响分流」。
+- 新增 `AiChatControllerAsNoteTest` **1/1**：不带 `asNote` 透传 `false`（不 400、不 NPE），带 `asNote:true` 透传 `true`。
+- 项目约定的 9 类回归 **59/59** 全绿（`ChatServiceTest` 由 1 条变 2 条，其余不变），零失败 / 零错误 / 零跳过。
+
+**如实说明**
+1. **排布缺陷**：T010 改签名会让 `AiChatController`、`ChatServiceTest` 立刻编译失败，**T010 单独落盘无法编译**，与阶段自检「每个任务单独编译通过」冲突。这正是 0.1 节「改签名的一方排最后」要防的中间态，但 T011 的完成标准又要求 6 参先存在。实际做法是 **T010/T011 成对落盘后一次编译 + 跑测试**；编号 / 依赖 / FR 标签 / 闸门覆盖未改。
+2. `NOTE_PROMPT` 的实际输出质量（是否真给 2~4 个 `##` 小节的 1000~2000 字成篇笔记）**本轮未验**，需要真实模型调用，留到 T022 联调时人工判读。
+3. 本轮**没跑**含真实模型调用的全量 `mvn test`（约 T023），也没起浏览器（没有可看的界面改动）。
+
+**结论**：G2 完成。下一组 **G3（T012，`GET/PUT /notes/{id}`）**，同样只有后端；**第一个能看到界面的任务是 T019/T020**。
+
+---
+
+## 2026-11-15 · G3 笔记读写接口（T012）
+
+**背景**：G2 打通了「生成笔记」的生产端，这一组补上「读它 / 改它」的消费端，即 `plan.md` 5.2 #2 / #3。仍然是纯后端，**界面无变化**。
+
+**改动**（两个新文件，未改任何既有类）
+- `service/NoteService.java`：只注入 `MessageRepository`，**不注入 `JdbcTemplate`**（与 `AnnotationService` 同一纪律，避免 `type='NOTE'` 的 JOIN 出现第二份）。内嵌 `NoteView` / `UpdateRequest` / `UpdateResult` 三个 record。读和改共用私有 `requireOwnNote()`，两条路径的拒绝文案逐字相同（「笔记不存在或无权访问」）。
+- `controller/NoteController.java`：`GET /notes/{id}`、`PUT /notes/{id}`。只做鉴权 + `@Valid` + 裸返回。
+
+**两处契约取舍**
+1. `PUT` **允许提交空串**：覆盖写就是覆盖写，用户把整篇删空再保存是他的权利；只挡 null 与超 20000 字。不替用户猜「空是不是误操作」。
+2. `PUT` 请求体用 DTO（多传字段由 Jackson 忽略），不像 #6 的 `PATCH /annotations` 那样严格拒收——`plan.md` 只对 #6 提了「只接受该字段」，#3 没这个要求。
+
+**验证**：新增 `NoteControllerTest` **11/11**，全程打真实库。
+- 未登录 → 401。
+- 读自己的笔记 → 200，`messageId` / `conversationId` / `type=NOTE` / `content` / `createdAt` / `updatedAt` 全齐。
+- 读别人的、读不存在的、把本人会话里的普通 `ANSWER` 消息当笔记 id → **三条一律 403 且文案逐字相同**（否则拿一串 id 试一遍就能探出哪些笔记真实存在）。
+- `PUT` 成功 → 库内正文变、`updated_at` 严格晚于改前、`created_at` 不动。
+- 越权 `PUT` → 403 且库内正文一字未改。
+- 超 20000 字 → 400「笔记正文最多 20000 字」；缺 `content` → 400「content 不能为空」；空串 → 200 且库内清空。
+- 约定回归 9 类 + 本轮两个新类共 **71/71** 全绿。
+
+**如实说明**
+1. 用例**没有**用 `@Transactional` 回滚：PostgreSQL 的 `now()` 取的是事务开始时间，测试事务里插入与更新拿到同一时间戳，「`updated_at` 往前走」这条根本断不出来。改成显式建数据 + `@AfterEach` 按 `t_message` → `t_conversation` → `t_user` 倒序删。
+2. 第一次跑挂了 2 条，原因是用例里 `"t-note-intruder-" + UUID` 共 52 字符，撞 `t_user.username varchar(50)`，已把前缀缩到 `"t-intr-"`。不是业务代码问题。
+3. 运行中的 8123 是用户在 IDEA 启动的 JVM，**`/notes` 两个接口要重启后端才生效**；本轮只用 MockMvc 验，没起浏览器（无可看界面）。
+
+**结论**：**后端侧 G1 / G2 / G3 三组全部打通**，`plan.md` 5.2 的七个接口只剩 #1 前端未接。下一步 **G5（T019~T022）**，**T019/T020 是第一个能看到界面的任务**。
+
+---
+
+## T019 + T020 · 笔记请求封装与笔记详情页（2026-11-15）
+
+**背景**：G5 的前两步，M2 里**第一个能看到画面**的任务。前四组把后端和共享组件都做齐了，这一组第一次把「一条 NOTE 消息」渲染成一个可读、可编辑、可批注的页面。
+
+**改动**
+- `api/notes.js`（新增）：`get(messageId)` / `save(messageId, content)` 两个薄封装，`PUT` 只发 `{ content }`，空串原样提交。
+- `views/NoteDetailView.vue`（新增）：`AnnotatableDoc` + `bodyEditable=true`。保存链路拆两半——组件只 `emit('save', draft)`，页面 `PUT` 成功后才 `markdown = draft` 并 `docRef.finishSave()`。
+- `router/index.js`：`notes/:messageId`（name `note-detail`，`meta.requiresAuth`）与页面动态 import 同一次落盘。
+- 自检脚本：`scripts/verify-notes.mjs`、`scripts/verify-NoteDetailView.mjs`。
+
+**几个具体判断**
+1. **保存失败必须保住草稿**：`catch` 里刻意不动 `markdown`、不调 `finishSave`，输入框停在编辑态，用户改完能直接重试。只有成功路径才退编辑态。
+2. **「返回对话」用 `conversationId` 而不是 `router.back()`**：从聊天卡片点进来、直接贴链接进来、刷新后再点，三种入口都要能回到同一条会话；`NoteView` 里正好有这个字段。
+3. **路径参数先自查**：`/^\d+$/` 不通过就直接报「笔记地址无效」，不白跑一趟请求去换后端 400。
+4. **`:key="note.messageId"`**：换笔记时组件重建，否则上一张笔记的批注列表与折叠 id 集合会残留（与阅读页翻页同一处理）。
+
+**验证**
+- `node scripts/verify-notes.mjs` → **10/10**（adapter 拦 4 次请求、零出网）。
+- `node scripts/verify-NoteDetailView.mjs` → **16/16**（10 条 SFC 契约 + 路由块 + Vite SSR 真实加载 + `bodyEditable=true` 的组件形态）。
+- 既有 5 个前端自检全绿：TC-01 8、T014 14、T015 26、T016 46、T017 17；`npm run build` 通过，产物含 `NoteDetailView-*.js`。
+- **ego lite 真实浏览器**（临时账号 + SQL 造的 NOTE 527 + 3 条批注，用后即删）：
+  - 加载 `GET /api/notes/527` 200、`GET /api/annotations?...` 200；6 块正文、2 处原文高亮、右栏 3 条批注分 2 组、控制台零报错。
+  - 编辑正文追加一段 → **`PUT /api/notes/527` 200**（带 `Origin` 的真实 XHR，顺带复查 CORS 白名单）→「已保存」、编辑态退出、`141 字 → 163 字`、`更新于 13:21`、块数 6 → 8。
+  - 刷新：正文持久化、**旧批注 3 条仍全可读**（AT-07）、无 stale 组、再次可进编辑态。
+  - 展开追问：子卡片出现、「选中词 向量距离 第 2 层」标签在、仍是独立平铺。
+  - `/notes/999999` → `GET` 403 → 横幅「笔记不存在或无权访问」+ 重试，无空白页。
+  - 截图归档 `preview/t020-note-page.png` / `-expanded` / `-edit` / `-403`。
+
+**如实说明**
+1. 保存**失败**路径只在自检断言层面验过（catch 里两不动），浏览器里没法在不弄停后端的情况下可靠触发。
+2. 本轮验收数据是 SQL 直接造的 NOTE 与批注，**不走模型生成**；真实 `asNote` 链路要到 T021 有了开关才点得到。
+3. 首次浏览器访问 `/api/notes/*` 得到 **404**：8123 上跑的是加 `NoteController` 之前的 JVM（`/api/annotations` 返回 401 证明它存在）。请用户重启后端后才验通——**以后新增 Controller / 配置类，浏览器验收前先确认后端已重启**。
+
+**结论**：`plan.md` 5.2 的七个接口，前端侧只差 #1（`POST /ai/chat/stream` 的 `asNote` 开关）。M2 剩 **T021 聊天侧开关与 NOTE 卡片** → **T022 闸门** → T023 收尾。
+
+---
+
+## T021 · 聊天侧开关与 NOTE 卡片（2026-11-15）
+
+**背景**：M2 最后一个能看到新画面的任务。做完它，`plan.md` 5.2 的七个接口在前端侧全部接通 —— 用户可以在对话里勾一下「生成笔记」、让模型直接写成一篇、再从卡片点进 T020 做好的详情页。
+
+**改动**
+- `api/chatStream.js`：`streamChat` 加 `asNote = false`，写进请求体。api 层不解读 `note` 帧，只按 `event:` 名原样抛给上层。
+- `utils/noteCard.js`（新增）：`noteCardOf(markdown) → {title, summary, chars}`，纯函数。标题取第一个 `#` 标题（没有就退化第一行正文，围栏代码块里的 `#` 不算）；摘要**跳过标题**取正文，剥掉强调 / 链接 / 行内代码 / 列表记号，丢掉分割线与表格分隔行，按字截 80 加省略号。
+- `components/ChatRoom.vue`：`asNote` prop、`sent` 事件、`note` 帧写回 `type/noteId`、NOTE 消息四种形态、卡片文案缓存、历史映射带 `type`。
+- `views/GuideChatView.vue`：第 4 个 `tool-btn`（排在「联网」之后、「做成题」之前）+ `onSent` 复位。
+- `views/NoteDetailView.vue`：顶栏标题改 `noteTitle(markdown)`，与卡片同源。
+- 自检：`scripts/verify-noteCard.mjs`（18 条）、`scripts/verify-chatNoteCard.mjs`（23 条）。
+
+**几个具体判断**
+1. **开关在 `send()` 开头取值，不是开流时取值**：空白会话的第一条消息要先 `await resolveChatId()` 建会话，而父组件收到 `sent` 就把它复位了；等开流再读 `props.asNote` 一定是 false，「这一轮」就丢了。
+2. **复位放在「发送时」而不是「本轮结束时」**：生成一篇笔记要十几秒，流式期间留一个亮着但已不生效的开关，比冒一次“没生成笔记”的投诉更糟。
+3. **生成中不摊正文**：半篇 Markdown 铺在聊天里既不能读也不能点，只留一句「正在写成一篇笔记…」，`note` 帧到了才换成卡片。反过来，流中断拿不到 `noteId` 时**降级成普通正文**显示已收到的内容 —— 宁可难看，也不能让用户觉得白等了 20 秒。
+4. **卡片文案缓存 key 用 `noteId + 正文长度`**：模板要取标题 / 摘要 / 字数三样，流式期间任何一条消息变化都会让整列重渲染，每条都重扫一遍 2000 字的 Markdown 是白烧 CPU。
+5. **卡片与详情页标题共用 `noteTitle`**：先做完卡片再开详情页，一眼看到「卡片写线程池核心数怎么定，点进去标题是 AI 生成的笔记」—— 同一个东西在两处说法不同，用户会怀疑点错了。
+
+**验证**
+- `verify-noteCard.mjs` **18/18**：标题 / 摘要 / 字数 / 代码块 / 分割线 / CRLF / 脏输入；另用假 `fetch` 返回一段 SSE，断言请求体多出 `asNote`、默认 false、`note` 帧解析成 `{noteId:527}`、帧序 `delta → delta → note → done`。
+- `verify-chatNoteCard.mjs` **23/23**：16 条 SFC 静态接线（取值早于 await、`emit(sent)` 早于开流、note 分支、历史映射、四种形态、无 `v-html`、缓存、reduced-motion）+ Vite SSR 真渲染一条 NOTE 历史消息（`NOTE` 标签、标题去掉井号、摘要剥掉 `**`、`href="/notes/527"`、正文没被铺开、普通消息照旧、字数 meta）。
+- 既有 7 个前端自检全绿：TC-01 8、T014 14、T015 26、T016 46、T017 17、T019 10、T020 **17**（新增一条顶栏标题断言）；`npm run build` 通过。
+- **ego lite 真实浏览器（临时账号 + 真实模型，用后即删）**：开关默认关 → 点开 → 发送后立刻复位；`POST /api/ai/chat/stream` 200 且 body `asNote:true`；14 秒后卡片出现（`2227 字 · 可批注` / 标题 / 80 字摘要 / 打开笔记）；点进 `/notes/529` 顶栏标题与卡片一致、32 块正文、可编辑；刷新后卡片仍在（AT-02）；同会话不开开关再问一句，26 秒引导式回答、**没有第二张卡片**（AT-01 / AT-13 的核心路径）。截图归档 `preview/t021-chat-note-card.png` / `-switch-on` / `-pending` / `-detail`。
+
+**过程中撞到的一个环境问题（不是代码缺陷，但值得记）**
+第二轮普通问答答完了却**没入库**，`t_ai_call` 记 `CHAT success=false error_code=TransactionSystemException`（`commit()` 抛 SQLException）。用 curl 重跑同一句立刻正常入库（`CHAT success=true`，`t_message` 多出 USER/QUESTION + ASSISTANT/ANSWER 两条），同时本机 `psql` 对 72.155.89.172 也间歇 `connection timeout`（约一半失败）。判断是**远程库网络抖动**导致的提交失败，而非本轮改动。
+
+副作用更值得警惕：那次失败的提交在库侧留下一个 **idle in transaction 1023 秒**的会话（最后一条语句正是 `insert into t_message ...`），持着事务 id 锁，把后续清理用的 `DELETE` 全堵在 `wait_event_type=Lock` 上，表现为「psql 连上了但一直不返回」。`pg_terminate_backend` 掉它和被阻塞的清理会话后，删除一次通过。**以后遇到 DELETE / UPDATE 长时间不返回，先查 `select pid, state, xact_start, wait_event from pg_stat_activity where datname='ai_agent_study'`。**
+
+**结论**：`plan.md` 5.2 七个接口前后端全部接通。M2 剩 **T022 闸门**（AT-01/02/03/07/10 笔记半边/12/14 与 TC-07/09）→ T023 收尾。
+
+---
+
+## T022 · M2 验收闸门（2026-11-15）
+
+**这一轮没有新代码**，只做一件事：确认 G1（后端链路）+ M1（阅读页批注）+ T019~T021（笔记详情页与聊天卡片）拼起来是一条真的能走通的链路。
+
+### 自动化
+
+| 侧 | 结果 |
+|---|---|
+| 后端约定 11 类 | **71/71**，`failures=0 errors=0`（比 M1 时的 58 条多出 `NoteControllerTest` 11 + `AiChatControllerAsNoteTest` 1 + `ChatServiceTest` 1） |
+| 前端 9 个自检 | 8 / 14 / 46 / 26 / 17 / 10 / 17 / 18 / 23 全绿 |
+| `TC-07` | `ChatServiceTest` 断言帧序 `delta → note → done`、`note` 帧带 `noteId`、落库行 `type='NOTE'`、`scene=NOTE_GENERATE` |
+
+### 真实浏览器（临时账号 + 真实模型，用后即删）
+
+一次脚本跑完 6 个场景，全部 `ok`：
+
+1. **AT-01**：关开关 → 4.6 秒引导式回答（结尾「现在轮到你：你的任务是哪一类？」），零卡片；开开关 → `aria-pressed` 真、发送后立刻回 false → **10.2 秒**出卡片（`2440 字 · 可批注`）。
+2. **AT-02**：刷新后卡片仍在 → 点进 `/notes/573`，28 块正文，顶栏标题与卡片一致。
+3. **批注两条**：顶层引用 14 字 → 答案 200 字；在答案里选 4 字追问 → `rail-count=2`，库里 `t_annotation` 新增行的 `parent_id` 指向前一条（**子批注挂对了，不是又一条顶层**）。
+4. **AT-12**：900px → 批注栏 `top 3227 ≥ doc-col bottom 3203`（移到下方）、`scrollWidth == clientWidth`（无横向滚动）。
+5. **AT-03**：改数字 `3→4` + 追加一段 → 保存 → 刷新：块数 28→30、`textarea` 已退出、`[contenteditable]` 0 个、富文本工具栏 0 个。
+6. **AT-14**：`t_ai_call` **272~275** = `CHAT` / `NOTE_GENERATE` / `ANNOTATION` / `ANNOTATION_CHILD`，四行 `success=t`、`error_code` 全空。
+7. **AT-10**：另注册 B → 读 A 的笔记 403、拉 A 的批注 403、把 A 的批注 id 当 `parentId` → 403「无权访问该正文」。
+
+### AT-07 第一次没过，是验收构造的问题，值得留档
+
+第一次的写法：选中 `ThreadPoolExec`（一个词的前 14 字）→ 批注 → 编辑正文把这个词删掉 → 刷新。预期进「原文已修改」，实际**没有**：批注被挪到了「第 4 段」，标签也没变。
+
+原因在 `resolve()` 的降级顺序——「原 `blockKey` 命中 → 按 `quote` 全文 `includes` 搜索 → 都没有才 stale」。正文里还有五处 `ThreadPoolExecutor`，`ThreadPoolExec` 作为**子串**依然能命中，于是它被"成功地"重定位到了别处。
+
+结论：**这不是缺陷，是 FR-10 写明的降级**（宁可丢「贴得准」，不得丢内容）。但用户感受会是「批注跟着一个词跑掉了」，所以：
+- 让引用进 stale 的前提是**引用片段在正文里唯一**，或它所在的整段被删；
+- 补验时改成先在正文末尾插一句独一无二的「量子纠缠不传递信息」→ 批注它 → 删掉整段 → 刷新 → **「原文已修改 1」分组出现、卡片带 `原文已修改` 标签、答案 143 字一字不少**（PASS）。
+- 这条限制记在这里，不改实现、不另开任务。真要改（比如要求 quote 匹配时检查唯一性、多处命中就当 stale），会牵动「引用是一句话还是一段」的产品口径，不适合在收尾阶段动。
+
+### 顺带发现
+
+用户自己账号（`lcz`）名下已经有 1 篇真笔记：`t_message.id=534`「Kubernetes 入门笔记」4340 字（13:52 生成，伴随一条 `ANNOTATION`）。**做笔记列表页时可以直接拿它当第一条真数据，不必再造。**
+
+---
+
+## T024 / T025 · 追加需求：笔记列表页（FR-14，M3）
+
+> 起因：用户 2026-11-15 自己生成了一篇笔记后发现「笔记的唯一入口是聊天里那张卡片，会话一多就找不回来」，要求在左侧导航加一个类似资料库的笔记页。按纪律先改 `spec.md`（新增 `FR-14`、`AT-15`/`AT-16`、移出 Non-goals 第 7 条）与 `plan.md`（5.2 加接口 #8），再排 T024 / T025。**T001~T023 的编号、依赖、FR 标签与闸门覆盖一律没动。**
+
+### T024 · 后端 `GET /notes?limit=50`
+
+三处改动，一条 SQL：
+
+- `MessageRepository.findNotesByUser`：`t_message m JOIN t_conversation c` + `LEFT JOIN t_annotation a`，
+  `count(a.id)` 算批注数，`order by m.updated_at desc, m.id desc limit ?`。
+- `NoteService.list`：只做 limit 夹取 + 行转换，不注入 `JdbcTemplate`（与 `update` / `get` 同一条纪律，归属 JOIN 只能有一份）。
+- `NoteController`：`@GetMapping` 裸返回 `List<NoteListItem>`。
+
+三个刻意的决定：
+
+1. **`limit` 夹取而不报错**：null / >50 → 50，≤0 → 1。这不是需要用户纠错的输入错误，取边界值即可，少一个错误码分支。
+2. **排序补 `m.id DESC`**：同一 `now()` 写入的多篇（批量造数、测试）`updated_at` 完全相同，只按时间排结果不确定。
+3. **`target_id` 必须 `m.id::text`**：`t_annotation.target_id` 是 varchar、`t_message.id` 是 bigint。漏 cast 在 PG 里是直接报 `operator does not exist`，不是「只是慢」；反过来把 `target_id` cast 成 bigint 则会因脏数据整条查询崩。
+
+批注数**不额外过滤 `a.user_id`**：笔记归属单一用户，只有正文所有者能批注（FR-12），JOIN 天然只汇到本人。plan 里已注明将来支持共享笔记要补 `a.user_id = c.user_id`。
+
+验证：`NoteControllerTest` 16/16（新增 5 条：401 / 空数组 / 倒序 + 批注数含子批注 + 普通消息不入列 / 归属隔离 / limit 与越界夹取）。其中「倒序」用**先建两篇、再 PUT 保存第一篇**来验 —— 只靠插入顺序无法区分「按 updated_at 排」与「按 id 排」。
+
+一处踩坑：测试用户名用 `"t-note-list-order-" + UUID` 超了 `t_user.username varchar(50)`，四条用例一起报 `value too long`。前缀改短即可，与实现无关。
+
+### T025 · 前端列表页
+
+- `api/notes.js` 加 `list(limit = 50)`，固定带 limit（默认值只在后端存一份）。
+- `views/NotesView.vue`：PageHeader + 发丝线行列表（不用卡片，与资料库的章节行同一气质）；每行标题 / 摘要 / 字数 / `N 条批注` / 更新时间；整行 `RouterLink` 到 `note-detail`。
+- `NavRail` 第 3 项「笔记」（折角纸 + 两条文字，避开资料库那本书）；`router` 加 `notes` 静态路由，**排在 `notes/:messageId` 之前**。
+- **文案全部走 `noteCardOf()`**，页面里没有第二套标题 / 摘要提取 —— 这是 T021 已经踩过的坑（卡片说 A、点进去标题是 B）。自检里直接断言页面内不存在 `^#{1,6}` 正则与 `slice(0, 80)`。
+
+两个实现细节：
+
+1. 页面加了 `initialNotes` prop（默认 `null`）**只给 SSR 自检注入数据**：SSR 不执行 `onMounted`，没有它就只能验加载态。与 `AnnotatableDoc` 的 `initialAnnotations` 同一做法，生产路径不传。
+2. 行文案用 `Map` 缓存、key 带正文长度（`messageId:len`）：模板里 `card(n)` 调了三次，没缓存会为每行重扫三遍 Markdown。key 带长度是为了「同一条笔记保存后正文变了自动失效」。
+
+验证：`verify-NotesView.mjs` **27/27**（adapter 拦 2 次请求断言 URL / limit；SFC 静态断言五字段、复用 `noteCardOf`、无 `v-html`、无二次排序；SSR 真渲染两篇断言倒序与 href、空数组断言空态、XSS 内容断言 `<script>` 被转义）。既有 9 个前端脚本全绿，`npm run build` 通过。`verify-notes.mjs` 有一条「导出恰好两个薄封装」随之改成三个（`get` / `list` / `save`），这是新增导出必然要改的断言，不是放宽标准。
+
+### T025 真实浏览器验收（ego lite，2026-11-15 14:2x）
+
+后端重启后 `/api/notes` 从 404 变 401（说明 handler 已上，只是没登录）—— 记一笔：后端 context-path 是 `/api`，直接 `curl /notes` 永远是 404，别误判成「接口没生效」。
+
+浏览器会话每轮都掉（ego lite 的空间不稳定，JSESSIONID 不跨轮保留），于是把「登录 + 全部断言」压进同一轮脚本，开头统一 `if (location.pathname.startsWith('/login'))` 就地重新登录。密码不掌握用户账号的，改用临时账号 `t-m3-0qzt0a`（脚本里自建、验完删），完全不碰 `lcz` 的数据。
+
+| 项 | 结果 |
+|---|---|
+| `AT-15` 倒序 | 「线程池核心数怎么定」(646) 在前、「Kubernetes 入门笔记」(647) 在后 —— 与 `updated_at DESC` 一致 |
+| `AT-15` 批注数 | `133 字 · 2 条批注` / `117 字 · 0 条批注`，与库里 count 一致 |
+| `AT-15` 跳转 | `href=/notes/646`、`/notes/647`；点第一行 → 6 块正文、标题一致、右栏「批注 2」两条各自贴在对的段落 |
+| `AT-15` 返回 | 点导航「笔记」回列表仍两行、导航项高亮 |
+| `AT-16` 空态 | 同一账号造数据前：0 行 +「还没有笔记」+ 引导开「生成笔记」开关 + 「去对话」→ `/guide` |
+| `AT-16` 隔离 | 此时 lcz 名下有笔记，临时账号一条都看不到 |
+| 控制台 | `error` / `unhandledrejection` / `console.error` 钩子三轮全空 |
+
+清理：临时账号 1 个（含 2 会话 2 消息 2 批注）+ 早先给 lcz 造的验收笔记 `645`（含 2 批注 1 会话）全部删除；复查后库里只剩 lcz 的 `534`，`t-m3-%` 用户数为 0。
+
+**顺手修的一处不一致**：列表 `133 字` vs 详情页 `128 字`。详情页顶栏原来用 `markdown.replace(/\s/g,'').length`（去空白但留着 `#`），卡片 / 列表用 `noteChars()`（去 `#` 但留着行内空格）—— 两个数各自都算得对，用户看到的是同一篇笔记两个字数。已统一到 `noteChars`，`verify-NoteDetailView` 加断言防复发（17 → 18）。复验：两处都是 `133 字`。
+
+---
+
+## T023 · 全量回归与执行记录归档（2026-11-15）**PASS**
+
+> 这一轮同样没有生产代码，只有两件事：把「改造有没有弄坏别的链路」用能拿到的证据钉死，把整个 001 的执行结果写成一份可复查的记录。
+
+### 1. 自动化：全量 `mvn test` 首次在改造后跑完
+
+`mvn test` → **`Tests run: 104, Failures: 0, Errors: 0, Skipped: 0` / `BUILD SUCCESS` / 14 分 20 秒**。
+
+这套件里含真实模型调用的评测类，此前只在 **2026-10-26（改造前基线）** 跑过，所以这一跑本身就是「行为与改动前一致」的证据：
+
+| 类 | 耗时 | 覆盖的既有能力 |
+|---|---|---|
+| `RagAnswerEvalTest` | 346.8s | RAG 回答质量 |
+| `RagBaselineEvalTest` | 154.2s | RAG 基线 |
+| `RagEvalTest` | 5.2s | 检索 |
+| `QuizPromptEvalTest` | 58.6s | **出题** |
+| `GradingEvalTest` | 22.0s | **判分** |
+| `LiManusTest` | 72.5s | **Agent / 工具链路** |
+| `LoveAppTest` | 19.7s | **问答** |
+| `tools/*`（7 类） | 4.8s | 时间、文件、PDF、下载、终端、抓取、搜索 |
+
+另有约定 11 类（批注四接口 + 笔记 + 会话 + Chat）**76/76** 单独跑过。
+
+### 2. `AT-13`：五条链路逐条实测（临时账号 + 真实模型）
+
+| 链路 | 实测 |
+|---|---|
+| 普通问答（开关关） | 886 字，通篇「我们一步步来」「你可以先给任务归个类」，**零卡片**，`scene=CHAT` |
+| RAG | 回答逐句引用上传资料原文（`allowCoreThreadTimeOut`、队列扩容顺序、拒绝策略），`参考了 4 段资料` + 4 条来源，`scene=CHAT` |
+| 工具 | 问「现在几点」→ `.tool-row` 1 条 `getCurrentTime` → 答「2026年11月15日 14:49:35」，`scene=CHAT` |
+| 出题 | 点「做成题」→ 遮罩 8 秒 → `/quiz/…` 3 道题，`scene=QUIZ_GENERATE` |
+| 判分 | 提交作答 → 4 秒出 `FAIL` + 4 条缺口（题问「核心线程数指什么」，我答的是「怎么定」，判定正确），`scene=GRADE` |
+
+### 3. `AT-01`~`AT-16` 复跑结果
+
+| AT | 结果 | 关键证据 |
+|---|---|---|
+| AT-01 | PASS | 开开关 → `2693 字 · 可批注` 卡片，`href=/notes/747`，发送后 `aria-pressed` 立刻回 false，无普通气泡 |
+| AT-02 | PASS | 刷新后 10 行消息、1 张卡片仍在 → 点进 `/notes/747` 32 块正文，`h1` 与卡片标题一致 |
+| AT-03 | PASS | `/notes/750` 改 `0.75→0.8` → 保存 → 刷新：新值在、旧值无、编辑态已退出；工具栏只有「编辑正文」，`[contenteditable]` **0** |
+| AT-04 | PASS（含一条软口径偏差） | 选 24 字提问 → 提问框 `position: fixed` 就地弹出且**自动聚焦** → 3 秒出答案；`rail-count` 0→1。**答案 158 字，超出 60~120 口径**（T018 时同构造为 103 字）—— 属内容长度波动，不改实现 |
+| AT-05 | PASS | 在答案里选 8 字 → 标题变「在解释里选词追问」→ 子批注**默认不在 DOM**（`aria-expanded=false`）→ 点开 `data-children-of=6208`、`第 2 层`、`leftDelta=0` `widthDelta=0`、`nestedInsideParent=false`（独立平铺）→ 刷新后 `rail-count=2`、仍默认折叠 |
+| AT-06 | PASS | `title`「将同时删除 1 条追问，删除后不可恢复」；`confirm`「将同时删除 1 条追问，确定删除吗？」→ `rail-count` 2→0、卡片 0、子批注 0、右栏回空态 |
+| AT-07 | PASS（第二次） | 笔记末尾追加唯一句「量子纠缠不传递信息…」→ 保存 → 选它提问（120 字）→ 删掉该句 → 保存 → 刷新：`__stale__` 组「原文已修改 1」、卡片带「原文已修改」、答案 120 字与问题一字不少 |
+| AT-08 | PASS（第三次） | 把子批注 quote **整体**替换掉 → 刷新：子卡片「原文已修改」、`is-stale`、答案 129 字保留 |
+| AT-09 | PASS | 阅读页 7 块正文；`.edit-body-btn` / `.doc-toolbar` / `.body-textarea` 全为 **0**；选句提问、选词追问、编辑答案全部可用 |
+| AT-10 | PASS | B 读 A 的笔记 403「笔记不存在或无权访问」；拉 A 的批注 403「无权访问该正文」；把 A 的批注 id 当 `parentId` 403「无权访问该正文」；读 A 的资料章节 403「资料不存在或无权访问」 |
+| AT-11 | PASS | 跨 `p-1 → p-3` 选区 → 提示「请只选一段内的文字」、**不弹提问框**、`rail-count` 不变；链深 8 与限额满 200 由 `AnnotationControllerTest` 覆盖（均带「模型未被调用」断言） |
+| AT-12 | PASS | 900px：`railTop 857 ≥ colBottom 833`（批注栏移到正文下方）、`scrollWidth == clientWidth == 900` |
+| AT-13 | PASS | 见上表 |
+| AT-14 | PASS | `t_ai_call` 7 种 scene 全覆盖且全 `success`：`CHAT` 5 / `NOTE_GENERATE` 1 / `QUIZ_GENERATE` 1 / `GRADE` 1 / `ANNOTATION` 3 / `ANNOTATION_CHILD` 2 / `SUMMARY` 2；`error_code` 全空，无约束报错 |
+| AT-15 | PASS | 两行倒序：「Kubernetes 中 Pod 与 Deployment 的关系」`2,693 字·1 条批注·更新于 11-15 14:55` 在前，「Java 集合框架速记」`151 字·0 条批注·更新于 11-15 12:55` 在后；`href` `/notes/747`、`/notes/750`；导航「笔记」高亮；点进 32 块、右栏「原文已修改 1」 |
+| AT-16 | PASS | 新账号 `/notes` 0 行 +「还没有笔记」+ 引导开「生成笔记」+「去对话」→ `/guide`；此时 A 名下已有 2 篇，**一条都看不到** |
+
+### 4. `AT-07` / `AT-08` 各失败两次，都是验收构造的问题
+
+这跟 T022 那次 `ThreadPoolExec` 是同一个坑，值得单独记一笔：**`resolve()` 的降级是「原 `blockKey` 命中 → 按 `quote` 全文 `indexOf` → 都没有才 stale」，所以只要引用片段的字面上还是子串，它就应当继续命中。**
+
+两次踩法：
+
+1. `AT-08` 第一次：子批注引用「话说的是核心线程」，父答案里把「核心线程」改成「核心线程**X**」。听起来是「改掉了被追问的词」，但**插入一个字符不会破坏原子串** —— 「话说的是核心线程X」里仍含「话说的是核心线程」，于是正确地没有 stale。
+2. `AT-08` 第二次：改成替换父答案里另一处的「显式→手动地」。这次改的位置和子批注引用**根本不重叠**，当然也没 stale。
+3. 第三次改成「读出子批注的 `quote`，在父答案里把这个字符串整体替换」，一次通过。
+
+`AT-07` 同构：第一次删的句子与引用所在位置不完全重合，引用仍是子串；改成「先追加唯一句、批注它、再删掉整句」才进 stale。
+
+**结论：实现没问题，是这个降级设计的必然表现。** 验收时要构造「引用片段的字符本身被破坏」，而不是「附近内容变了」。这条已写进 `spec.md` `AT-07` 的判定边界，不另开任务。
+
+### 5. 顺带发现两件事
+
+**（1）RAG 第一次回答「上下文是空的」，是资料形态问题，不是缺陷。**
+`t_knowledge_item` 带 `user_id`，资料按用户隔离：临时账号刚建时名下没有资料，`QuestionAnswerAdvisor` 拿不到上下文是**正确行为**。后来「做成题」流程自动存了一份资料，而那份资料是**对话原文**（含「我：/助手：」标记），模型看过之后说「两条分隔线之间没有任何内容」—— 它不认这段对话是资料。换一份结构正常的手册再问，回答逐句引用原文、`mentionsEmptyCtx=false`，RAG 完全正常。
+
+**（2）从对话生成的资料只切出 1 章。**
+`POST /knowledge-items` 传一份带 3 个 `##` 小节的 markdown，返回 `sections: 1`。切章规则按一级标题分文档、二级标题分章节之外还有别的条件，本轮没深究 —— 不影响本次验收（那 1 章 455 字照样被 RAG 检索到），记在这里备查。
+
+### 6. 执行记录（本条即 R5 的兜底）
+
+- **迁移脚本**：`db/migration-v2.sql`，**2026-11-14 19:40** 以 `psql -f` 打到 **`ai_agent_study`（PostgreSQL 16.15）**，`BEGIN … COMMIT` 一次通过（5×`ALTER TABLE` / `CREATE TABLE` / 2×`CREATE INDEX`）。
+- **三个闸门**：`G1`（T007）**PASS** —— 9 类 57/57，四接口越权与限额在模型调用前被拒；`M1`（T018）**PASS** —— 阅读页选区批注 → 追问 → 折叠平铺 → 刷新层级仍在；`M2`（T022）**PASS** —— 7 条 AT + `TC-07` / `TC-09`；`M3`（T024/T025）**PASS** —— 笔记列表页。
+- **已知限制 R1~R7 状态**：R1（笔记挤占 ChatMemory）接受未处理；R2（`marked` token 粒度）接受；R3（`blockKey` 按索引）由 `quote` 重定位兜底，本轮 `AT-07` / `AT-08` 再次实证；R4（非流式批注转圈）接受；R5（无 Flyway 可能漏跑）**由本条记录兜底，`TC-10` 未覆盖**；R6（编辑正文后历史回答不一致）接受；R7（旧 T004 的临时 SQL 技术债）**已由 v1.1 重排消除**。
+- **`TC-10` 明确未覆盖**：需要另建一个「只跑 `schema.sql`、不跑 `migration-v2.sql`」的空库，再把应用指过去验证「接口全部失败且有明确报错」。本轮未做，**不得写成通过**。
+- **依赖与 Key**：`pom.xml` / `package.json` / `package-lock.json` / `application*.yml` 的 `git diff` 全为空，无 Key 相关改动。
+- **清理**：临时账号 2 个（A 用于全链路、B 用于越权）及其 17 条消息 / 3 个会话 / 3 条批注 / 2 份资料 / 4 条向量 / 15 条 `t_ai_call` / 3 个知识点全部删除；复查后用户只剩 `lcz` / `user2` / `user3`，笔记只剩 `lcz` 的 `534`（4340 字，未变），资料 9 条（原有）。
