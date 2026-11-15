@@ -46,3 +46,7 @@ docs/interview-cheatsheet.md
 docs/interview-postmortem.md
 docs/AiChatController.png
 docs/video-script.md
+
+### 本地验收产物 ###
+ai-agent-frontend/preview/
+chunk_jsonb.csv
