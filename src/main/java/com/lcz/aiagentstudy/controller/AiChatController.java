@@ -36,12 +36,15 @@ public class AiChatController {
     private final ChatService chatService;
 
     // 请求体没有 userId：身份只从 session 取（①格硬约束）
+    // asNote 用 Boolean 而非 boolean：老前端不发这个字段，null 必须视为"不是笔记模式"，
+    // 用基本类型会让 Jackson 反序列化直接 400，等于强制所有调用方同步升级。
     public record StreamRequest(
             @NotNull(message = "conversationId 不能为空") UUID conversationId,
             @NotBlank(message = "message 不能为空")
             @Size(max = 4000, message = "message 过长") String message,
             Boolean useRag,
-            Boolean useTools) {
+            Boolean useTools,
+            Boolean asNote) {
     }
 
     // 身份校验(401) → 归属校验(403) → 开流
@@ -62,7 +65,9 @@ public class AiChatController {
         Disposable subscription = chatService.stream(
                         conversationId, req.message(), userId,
                         Boolean.TRUE.equals(req.useRag()),
-                        Boolean.TRUE.equals(req.useTools()))
+                        Boolean.TRUE.equals(req.useTools()),
+                        // null（老前端不发）= 普通聊天，不是 400
+                        Boolean.TRUE.equals(req.asNote()))
                 .subscribe(// 订阅 Flux 数据流
                         event -> {// 正文增量 / 来源 / 工具调用，一个事件一帧
                             try {

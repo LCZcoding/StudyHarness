@@ -18,7 +18,11 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowCredentials(true)
                 // 放行哪些域名（必须用 patterns，否则 * 会和 allowCredentials 冲突）
                 .allowedOriginPatterns("*")// 允许所有源（域名/IP/端口）访问。
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                // PATCH 必须显式列出：Spring 的 DefaultCorsProcessor 在鉴权之前按这个白名单校验，
+                // 漏掉时浏览器带 Origin 的编辑保存会被拒成 403 "Invalid CORS request"。
+                // MockMvc 默认不带 Origin，所以这类漏配测不出来 —— 回归用例见
+                // AnnotationControllerTest#patch_带浏览器Origin_预检和实际请求都不被CORS拦截。
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 .allowedHeaders("*")// 允许前端在请求头中携带任何自定义字段（比如 Content-Type: application/json, Authorization 等）。
                 .exposedHeaders("*");// 如果后端想让前端读取 Content-Disposition（比如文件下载时读取文件名），或者自定义的 Token 头，必须在这里暴露出来。设为 * 就是全部暴露。
     }

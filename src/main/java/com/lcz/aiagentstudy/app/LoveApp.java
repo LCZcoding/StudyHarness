@@ -50,6 +50,32 @@ public class LoveApp {
     private final ChatClient chatClient;
 
     /**
+     * 笔记客户端：同模型、同会话记忆，但换一套系统提示词，且**永远不挂工具与 RAG**。
+     * 为什么不复用 chatClient：它的 defaultSystem 是"引导用户自己思考"，
+     * 而笔记要求"直接写成一篇成篇的 Markdown"，两套人设放进一个客户端只能靠每次覆盖，
+     * 迟早有一次忘了覆盖就吐出半截引导语。分客户端是编译期保证，不是约定。
+     * 为什么要共用同一个 chatMemory：笔记是"把这轮对话整理成笔记"，
+     * 用户上一句问了什么，就是这个客户端必须看到的输入。
+     */
+    private final ChatClient noteChatClient;
+
+    /**
+     * 笔记模式系统提示词（plan.md 附录 A1）。
+     * 与 SYSTEM_PROMPT 的关键差别：不反问、不引导、不给出"下一步你试试"，
+     * 因为笔记的读者是几小时后的自己，不是正在卡壳的人。
+     */
+    private static final String NOTE_PROMPT = """
+            你是一位技术笔记撰写者。用户给出一个问题，你直接写成一篇结构完整的 Markdown 笔记。
+
+            要求：
+            - 结论前置，第一段就给出核心答案。
+            - 用 ## 划分 2~4 个小节，覆盖：是什么 / 为什么需要 / 大致流程或关键参数 / 常见误区。
+            - 1000~2000 字，可用代码块、表格、公式，但不要写成问答对话。
+            - 不要反问用户、不要引导用户自己思考、不要留「下一步你试试」这类话。
+            - 不确定的内容明确写「不确定」，不伪造文档、链接、版本号。
+            """;
+
+    /**
      * 系统提示词：定义 AI 的角色身份、提问策略及引导方式。
      */
     private static final String SYSTEM_PROMPT = "# 角色\n" +
@@ -123,6 +149,15 @@ public LoveApp(ChatModel deepSeekChatModel,
 
     chatClient = ChatClient.builder(deepSeekChatModel)
             .defaultSystem(SYSTEM_PROMPT)
+            .defaultAdvisors(
+                    MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                    new MyLoggerAdvisor())
+            .build();
+
+    // 与 chatClient 的唯一差别就是 defaultSystem；advisor 复用同一个 chatMemory 实例，
+    // 保证「对话里说了什么」在笔记模式下读得到。这里刻意不挂任何 ToolCallback / QuestionAnswerAdvisor。
+    noteChatClient = ChatClient.builder(deepSeekChatModel)
+            .defaultSystem(NOTE_PROMPT)
             .defaultAdvisors(
                     MessageChatMemoryAdvisor.builder(chatMemory).build(),
                     new MyLoggerAdvisor())
@@ -227,6 +262,27 @@ public LoveApp(ChatModel deepSeekChatModel,
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()// 开启流式模式
                 .content();// 返回文本片段流对象
+    }
+
+    /**
+     * 笔记模式流式生成（FR-01 / FR-02）。
+     *
+     * <p>与 {@link #doChatByStream(String, String, UUID, boolean, boolean)} 同构，但有三个刻意的差别：
+     * <ol>
+     *   <li>走 {@link #noteChatClient}，系统提示词是 NOTE_PROMPT（成篇输出，不追问）；</li>
+     *   <li>不挂工具、不挂 RAG —— 生成笔记时联网搜索会引入外部内容，而笔记的原料应当只有这轮对话；</li>
+     *   <li>不需要 userId：没有检索也就没有按用户过滤的需求。</li>
+     * </ol>
+     *
+     * <p>仍然使用 .content() 而不是事件流：笔记没有来源与工具可展示，
+     * 包成 ChatEvent 只会让 ChatService 多一层拆包。落库与 note 帧由调用方（ChatService）负责。
+     */
+    public Flux<String> doNoteByStream(String message, String chatId) {
+        return noteChatClient.prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .stream()
+                .content();
     }
 
     @Resource(name = "chatWebTools")
