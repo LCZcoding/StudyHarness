@@ -35,6 +35,23 @@ const routes = [
         meta: { requiresAuth: true }
       },
       {
+        // 笔记列表页：所有对话里生成的笔记集中在这里（FR-14）。
+        // 静态段必须排在 notes/:messageId 之前，免得以后有人改成前缀匹配时被动态段吃掉。
+        path: 'notes',
+        name: 'notes',
+        component: () => import('../views/NotesView.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        // 笔记详情页：一条 AI 生成的笔记就是一条 NOTE 消息，路由参数用 messageId。
+        // 页面与这里的动态 import 必须同一提交落盘（旧版把组件造在更早的任务里，
+        // 路由 import 了一个还不存在的文件，两头互赖）。
+        path: 'notes/:messageId',
+        name: 'note-detail',
+        component: () => import('../views/NoteDetailView.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
         path: 'materials',
         name: 'materials',
         component: () => import('../views/MaterialsView.vue'),

@@ -292,8 +292,27 @@ class ConversationControllerTest {
                 .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[0].createdAt").exists())
                 .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[0].role").value("USER"))
                 .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[0].content").value(question))
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[0].type").value("QUESTION"))
                 .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].role").value("ASSISTANT"))
-                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].content").value(answer));
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].content").value(answer))
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].type").value("ANSWER"));
+    }
+
+    // T004 / TC-08：历史接口必须把 NOTE 的 type 返回给前端，刷新后才认得出笔记卡片
+    @Test
+    void messages_returnsNoteType() throws Exception {
+        UUID userId = newUser("t-msg-note-" + UUID.randomUUID());
+        UUID conversationId = newConversation(userId, "FREE_CHAT");
+        String note = "# 指针\n\n笔记正文。";
+        messageService.appendNoteRound(conversationId, "整理一下指针", note);
+
+        mockMvc.perform(get("/conversations/" + conversationId + "/messages")
+                        .sessionAttr(SessionKeys.USER_ID, userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + ".length()").value(2))
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[0].type").value("QUESTION"))
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].type").value("NOTE"))
+                .andExpect(jsonPath("$." + ConversationKeys.MESSAGES + "[1].content").value(note));
     }
 
     // ⑤用例 8：路径变量不是 UUID → 400 + {"message":"conversationId 不合法"}（§2.1 新处理器的看门狗）

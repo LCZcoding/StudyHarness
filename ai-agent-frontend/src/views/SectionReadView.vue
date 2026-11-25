@@ -22,7 +22,16 @@
             {{ formatChars(detail.chars) }}
           </p>
 
-          <div class="prose" v-html="contentHtml"></div>
+          <!-- T017：正文与批注两栏交给 T016 的共享组件；阅读页只读，不显示编辑按钮。
+               :key 让翻页时重建组件，清空上一章的批注列表与折叠状态。 -->
+          <AnnotatableDoc
+            :key="detail.knowledgeItemId"
+            :markdown="contentMarkdown"
+            :target-type="'SECTION'"
+            :target-id="detail.knowledgeItemId"
+            :body-editable="false"
+            @unauthorized="onUnauthorized"
+          />
         </div>
       </article>
 
@@ -76,8 +85,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/PageHeader.vue'
+import AnnotatableDoc from '../components/AnnotatableDoc.vue'
 import { getSection, listDocuments } from '../api/knowledge.js'
-import { renderMarkdown } from '../utils/markdown.js'
 import { generate as generateQuiz } from '../api/quiz.js'
 import { redirectOn401, messageOf } from '../utils/apiError.js'
 
@@ -117,11 +126,11 @@ const nextSection = computed(() => {
 })
 
 /**
- * 正文是 markdown：统一走 marked + DOMPurify（与聊天 / 判分同一条渲染链路），
- * 代码块、表格、列表、引用都能正常渲染，不再把 ``` 围栏原样显示成纯文本。
- * content 首行通常是 "## 章节标题"，与顶部标题重复，属于已知情况，这里只跳过这一行
+ * 交给 AnnotatableDoc 的是**原始 markdown 文本**，不是渲染后的整篇 HTML（C8）：
+ * 组件要按顶层块逐块切分并挂 data-block-key，整篇 HTML 无法定位段落。
+ * content 首行通常是 "## 章节标题"，与顶部标题重复，属于已知情况，这里只跳过这一行。
  */
-const contentHtml = computed(() => {
+const contentMarkdown = computed(() => {
   const content = detail.value?.content
   if (!content) return ''
   const lines = content.split(/\r?\n/)
@@ -131,8 +140,13 @@ const contentHtml = computed(() => {
     // 跳过与页面标题重复的首行
     if (m && m[1].trim() === detail.value.title) lines.splice(first, 1)
   }
-  return renderMarkdown(lines.join('\n'))
+  return lines.join('\n')
 })
+
+/** 组件不引 router：批注接口 401 时由父页面用项目统一逻辑跳登录并带 redirect。 */
+function onUnauthorized() {
+  redirectOn401({ response: { status: 401 } }, router, route)
+}
 
 async function load(id) {
   loading.value = true
@@ -274,12 +288,13 @@ watch(
   font-size: 12.5px;
 }
 
-/* ---------- 正文：窄栏 + 大行距，阅读优先 ---------- */
+/* ---------- 正文：两栏（C9）；markdown 排版由 AnnotatableDoc 自带 ---------- */
 .reader {
   flex: 1;
 }
 .reader-inner {
-  max-width: 720px;
+  /* 原单栏 720px 放不下两栏；组件内 @media(max-width:1024px) 会把右栏下移 */
+  max-width: 1200px;
   margin: 0 auto;
   padding: 40px 32px 56px;
 }
@@ -292,111 +307,8 @@ watch(
   margin: 0 6px;
   color: rgba(0, 0, 0, 0.18);
 }
-.prose {
-  font-size: 15.5px;
-  line-height: 1.85;
-  color: #1f2023;
-}
-/* ---------- markdown 渲染排版：v-html 产物用 :deep 穿透 ---------- */
-.prose :deep(p) {
-  margin: 0 0 1.15em;
-  overflow-wrap: anywhere;
-}
-.prose :deep(h1),
-.prose :deep(h2),
-.prose :deep(h3),
-.prose :deep(h4),
-.prose :deep(h5),
-.prose :deep(h6) {
-  margin: 2em 0 0.7em;
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.prose :deep(h1) { font-size: 22px; }
-.prose :deep(h2) { font-size: 20px; }
-.prose :deep(h3) { font-size: 19px; }
-.prose :deep(h4) { font-size: 17px; }
-.prose :deep(h5),
-.prose :deep(h6) { font-size: 15.5px; }
-.prose :deep(> :first-child) {
-  margin-top: 0;
-}
-.prose :deep(ul),
-.prose :deep(ol) {
-  margin: 0 0 1.15em;
-  padding-left: 1.5em;
-}
-.prose :deep(li) {
-  margin: 0.35em 0;
-}
-.prose :deep(li > p) {
-  margin: 0;
-}
-.prose :deep(strong) {
-  font-weight: 600;
-  color: var(--ink);
-}
-.prose :deep(a) {
-  color: var(--brand-lit);
-  text-decoration: none;
-}
-.prose :deep(a:hover) {
-  text-decoration: underline;
-}
-.prose :deep(blockquote) {
-  margin: 0 0 1.15em;
-  padding: 2px 0 2px 14px;
-  border-left: 3px solid rgba(0, 0, 0, 0.12);
-  color: var(--ink-soft);
-}
-.prose :deep(hr) {
-  margin: 2em 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-}
-.prose :deep(table) {
-  display: block;
-  width: 100%;
-  margin: 0 0 1.15em;
-  border-collapse: collapse;
-  overflow-x: auto;
-  font-size: 14px;
-  line-height: 1.7;
-}
-.prose :deep(th),
-.prose :deep(td) {
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  text-align: left;
-}
-.prose :deep(th) {
-  background: #f7f7f8;
-  font-weight: 600;
-}
-/* 行内代码与代码块分开：行内只做浅底，代码块才加外框与横向滚动 */
-.prose :deep(code) {
-  padding: 1px 5px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.05);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-}
-.prose :deep(pre) {
-  margin: 0 0 1.15em;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #f7f7f8;
-  overflow-x: auto;
-}
-.prose :deep(pre code) {
-  padding: 0;
-  background: none;
-  font-size: 13px;
-  line-height: 1.7;
-}
+/* 原单栏正文及其整组 markdown 排版规则已删除：逐块渲染 + 高亮样式
+   全部由 AnnotatableDoc 的 scoped 样式负责，页面这里不再重复定义（C10）。 */
 
 /* ---------- 底部操作栏：吸底，翻页在左、主操作在右 ---------- */
 .action-bar {
@@ -552,9 +464,6 @@ watch(
   }
   .cta .btn {
     flex: 1;
-  }
-  .prose {
-    font-size: 15px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

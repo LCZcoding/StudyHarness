@@ -1,0 +1,1290 @@
+[
+  {
+    "query": "Java 里的 GC 在什么情况下会被触发？调用 System.gc() 会立刻执行回收吗？",
+    "answer": "内存不足时：当JVM检测到堆内存不足，无法为新的对象分配内存时，会自动触发垃圾回收。\n手动请求：虽然垃圾回收是自动的，开发者可以通过调用 System.gc() 或Runtime.getRuntime().gc() 建议JVM 进行垃圾回收。不过这只是一个建议，并不能保证立即执行。\n对象数量或内存使用达到阈值：垃圾收集器内部实现了一些策略，以监控对象的创建和内存使用，达到某个阈值时触发垃圾回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 + 什么是Java里的垃圾回收？如何触发垃圾回收？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "我写 Java 代码从来不手动释放对象占的内存，这些内存最后是靠什么机制被释放掉的？",
+    "answer": "垃圾回收（Garbage Collection, GC）是自动管理内存的一种机制，它负责自动释放不再被程序引用的对象所占用的内存，这种机制减少了内存泄漏和内存管理错误的可能性。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 + 什么是Java里的垃圾回收？如何触发垃圾回收？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "可达性分析里说的 GC Roots 一般包括哪些对象？",
+    "answer": "GC Roots对象包括：虚拟机栈（栈帧中的本地变量表）中引用的对象、方法区中类静态属性引用的对象、本地方法栈中JNI（Java Native Interface）引用的对象、活跃线程的引用等。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 判断垃圾的方法有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "两个对象互相引用、但外面已经没人用它们了，靠给对象记引用个数的办法为什么回收不掉它们？",
+    "answer": "缺点：不能解决循环引用的问题，即两个对象相互引用，但不再被其他任何对象引用，这时引用计数器不会为0，导致对象无法被回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 判断垃圾的方法有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "C 语言里要自己申请和释放内存，Java 为什么不这么干？它想解决什么问题？",
+    "answer": "JVM有垃圾回收机制的原因是为了解决内存管理的问题。在传统的编程语言中，开发人员需要手动分配和释放内存，这可能导致内存泄漏、内存溢出等问题。而Java作为一种高级语言，旨在提供更简单、更安全的编程环境，因此引入了垃圾回收机制来自动管理内存。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收算法是什么，是为了解决了什么问题？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "为什么新生代适合用复制算法，而老年代一般用标记-清除或标记-整理？",
+    "answer": "因为对象的生命周期不同，新生代（刚创建的对象）存活率低，老年代（存活久的对象）存活率高。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · java的gc 机制你知道哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "程序里的对象大多很快就没人用了，少数能活很久，JVM 是怎么利用这个规律设计回收策略的？",
+    "answer": "实际中，JVM 会分代使用这些算法。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · java的gc 机制你知道哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "我们的服务堆内存很大，既想 GC 停顿短又想吞吐高，选哪种回收器比较合适？它凭什么做到？",
+    "answer": "G1则把内存分成多个区域，优先回收垃圾多的区域，平衡吞吐量和延迟，适合大内存场景。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · java的gc 机制你知道哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "应用"
+  },
+  {
+    "query": "标记-清除算法主要有哪两个缺陷？",
+    "answer": "标记-清除算法有两个缺陷，一个是效率问题，标记和清除的过程效率都不高，另外一个就是，清除结束后会造成大量的碎片空间。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收算法有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "有种回收算法把内存一分为二、每次只用一半，活着的对象搬到另一半，它解决了什么问题又带来了什么新问题？",
+    "answer": "因为每次在申请内存时，都只能使用一半的内存空间。内存利用率严重不足。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收算法有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "Parallel Scavenge 收集器追求的「吞吐量」是怎么计算的？",
+    "answer": "吞吐量= 用户线程时间/(用户线程时间+GC线程时间)，高吞吐量可以高效率的利用CPU时间，尽快完成程序的运算任务，适合后台应用等对交互相应要求不高的场景；",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收器有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "我的应用对每次回收造成的停顿时间特别敏感，应该优先看哪一款收集器？",
+    "answer": "CMS(Concurrent Mark Sweep)收集器（标记-清除算法）：老年代并行收集器，以获取最短回收停顿时间为目标的收集器，具有高并发、低停顿的特点，追求最短GC回收停顿时间。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收器有哪些？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "G1 混合回收的哪几个阶段是 STW 的？",
+    "answer": "再标记阶段：重新标记那些在并发标记阶段发生变化的对象。该阶段是STW的。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 标记清除算法的缺点是什么？ + 垃圾回收算法哪些阶段会stop the world?",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "GC 的某些阶段会把应用线程完全冻住（STW），为什么并发标记阶段耗时长一点反而不用太担心？",
+    "answer": "并发标记耗时相对长很多，但因为不是STW，所以我们不太关心该阶段耗时的长短。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 标记清除算法的缺点是什么？ + 垃圾回收算法哪些阶段会stop the world?",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "线上服务用 G1 之后停顿时间还是偏长，调优时最应该盯哪个环节？",
+    "answer": "转移阶段要处理所有存活的对象，耗时会较长。\n\n因此，G1停顿时间的瓶颈主要是标记-复制中的转移阶段STW。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 标记清除算法的缺点是什么？ + 垃圾回收算法哪些阶段会stop the world?",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "应用"
+  },
+  {
+    "query": "Minor GC 清理的是堆里的哪部分区域？什么时候会被触发？",
+    "answer": "触发条件：当Eden区空间不足时，JVM会触发一次Minor GC，将Eden区和一个Survivor区中的存活对象移动到另一个Survivor区或老年代（Old Generation）。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · minorGC、majorGC、fullGC的区别，什么场景触发full GC",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "什么情况下 JVM 会把整个堆连同年轻代老年代一起彻底清一遍？这种操作为什么要尽量避免？",
+    "answer": "直接调用System.gc()或Runtime.getRuntime().gc()方法时，虽然不能保证立即执行，但JVM会尝试执行Full GC。\nMinor GC（新生代垃圾回收）时，如果存活的对象无法全部放入老年代，或者老年代空间不足以容纳存活的对象，则会触发Full GC，对整个堆内存进行回收。\n当永久代（Java 8之前的版本）或元空间（Java 8及以后的版本）空间不足时。\n特点：Full GC是最昂贵的操作，因为它需要停止所有的工作线程（Stop The World），遍历整个堆内存来查找和回收不再使用的对象，因此应尽量减少Full GC的触发。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · minorGC、majorGC、fullGC的区别，什么场景触发full GC",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "监控发现服务频繁整堆回收导致长时间停顿，可能有哪些触发原因？",
+    "answer": "Minor GC（新生代垃圾回收）时，如果存活的对象无法全部放入老年代，或者老年代空间不足以容纳存活的对象，则会触发Full GC，对整个堆内存进行回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · minorGC、majorGC、fullGC的区别，什么场景触发full GC",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "应用"
+  },
+  {
+    "query": "CMS 产生的浮动垃圾是怎么回事？浮动垃圾过多会导致什么后果？",
+    "answer": "区别五: CMS会产生浮动垃圾CMS产生浮动垃圾过多时会退化为serial old，效率低，因为在上图的第四阶段，CMS清除垃圾时是并发清除的，这个时候，垃圾回收线程和用户线程同时工作会产生浮动垃圾，也就意味着CMS垃圾回收器必须预留一部分内存空间用于存放浮动垃圾而G1没有浮动垃圾，G1的筛选回收是多个垃圾回收线程并行gc的，没有浮动垃圾的回收，在执行‘并发清理’步骤时，用户线程也会同时产生一部分可回收对象，但是这部分可回收对象只能在下次执行清理是才会被回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收器CMS 和G1的区别？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "有两种常见的老年代回收器，一个回收完容易留下碎片、一个会把存活对象归拢，它们在算法上差在哪？",
+    "answer": "区别三：垃圾碎片CMS收集器是使用“标记-清除”算法进行的垃圾回收，容易产生内存碎片G1收集器使用的是“标记-整理”算法，进行了空间整合，没有内存空间碎片。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 垃圾回收器CMS 和G1的区别？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "G1 靠什么机制让用户可以控制回收的停顿时间？",
+    "answer": "停顿时间可控： G1可以通过设置预期停顿时间（Pause Time）来控制垃圾收集时间避免应用雪崩现象。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 什么情况下使用CMS，什么情况使用G1? + G1回收器的特色是什么？ + GC只会对堆进行GC吗？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "直问"
+  },
+  {
+    "query": "堆内存好几个 G 的服务，想兼顾低停顿和不错的吞吐量，该选哪种回收器？",
+    "answer": "大堆内存：适用于需要管理大内存堆的场景，能够有效处理数GB以上的堆内存。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 什么情况下使用CMS，什么情况使用G1? + G1回收器的特色是什么？ + GC只会对堆进行GC吗？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "改述"
+  },
+  {
+    "query": "有人说垃圾回收只管堆、方法区里的类信息永远不会被清理，这种说法对吗？",
+    "answer": "JVM 的垃圾回收器不仅仅会对堆进行垃圾回收，它还会对方法区进行垃圾回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 垃圾回收 · 什么情况下使用CMS，什么情况使用G1? + G1回收器的特色是什么？ + GC只会对堆进行GC吗？",
+    "knowledgeItemId": "0a44c023-c2df-4965-a4f3-28181deed8ae",
+    "type": "应用"
+  },
+  {
+    "query": "ArrayList 和 Vector 在默认扩容策略上有什么不同？",
+    "answer": "Vector 默认的扩容策略是翻倍（如果没有指定增长因子的话），比如初始容量10，满了之后会扩容到20。",
+    "expectTitle": "Java集合面试题 · List（2） + arraylist和vector 区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "多个线程同时往一个普通动态数组容器里写数据，可能出什么乱子？换成那个老牌的同步容器为什么就没事？",
+    "answer": "首先是线程安全性，这是最核心的区别。Vector 是线程安全的，它的大部分方法（比如add、remove、get 等）都被synchronized 修饰，这意味着多线程环境下操作Vector 时，不需要额外处理同步问题。而 ArrayList 没有任何同步机制，是非线程安全的，在多线程并发修改时可能会出现数据不一致的问题，比如抛出 ConcurrentModificationException 异常。",
+    "expectTitle": "Java集合面试题 · List（2） + arraylist和vector 区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "纯单线程场景下做大量列表读写，ArrayList 和 Vector 选哪个？为什么？",
+    "answer": "由于Vector 的方法需要加锁释放锁，在单线程环境下，它的操作效率通常比 ArrayList 低。",
+    "expectTitle": "Java集合面试题 · List（2） + arraylist和vector 区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "应用"
+  },
+  {
+    "query": "想给 ArrayList 加上线程安全能力，有哪几种现成做法？",
+    "answer": "使用Collections类的synchronizedList方法将ArrayList包装成线程安全的List：\n使用CopyOnWriteArrayList类代替ArrayList，它是一个线程安全的List实现：\n使用Vector类代替ArrayList，Vector是线程安全的List实现：",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList线程安全吗？把ArrayList变成线程安全有哪些方法？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "我的列表在多线程下丢数据，又不想自己写锁，有什么类或者包装办法能直接顶上？",
+    "answer": "使用Collections类的synchronizedList方法将ArrayList包装成线程安全的List：\n使用CopyOnWriteArrayList类代替ArrayList，它是一个线程安全的List实现：\n使用Vector类代替ArrayList，Vector是线程安全的List实现：",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList线程安全吗？把ArrayList变成线程安全有哪些方法？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "多线程并发 add 时，ArrayList 里为什么会出现没添加过的 null 值？",
+    "answer": "部分值为null：当线程1走到了扩容那里发现当前size是9，而数组容量是10，所以不用扩容，这时候cpu让出执行权，线程2也进来了，发现size是9，而数组容量是10，所以不用扩容，这时候线程1继续执行，将数组下标索引为9的位置set值了，还没有来得及执行size++，这时候线程2也来执行了，又把数组下标索引为9的位置set了一遍，这时候两个先后进行size++，导致下标索引10的地方就为null了。",
+    "expectTitle": "Java集合面试题 · List（2） · 为什么ArrayList不是线程安全的，具体来说是哪里不安全？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "两个线程同时往列表加数据，最后统计的元素个数比实际加的少，根子上是哪一步操作出了问题？",
+    "answer": "size与我们add的数量不符：这个基本上每次都会发生，这个理解起来也很简单，因为size++本身就不是原子操作，可以分为三步：获取size的值，将size的值加1，将新的size值覆盖掉原来的，线程1和线程2拿到一样的size值加完了同时覆盖，就会导致一次没有加上，所以肯定不会与我们add的数量保持一致的；",
+    "expectTitle": "Java集合面试题 · List（2） · 为什么ArrayList不是线程安全的，具体来说是哪里不安全？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "压测时并发往列表写数据，偶发数组下标越界异常，这是哪种并发时序造成的？",
+    "answer": "索引越界异常：线程1走到扩容那里发现当前size是9，数组容量是10不用扩容，cpu让出执行权，线程2也发现不用扩容，这时候数组的容量就是10，而线程1 set完之后size++，这时候线程2再进来size就是10，数组的大小只有10，而你要设置下标索引为10的就会越界（数组的下标索引从0开始）；",
+    "expectTitle": "Java集合面试题 · List（2） · 为什么ArrayList不是线程安全的，具体来说是哪里不安全？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "应用"
+  },
+  {
+    "query": "ArrayList 和 LinkedList 各自适合什么场景？",
+    "answer": "ArrayList适用于需要频繁访问集合元素的场景。",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList 和LinkedList 的应用场景？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "我的列表基本只查不改、经常按下标取数，选哪种实现？如果改成天天在中间插来删去呢？",
+    "answer": "ArrayList适用于需要频繁访问集合元素的场景。它基于数组实现，可以通过索引快速访问元素，因此在按索引查找、遍历和随机访问元素的操作上具有较高的性能。\nLinkedList适用于频繁进行插入和删除操作的场景。它基于链表实现，插入和删除元素的操作只需要调整节点的指针，因此在插入和删除操作上具有较高的性能。",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList 和LinkedList 的应用场景？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "ArrayList 触发扩容时内部具体做了哪几步？为什么建议创建时就预估好容量？",
+    "answer": "计算新的容量：一般情况下，新的容量会扩大为原容量的1.5倍（在JDK 10之后，扩容策略做了调整），然后检查是否超过了最大容量限制。\n创建新的数组：根据计算得到的新容量，创建一个新的更大的数组。\n将元素复制：将原来数组中的元素逐个复制到新数组中。\n更新引用：将ArrayList内部指向原数组的引用指向新数组。\nArrayList的扩容操作涉及到数组的复制和内存的重新分配，所以在频繁添加大量元素时，扩容操作可能会影响性能。为了减少扩容带来的性能损耗，可以在初始化ArrayList时预分配足够大的容量，避免频繁触发扩容操作。",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList的扩容机制说一下",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "为什么这个动态数组每次装不下时偏偏扩成 1.5 倍，而不是简单粗暴翻两倍？",
+    "answer": "之所以扩容是1.5 倍，是因为1.5 可以充分利用移位操作，减少浮点数或者运算时间和运算次数。",
+    "expectTitle": "Java集合面试题 · List（2） · ArrayList的扩容机制说一下",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "CopyOnWriteArrayList 写入时靠什么保证线程安全？读操作为什么可以完全不加锁？",
+    "answer": "在写入操作时，加了一把互斥锁ReentrantLock以保证线程安全。\n在我们执行替换地址操作之前，读取的是老数组的数据，数据是有效数据；执行替换地址操作之后，读取的是新数组的数据，同样也是有效数据，而且使用该方式能比读写都加锁要更加的效率。",
+    "expectTitle": "Java集合面试题 · List（2） · 线程安全的List， CopyonWriteArraylist是如何实现线程安全的",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "有种列表写数据时先把旧数据整份拷贝、改完再整体换掉，这样做为什么读写互不干扰？",
+    "answer": "在我们执行替换地址操作之前，读取的是老数组的数据，数据是有效数据；",
+    "expectTitle": "Java集合面试题 · List（2） · 线程安全的List， CopyonWriteArraylist是如何实现线程安全的",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "读多写少的并发场景想避免读写抢锁，该用哪种列表？它靠什么保证新数组对其他线程可见？",
+    "answer": "CopyOnWriteArrayList底层也是通过一个数组保存数据，使用volatile关键字修饰数组，保证当前线程对数组对象重新赋值后，其他线程可以及时感知到。",
+    "expectTitle": "Java集合面试题 · List（2） · 线程安全的List， CopyonWriteArraylist是如何实现线程安全的",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "应用"
+  },
+  {
+    "query": "为什么 List<int> 这种写法会编译报错？正确的写法是什么？",
+    "answer": "List<> 等泛型集合类要求填充的必须是引用类型（对象类型），而不能直接使用基本数据类型（如int、char、 double 等），否则会编译报错。\n解决的办法是，使用基本数据类型对应的包装类。",
+    "expectTitle": "Java集合面试题 · List（2） · List<>里面填基本数据类型为什么会报错？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "泛型集合为什么不能直接装 int 这种基本类型？这和编译后类型被擦除有什么关系？",
+    "answer": "这是因为Java 的泛型机制在设计时就只支持引用类型，不支持基本数据类型。\n泛型的类型擦除机制：Java 泛型在编译后会被擦除为Object 类型，而 Object 只能接收引用类型，不能接收基本数据类型。",
+    "expectTitle": "Java集合面试题 · List（2） · List<>里面填基本数据类型为什么会报错？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "List 转数组时为什么推荐带参的 toArray(T[]) 而不是无参版本？",
+    "answer": "无参toArray ()（返回Object []，不推荐）\n\n这种方式返回的是Object 数组，若强转成String [] 会抛ClassCastException，仅适合不确定数组类型的场景，基本不用。",
+    "expectTitle": "Java集合面试题 · List（2） · List和数组如何互相转换？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "我用数组转出来的列表，一 add 元素就报错，这是为什么？",
+    "answer": "Arrays.asList()返回的List 不是ArrayList，而是Arrays 的内部类，不支持添加/ 删除操作，想修改就套一层 ArrayList。",
+    "expectTitle": "Java集合面试题 · List（2） · List和数组如何互相转换？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "用 Arrays.asList 转换一个 int 数组，得到的 List 长度却是 1，怎么回事？正确做法是什么？",
+    "answer": "基本类型数组（int []、long []）直接用Arrays.asList()会把整个数组当成一个元素，必须手动装箱或用 Stream 流转换为包装类（Integer）的List。",
+    "expectTitle": "Java集合面试题 · List（2） · List和数组如何互相转换？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "应用"
+  },
+  {
+    "query": "List 和 Set 最本质的两个区别是什么？",
+    "answer": "Java 里 List 和Set 作为Collection 的核心子接口，最核心的区别就是「是否允许元素重复」和「是否保证有序」，原理和使用场景也因此完全不同。",
+    "expectTitle": "Java集合面试题 · List（2） · Set · Java 集合中List 和Set区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "要存一份用户标签，同一个人不能出现两次，也不需要按下标取值，该用哪类集合？",
+    "answer": "再看Set，它的核心是「元素唯一」，不允许重复，最多只能存一个null 值，而且默认不保证元素的存储顺序（除了TreeSet、LinkedHashSet 这类特殊实现）。",
+    "expectTitle": "Java集合面试题 · List（2） · Set · Java 集合中List 和Set区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "购物车明细要保留商品添加顺序、还可能重复加同款，用哪类集合存合适？为什么？",
+    "answer": "先说说List，它是有序的集合，这里的“有序”指的是元素的存储顺序和添加顺序一致，而且允许元素重复，甚至可以存多个null 值。",
+    "expectTitle": "Java集合面试题 · List（2） · Set · Java 集合中List 和Set区别是什么？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "应用"
+  },
+  {
+    "query": "TreeSet 是怎么做到插入时自动排好序的？自定义对象想被排序要满足什么条件？",
+    "answer": "TreeSet 底层是红黑树，插入时自动排序，支持「自然排序」（元素实现Comparable）和「自定义Comparator 排序」。",
+    "expectTitle": "Java集合面试题 · List（2） · Set · 如何对Set排序？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "直问"
+  },
+  {
+    "query": "往某个集合里乱序丢几个整数，遍历出来却自动从小到大排好了，背后靠的是什么？",
+    "answer": "TreeSet 底层是红黑树，插入时自动排序，支持「自然排序」（元素实现Comparable）和「自定义Comparator 排序」。",
+    "expectTitle": "Java集合面试题 · List（2） · Set · 如何对Set排序？",
+    "knowledgeItemId": "44926fbc-59fa-46da-820d-6dc339ed33fe",
+    "type": "改述"
+  },
+  {
+    "query": "JDK 1.8 里 HashMap 底层由哪几种数据结构组合而成？",
+    "answer": "HashMap是基于哈希表实现的Map，它根据键的哈希值来存储和获取键值对，JDK 1.8中是用数组+链表+红黑树来实现的。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "我想让键值对集合遍历时保持插入的先后顺序，该用哪个实现？它额外做了什么？",
+    "answer": "LinkedHashMap继承自HashMap，它在HashMap的基础上，使用双向链表维护了键值对的插入顺序或访问顺序，使得迭代顺序与插入顺序或访问顺序一致。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "遍历 Map 时想同时拿到键和值，推荐用哪种方式？",
+    "answer": "使用for-each循环和entrySet()方法：这是一种较为常见和简洁的遍历方式，它可以同时获取Map中的键和值",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 如何对map进行快速遍历？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "遍历键值对的过程中需要顺手删掉一些条目，用哪种遍历方式才不会出事？",
+    "answer": "使用迭代器：通过获取Map的entrySet()或keySet()的迭代器，也可以实现对Map的遍历，这种方式在需要删除元素等操作时比较有用。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 如何对map进行快速遍历？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "JDK 1.8 中链表在什么条件下转成红黑树？数量少到什么程度会转回来？",
+    "answer": "如果多个键映射到同一个槽位，它们会以链表的形式存储在同一个槽位上，因为链表的查询时间是O(n)，所以冲突很严重，一个索引上的链表非常长，效率就很低了。\n\n所以在JDK 1.8 版本的时候做了优化，当一个链表的长度超过8的时候就转换数据结构，不再使用链表存储，而是使用红黑树，查找时使用红黑树，时间复杂度O（log n），可以提高查询性能，但是在数量较少时，即数量小于6 时，会将红黑树转换回链表。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · HashMap实现原理介绍一下？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "同一个位置挂了很长一串元素时，为什么查询会越来越慢？1.8 是怎么缓解的？",
+    "answer": "如果多个键映射到同一个槽位，它们会以链表的形式存储在同一个槽位上，因为链表的查询时间是O(n)，所以冲突很严重，一个索引上的链表非常长，效率就很低了。\n所以在JDK 1.8 版本的时候做了优化，当一个链表的长度超过8的时候就转换数据结构，不再使用链表存储，而是使用红黑树，查找时使用红黑树，时间复杂度O（log n），可以提高查询性能，但是在数量较少时，即数量小于6 时，会将红黑树转换回链表。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · HashMap实现原理介绍一下？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "AVL 树和红黑树在平衡要求上有什么差别？HashMap 为什么选后者？",
+    "answer": "红黑树仅保证黑色高度平衡（不是严格的节点高度平衡），旋转次数远少于AVL 树，插入 / 删除的平均时间复杂度仍为O (logn)，但实际执行效率更高。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · HashMap链表发生转换后为什么不用平衡二叉树？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "有一种树查得更快但每次增删几乎都要旋转调整，为什么对增删频繁的哈希容器不划算？",
+    "answer": "插入 / 删除时会触发大量旋转操作（左旋、右旋、双旋），哪怕微小的高度差都要修正；",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · HashMap链表发生转换后为什么不用平衡二叉树？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "解决哈希冲突的常见方法有哪些？开放寻址法具体有哪些做法？",
+    "answer": "链接法：使用链表或其他数据结构来存储冲突的键值对，将它们链接在同一个哈希桶中。\n开放寻址法：在哈希表中找到另一个可用的位置来存储冲突的键值对，而不是存储在链表中。常见的开放寻址方法包括线性探测、二次探测和双重散列。\n再哈希法（Rehashing）：当发生冲突时，使用另一个哈希函数再次计算键的哈希值，直到找到一个空槽来存储键值对。\n哈希桶扩容：当哈希冲突过多时，可以动态地扩大哈希桶的数量，重新分配键值对，以减少冲突的概率。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 了解的哈希冲突解决方法有哪些？ + HashMap是线程安全的吗？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "多线程下往这个普通哈希容器里写数据，可能会出什么问题？想安全应该用哪个替代品？",
+    "answer": "JDK 1.8 HashMap 采用数组+ 链表+ 红黑二叉树的数据结构，优化了1.7 中数组扩容的方案，解决了Entry 链死循环和数据丢失问题。但是多线程背景下，put 方法存在数据覆盖的问题。\n多线程环境可以使用Collections.synchronizedMap同步加锁的方式，还可以使用HashTable，但是同步的方式显然性能不达标，而ConurrentHashMap更适合高并发场景使用。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 了解的哈希冲突解决方法有哪些？ + HashMap是线程安全的吗？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 的 get 定位到数组槽位后，接下来怎么找到目标节点？",
+    "answer": "// 定位到元素在数组中的位置后，我们开始沿着这个位置的链表或者树开始遍历寻找 // 注：JDK1.8之前，HashMap的实现是数组+链表，到1.8开始变成数组+链表+红黑树\n// 首先判断这个位置的第一个节点的key值是否与参数的key值相等， // 若相等，则这个节点就是我们要找的节点，将其返回",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 在Java 的hashmap 中get一个元素的过程是怎样的？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "按键取值定位到数组位置之后，接下来是沿着什么结构继续找目标元素的？",
+    "answer": "// 定位到元素在数组中的位置后，我们开始沿着这个位置的链表或者树开始遍历寻找 // 注：JDK1.8之前，HashMap的实现是数组+链表，到1.8开始变成数组+链表+红黑树",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · 在Java 的hashmap 中get一个元素的过程是怎样的？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 的 put 算出索引位置后，接下来的处理流程是怎样的？",
+    "answer": "如果为空，则直接在该位置创建一个新的Entry对象来存储键值对。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · hashmap的put过程介绍一下",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "put 时槽位上已经挂了一串节点，怎么判断这次放进去的是更新还是新增？",
+    "answer": "如果找到了相同的键，则使用新的值取代旧的值，即更新键对应的值。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · hashmap的put过程介绍一下",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "往哈希容器里 put 一个已经存在的键，会发生什么？旧值还在吗？",
+    "answer": "如果相同，则表示找到了相同的键，直接将新的值替换旧的值，完成更新操作。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · hashmap的put过程介绍一下",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "应用"
+  },
+  {
+    "query": "往哈希容器里存值和取值时，底层第一步都是先拿键去做什么处理来定位桶？",
+    "answer": "存储对象时，我们将K/V传给put方法时，它调用hashCode计算hash从而得到bucket位置，进一步存储， HashMap会根据当前bucket的占用情况自动调整容量(超过Load Facotr则resize为原来的2倍)。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · HashMap的put(key,val)和get(key)过程",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "拿 null 当 HashMap 的键去 get，会发生什么？",
+    "answer": "空指针异常（NullPointerException）：如果你尝试用 null 作为键调用 get 方法，而 HashMap 没有被初始化（即为null），那么会抛出空指针异常。不过，如果HashMap 已经初始化，使用 null 作为键是允许的，因为HashMap 支持null 键。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · hashmap 调用get方法一定安全吗？ + HashMap一般用什么做Key？为啥String适合做Key呢？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "直问"
+  },
+  {
+    "query": "为什么大家习惯拿字符串当哈希表的键，而不爱用字段可以随意改的对象？",
+    "answer": "用 string 做key，因为String对象是不可变的，一旦创建就不能被修改，这确保了Key的稳定性。",
+    "expectTitle": "Java集合面试题 · Map（1） · Map · hashmap 调用get方法一定安全吗？ + HashMap一般用什么做Key？为啥String适合做Key呢？",
+    "knowledgeItemId": "63b24b58-2fac-4e16-89ee-0655c1e51b62",
+    "type": "改述"
+  },
+  {
+    "query": "虚拟机执行 new 指令创建对象时，第一步要做什么检查？",
+    "answer": "1. 类加载检查：虚拟机遇到一条new 指令时，首先将去检查这个指令的参数是否能在常量池中定位到一个类的符号引用，并且检查这个符号引用代表的类是否已被加载过、解析和初始化过。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 + 创建对象的过程？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "为什么刚 new 出来的对象，字段不赋值就能直接读，读到的是 0 或 null 而不是脏数据？",
+    "answer": "3. 初始化零值：内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头），这一步操作保证了对象的实例字段在Java 代码中可以不赋初始值就直接使用，程序能访问到这些字段的数据类型所对应的零值。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 + 创建对象的过程？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "Java 默认的几种类加载器分别负责加载哪类代码？",
+    "answer": "启动类加载器（Bootstrap Class Loader）：这是最顶层的类加载器，负责加载Java的核心库（如位于 jre/lib/rt.jar中的类），它是用C++编写的，是JVM的一部分。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 对象的生命周期 + 类加载器有哪些？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "想从网络或者加密文件里加载 class 字节码，该用什么办法实现？",
+    "answer": "自定义类加载器（Custom Class Loader）：开发者可以根据需求定制类的加载方式，比如从网络加载class 文件、数据库、甚至是加密的文件中加载类等。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 对象的生命周期 + 类加载器有哪些？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "双亲委派机制下，一个类加载请求是如何逐级传递的？",
+    "answer": "当某个类加载器（比如自定义加载器）收到加载类的请求时，它不会先自己动手，而是把请求“委派”给父加载器；父加载器同样会继续委派给它的父加载器，直到传到最顶层的启动类加载器。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · Java 中双亲委派是什么？有啥用？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "如果我自己写了个和 JDK 核心类同名的类，运行时实际加载的是哪一份？为什么？",
+    "answer": "举个例子：我们自己写了一个java.lang.String类，当AppClassLoader要加载它时，会先委派给Extension ClassLoader，再委派给Bootstrap ClassLoader。而启动类加载器发现自己已经加载过JDK 自带的String类了，就直接返回这个类，不会去加载我们自定义的String类。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · Java 中双亲委派是什么？有啥用？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "有人想自定义一个 java.lang.System 来篡改核心行为，类加载机制为什么能挡住这种攻击？",
+    "answer": "1. 保证类的唯一性和安全性：避免同一个类被不同加载器重复加载，确保核心类（如JDK 的String、Integer）不会被篡改。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · Java 中双亲委派是什么？有啥用？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "应用"
+  },
+  {
+    "query": "双亲委派模型在保证类的唯一性方面是怎么起作用的？",
+    "answer": "保证类的唯一性：通过委托机制，确保了所有加载请求都会传递到启动类加载器，避免了不同类加载器重复加载相同类的情况，保证了Java核心类库的统一性，也防止了用户自定义类覆盖核心类库的可能。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 双亲委派模型的作用",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "为什么恶意代码伪造一个和系统类同名的类也混不进 JVM？",
+    "answer": "例如，恶意代码无法自定义一个Java.lang.System类并加载到JVM中，因为这个请求会被委托给启动类加载器，而启动类加载器只会加载标准的Java库中的类。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 双亲委派模型的作用",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "类加载生命周期中「连接」阶段包含哪几个子阶段？",
+    "answer": "连接：验证、准备、解析3 个阶段统称为连接。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 讲一下类加载过程？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "类的静态变量什么时候被分配内存并赋默认值？被 final 修饰的静态字段为什么例外？",
+    "answer": "准备：为类中的静态字段分配内存，并设置默认的初始值，比如int类型初始值是0。被final修饰的 static字段不会设置，因为final在编译的时候就分配了",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 讲一下类加载过程？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "什么条件都满足了类才会被 JVM 卸载？为什么现实中类几乎卸载不掉？",
+    "answer": "卸载：一个类要被JVM卸载，条件非常苛刻，需要同时满足以下三点：\n该类所有的实例都已经被回收：这是最显而易见的前提。如果堆中还存在这个类的任何一个实例对象，那么定义这个对象的Class对象肯定不能被卸载。\n加载该类的ClassLoader已经被回收：这是最关键也是最难满足的条件。类与其加载器是双向绑定的共生关系。一个类由哪个类加载器加载，这个信息是存储在Class对象里的。要卸载一个类，必须先卸载加载它的类加载器。\n类对应的Java.lang.Class对象没有任何地方被引用：不能在任何地方通过反射（如静态字段、全局变量）、静态变量、JNI等途径引用到这个Class对象。一旦这个Class对象还存在强引用，GC就不会回收它，那么这个类也就不会被卸载。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 讲一下类加载过程？",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "应用"
+  },
+  {
+    "query": "类加载的初始化阶段具体执行哪些逻辑？",
+    "answer": "最后是初始化阶段（initialization），这一步真正去执行类初始化的代码逻辑，包括静态字段赋值的动作，以及执行类定义中的静态初始化块内的逻辑，编译器在编译阶段就会把这部分逻辑整理好，父类型的初始化逻辑优先于当前类型的逻辑。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 讲一下类的加载和双亲委派原则",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "直问"
+  },
+  {
+    "query": "如果加载阶段读到的字节码不是合法的 ClassFile 结构，会抛什么错？",
+    "answer": "如果输入数据不是ClassFile 的结构，则会抛出ClassFormatError。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 类初始化和类加载 · 讲一下类的加载和双亲委派原则",
+    "knowledgeItemId": "6ee0657d-3453-48fe-a508-32894ff05e25",
+    "type": "改述"
+  },
+  {
+    "query": "数组和集合在长度、能存的元素类型上有什么区别？",
+    "answer": "数组是固定长度的数据结构，一旦创建长度就无法改变，而集合是动态长度的数据结构，可以根据需要动态增加或减少元素。",
+    "expectTitle": "Java集合面试题 · 概念 + 数组与集合区别，用过哪些？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "直问"
+  },
+  {
+    "query": "想存一组 int 基本类型，为什么数组可以而集合不行？",
+    "answer": "数组可以包含基本数据类型和对象，而集合只能包含对象。",
+    "expectTitle": "Java集合面试题 · 概念 + 数组与集合区别，用过哪些？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "改述"
+  },
+  {
+    "query": "HashSet 底层是靠什么保证元素唯一的？",
+    "answer": "HashSet通过HashMap实现，HashMap的Key即HashSet存储的元素，所有Key都是用相同的Value，一个名为PRESENT的Object类型常量。",
+    "expectTitle": "Java集合面试题 · 概念 · 说说Java中的集合？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "直问"
+  },
+  {
+    "query": "某个集合里重复塞同一个元素，永远只保留一份，这个去重能力底层是怎么实现的？",
+    "answer": "使用Key保证元素唯一性，但不保证有序性。",
+    "expectTitle": "Java集合面试题 · 概念 · 说说Java中的集合？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "改述"
+  },
+  {
+    "query": "需要一个既去重、又能按添加顺序遍历的集合，选哪个实现？底层靠什么？",
+    "answer": "LinkedHashSet继承自HashSet，通过LinkedHashMap实现，使用双向链表维护元素插入顺序。",
+    "expectTitle": "Java集合面试题 · 概念 · 说说Java中的集合？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "应用"
+  },
+  {
+    "query": "ConcurrentHashMap 在 JDK 1.8 里执行 put 时，针对不同情况分别怎么加锁？",
+    "answer": "对于put操作，如果Key对应的数组元素为null，则通过CAS 操作（Compare and Swap）将其设置为当前值。",
+    "expectTitle": "Java集合面试题 · 概念 · Java中的线程安全的集合是什么？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "直问"
+  },
+  {
+    "query": "那个给每个方法都加同步的老哈希表，为什么现在不推荐用了？",
+    "answer": "Hashtable：线程安全的哈希表，HashTable 的加锁方法是给每个方法加上synchronized 关键字，这样锁住的是整个Table 对象，不支持null 键和值，由于同步导致的性能开销，所以已经很少被推荐使用，如果要保证线程安全的哈希表，可以用ConcurrentHashMap。",
+    "expectTitle": "Java集合面试题 · 概念 · Java中的线程安全的集合是什么？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "改述"
+  },
+  {
+    "query": "想要一个线程安全、还能按键排序的 Map，有什么可选？它底层靠什么结构？",
+    "answer": "ConcurrentSkipListMap：实现了一个基于SkipList（跳表）算法的可排序的并发集合，SkipList是一种可以在对数预期时间内完成搜索、插入、删除等操作的数据结构，通过维护多个指向其他元素的“跳跃”链接来实现高效查找。",
+    "expectTitle": "Java集合面试题 · 概念 · Java中的线程安全的集合是什么？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "应用"
+  },
+  {
+    "query": "Java 里 Collection 和 Collections 就差一个字母，它们分别是什么角色？",
+    "answer": "Collection是Java集合框架中的一个接口，它是所有集合类的基础接口。",
+    "expectTitle": "Java集合面试题 · 概念 · Collections和Collection的区别",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "改述"
+  },
+  {
+    "query": "遍历过程中需要删除元素时，应该用哪种遍历方式？",
+    "answer": "Iterator 迭代器：可以使用迭代器来遍历集合，特别适用于需要删除元素的情况。",
+    "expectTitle": "Java集合面试题 · 概念 · 集合遍历的方法有哪些？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "直问"
+  },
+  {
+    "query": "想在遍历列表时既能往回走、又能顺手改元素，该用哪个工具？",
+    "answer": "ListIterator 列表迭代器： ListIterator是迭代器的子类，可以双向访问列表并在迭代过程中修改元素。",
+    "expectTitle": "Java集合面试题 · 概念 · 集合遍历的方法有哪些？",
+    "knowledgeItemId": "769c25e6-d740-41b4-93b6-2243d544c8f6",
+    "type": "改述"
+  },
+  {
+    "query": "提示词工程和上下文工程各自管的范围有什么不同？",
+    "answer": "提示词工程关注如何编写和组织 LLM 指令以获得最佳效果（我们的官方文档中提供了概览与实用策略）；而上下文工程，指的是在 LLM 推理过程中策划（curate）并维护一组最优词元（信息）的整体策略——包括所有可能落到上下文窗口里、却并不在提示词之内的信息。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 上下文工程 vs 提示词工程",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "以前做 AI 应用只要打磨一段指令就行，为什么现在连工具、消息历史、外部数据都要一起管？",
+    "answer": "然而，当我们转向构建能力更强、需要在多轮推理和更长时间跨度上运行的智能体时，我们需要的是管理整个上下文状态的策略——系统指令、工具、模型上下文协议（MCP）、外部数据、消息历史等等。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 上下文工程 vs 提示词工程",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "什么是「上下文腐坏」现象？",
+    "answer": "基于\"大海捞针\"（needle-in-a-haystack）式基准测试的研究揭示了一个现象——上下文腐坏（context rot）：随着上下文窗口中词元数量的增加，模型从上下文中准确回忆信息的能力会随之下降。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 为什么上下文工程对构建强大智能体至关重要",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "为什么塞给模型的材料越多，它越容易漏掉关键信息？从架构层面怎么解释？",
+    "answer": "LLM 基于 Transformer 架构，该架构允许每个词元与上下文中的所有其他词元相互注意（attend），这带来了 n 个词元之间 n² 量级的成对关系。随着上下文变长，模型捕捉这些成对关系的能力被逐渐摊薄，上下文长度与注意力焦点之间天然存在张力。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 为什么上下文工程对构建强大智能体至关重要",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "我的智能体读了几万字材料后回答质量明显下滑，工程上应该怎么理解和应对？",
+    "answer": "尽管有些模型的退化曲线比另一些平缓，这一特征在所有模型上都会显现。因此，上下文必须被当作一种边际收益递减的有限资源来对待。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 为什么上下文工程对构建强大智能体至关重要",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "应用"
+  },
+  {
+    "query": "写系统提示词时的「金发姑娘区间」指夹在哪些失败模式之间？",
+    "answer": "一个极端是，工程师在提示词里硬编码复杂而脆弱的逻辑来诱导精确的智能体行为——这种方式很脆弱，且维护成本随时间攀升。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 + 系统提示词",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "给 AI 写的系统指令，写得太死和写得太虚各有什么毛病？",
+    "answer": "最优的高度要在两者间取得平衡：具体到足以有效引导行为，又保有弹性，让模型握有可依循的强启发式。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 + 系统提示词",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "想给智能体写系统提示词但不知道从哪下手，有什么可操作的起步方法？",
+    "answer": "）最佳路径是：先拿手上最强的模型测试一个最小化提示词在你的任务上的表现，再根据初步测试暴露的失败模式，逐步添加清晰的指令和示例来改进效果。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 + 系统提示词",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "应用"
+  },
+  {
+    "query": "给智能体设计工具时，对工具本身有哪些设计要求？",
+    "answer": "与设计良好的代码库中的函数同理：工具应当自包含、对错误鲁棒、用途表述极其清晰。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 · 工具",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "我给智能体挂了一堆功能重叠的工具，它反而经常选错，这是为什么？",
+    "answer": "如果连人类工程师都无法明确判断某个场景下该用哪个工具，就不可能指望 AI 智能体做得更好。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 · 工具",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "给模型写提示词时把几十条边界案例全列进去，为什么不推荐？正确的示例策略是什么？",
+    "answer": "提供示例——即少样本提示（few-shot prompting）——是广为人知的最佳实践，我们继续强烈推荐。但很多团队会把一长串边界案例塞进提示词，试图穷举 LLM 在某个任务上应遵循的每一条规则，我们不建议这么做。相反，我们建议精心策划一组多样、典型的示例，有效刻画智能体的期望行为。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 有效上下文的解剖学 · 示例",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "「即时」上下文策略和传统的推理前检索有什么区别？",
+    "answer": "采用\"即时\"路线的智能体，不再预先处理所有相关数据，而是只维护轻量的标识符（文件路径、存储的查询、网页链接等），并在运行时用工具按需动态加载数据进上下文。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 上下文检索与智能体搜索",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "不让 AI 提前把所有资料读进脑子，而是像人翻文件柜一样用到再查，这种思路叫什么？好在哪？",
+    "answer": "而随着行业向更\"智能体化\"的路线迁移，我们看到越来越多的团队在这种检索系统之上，叠加\"即时\"（just-in-time）上下文策略。\n采用\"即时\"路线的智能体，不再预先处理所有相关数据，而是只维护轻量的标识符（文件路径、存储的查询、网页链接等），并在运行时用工具按需动态加载数据进上下文。\n这种自我管理的上下文窗口，让智能体始终聚焦于相关的子集，而不是淹没在详尽却可能无关的信息里。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 上下文检索与智能体搜索",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "Claude Code 是怎么做到分析大型数据库又不把全部数据装进上下文的？",
+    "answer": "Anthropic 的智能体编程方案 Claude Code 就用这一路线对大型数据库做复杂分析：模型编写有针对性的查询、存储结果，再用 head、tail 等 Bash 命令分析海量数据——全程无需把完整数据对象载入上下文。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 上下文检索与智能体搜索",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "应用"
+  },
+  {
+    "query": "让智能体连续干几小时的活，光靠等模型支持更长上下文窗口为什么不够？",
+    "answer": "\"等待更大的上下文窗口\"看似是显而易见的对策。但在可预见的未来，任何尺寸的上下文窗口恐怕都逃不开上下文污染与信息相关性问题——至少在追求最强智能体表现的场景下如此。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "上下文压缩具体是怎么做的？",
+    "answer": "压缩，指的是把一段逼近上下文窗口上限的对话加以总结，再以这份总结开启新的上下文窗口。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 压缩（Compaction）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "和 AI 聊太久、历史记录塞满了，有什么办法让它不丢关键信息地接着干？",
+    "answer": "模型会保留架构决策、未解决的 bug 与实现细节，而丢弃冗余的工具输出与消息。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 压缩（Compaction）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "结构化笔记这种机制是怎么运作的？",
+    "answer": "结构化笔记，又称智能体记忆（agentic memory），是指智能体定期把笔记写到上下文窗口之外的持久记忆中，之后再把这些笔记拉回上下文窗口。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 结构化笔记（Structured Note-taking）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "我的智能体跑了几十轮工具调用后把最早的任务目标忘了，有什么低成本的解决办法？",
+    "answer": "就像 Claude Code 创建待办清单，或你的自定义智能体维护一份 NOTES.md 文件，这个简单的模式让智能体得以跨复杂任务追踪进度，保住那些原本会在几十次工具调用间丢失的关键上下文与依赖关系。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 结构化笔记（Structured Note-taking）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "应用"
+  },
+  {
+    "query": "在子智能体架构里，主智能体和子智能体各自负责什么？",
+    "answer": "主智能体以高层计划统筹全局，子智能体则执行深度技术工作、或用工具搜寻相关信息。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 子智能体架构（Sub-agent Architectures）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "直问"
+  },
+  {
+    "query": "一个 AI 做复杂研究时上下文很快塞满，拆成几个分工的 AI 合作为什么能缓解？",
+    "answer": "每个子智能体或许会动辄消耗数万词元去大范围探索，但最终只返回一份浓缩提炼的工作总结（通常 1000 到 2000 词元）。",
+    "expectTitle": "面向 AI 智能体的有效上下文工程 · 长时程任务的上下文工程 · 子智能体架构（Sub-agent Architectures）",
+    "knowledgeItemId": "78838c7b-6f58-40ef-ad8c-d269c3691244",
+    "type": "改述"
+  },
+  {
+    "query": "JDK 8 规范中 JVM 运行时内存分为哪几部分？",
+    "answer": "根据JDK 8 规范，JVM 运行时内存共分为虚拟机栈、堆、元空间、程序计数器、本地方法栈五个部分。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 + JVM的内存模型介绍一下",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "JVM 里有一块区域每个线程一份、而且规范里永远不会抛 OOM，是哪块？干什么用的？",
+    "answer": "程序计数器：可以看作是当前线程所执行的字节码的行号指示器，用于存储当前线程正在执行的Java 方法的JVM 指令地址。如果线程执行的是Native 方法，计数器值为null。是唯一一个在Java 虚拟机规范中没有规定任何OutOfMemoryError 情况的区域，生命周期与线程相同。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 + JVM的内存模型介绍一下",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "Netty 服务报了 OutOfMemoryError，但堆内存还很空，可能是哪块内存满了？",
+    "answer": "直接内存：不属于JVM 运行时数据区的一部分，通过NIO 类引入，是一种堆外内存，可以显著提高 I/O 性能。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 + JVM的内存模型介绍一下",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "应用"
+  },
+  {
+    "query": "堆和栈在线程可见性上有什么区别？",
+    "answer": "可见性：栈中的数据对线程是私有的，每个线程有自己的栈空间。堆中的数据对线程是共享的，所有线程都可以访问堆上的对象。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · JVM内存模型里的堆和栈有什么区别？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "为什么递归太深崩的是栈而不是堆？这两块区域在空间和生命周期管理上差在哪？",
+    "answer": "用途：栈主要用于存储局部变量、方法调用的参数、方法返回地址以及一些临时数据。每当一个方法被调用，一个栈帧（stack frame）就会在栈中创建，用于存储该方法的信息，当方法执行完毕，栈帧也会被移除。堆用于存储对象的实例（包括类的实例和数组）。当你使用new关键字创建一个对象时，对象的实例就会在堆上分配空间。\n生命周期：栈中的数据具有确定的生命周期，当一个方法调用结束时，其对应的栈帧就会被销毁，栈中存储的局部变量也会随之消失。堆中的对象生命周期不确定，对象会在垃圾回收机制（Garbage Collection, GC）检测到对象不再被引用时才被回收。\n存储空间：栈的空间相对较小，且固定，由操作系统管理。当栈溢出时，通常是因为递归过深或局部变量过大。堆的空间较大，动态扩展，由JVM管理。堆溢出通常是由于创建了太多的大对象或未能及时回收不再使用的对象。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · JVM内存模型里的堆和栈有什么区别？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "方法里写 MyObject obj = new MyObject()，栈上存的到底是对象本体还是别的东西？",
+    "answer": "当我们在栈中讨论“存储”时，实际上指的是存储基本类型的数据（如int, double等）和对象的引用，而不是对象本身。\n\n这里的关键点是，栈中存储的不是对象，而是对象的引用。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 栈中存的到底是指针还是对象？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "Eden 区和两个 Survivor 区在 Minor GC 时是怎么配合的？",
+    "answer": "在每次 Minor GC后，存活下来的对象会被移动到其中一个Survivor空间，以继续它们的生命周期。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 堆分为哪几部分呢？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "一个对象从刚创建到被认定「活得够久」，它在堆里会经历怎样的搬家过程？",
+    "answer": "老年代（Old Generation/Tenured Generation）:存放过一次或多次Minor GC仍存活的对象会被移动到老年代。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 堆分为哪几部分呢？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "为什么大对象一般直接分配到老年代？",
+    "answer": "将大对象直接分配到老年代，可以减少新生代的内存压力，降低Minor GC 的频率。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 如果有个大对象一般是在哪个区域？ + 程序计数器的作用，为什么是私有的？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "多线程来回切换时，CPU 怎么记住每个线程上次执行到哪条指令了？",
+    "answer": "每个线程都有自己的程序计数器，因为它们各自执行的代码的指令地址是不一样的呀，所以每个线程都应该有自己的程序计数器。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 如果有个大对象一般是在哪个区域？ + 程序计数器的作用，为什么是私有的？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "方法区里除了类的结构信息还存哪些东西？",
+    "answer": "《深入理解Java虚拟机》书中对方法区（Method Area）存储内容描述如下：它用于存储已被虚拟机加载的类型信息、常量、静态变量、即时编译器编译后的代码缓存等。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 方法区中的方法的执行过程？ + 方法区中还有哪些东西？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "调用一个方法时，JVM 在栈上要先准备好什么，方法体才能开始跑？",
+    "answer": "栈帧创建：在调用一个方法前，JVM会在当前线程的Java虚拟机栈中为该方法分配一个新的栈帧，用于存储局部变量表、操作数栈、动态链接、方法出口等信息。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 方法区中的方法的执行过程？ + 方法区中还有哪些东西？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "String s = new String(\"abc\") 这行代码可能创建几个对象？",
+    "answer": "如果abc这字符串常量存在，则只会创建一个对象。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · String保存在哪里呢？ + String s = new String（“abc”）执行过程中分别对应哪些内存区域？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "为什么两个内容相同的字符串字面量可以共享同一份内存？",
+    "answer": "String 保存在字符串常量池中，不同于其他对象，它的值是不可变的，且可以被多个引用共享。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · String保存在哪里呢？ + String s = new String（“abc”）执行过程中分别对应哪些内存区域？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "软引用和弱引用分别会在什么时候被 GC 回收？",
+    "answer": "弱引用可以用WeakReference来描述，他的强度比软引用更低一点，弱引用的对象下一次GC的时候一定会被回收，而不管内存是否足够。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 引用类型有哪些？有什么区别？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "想做一个内存紧张时可以自动被清理掉的缓存引用，该用哪种？",
+    "answer": "系统在发生内存溢出前会对这类引用的对象进行回收。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 引用类型有哪些？有什么区别？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "弱引用适合用在哪些场景？",
+    "answer": "缓存系统：弱引用常用于实现缓存，特别是当希望缓存项能够在内存压力下自动释放时。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 弱引用了解吗?举例说明在哪里可以用?",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "用弱引用做缓存时，为什么每次取缓存前都要判一下 null？",
+    "answer": "如果一个对象被垃圾回收，下次尝试从缓存中获取时，get()方法会返回null，这时我们可以重新创建对象并将其放入缓存中。因此，使用弱引用时要注意，一旦对象被垃圾回收，通过弱引用获取的对象可能会变为null，因此在使用前通常需要检查这一点。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 弱引用了解吗?举例说明在哪里可以用?",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "应用"
+  },
+  {
+    "query": "内存泄漏和内存溢出分别指什么？",
+    "answer": "内存泄露：内存泄漏是指程序在运行过程中不再使用的对象仍然被引用，而无法被垃圾收集器回收，从而导致可用内存逐渐减少。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 内存泄漏和内存溢出的理解？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "程序跑久了可用内存越来越少但不报错，通常是哪些写法造成的？",
+    "answer": "静态集合：使用静态数据结构（如HashMap或ArrayList）存储对象，且未清理。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 内存泄漏和内存溢出的理解？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "元空间溢出一般是什么原因导致的？",
+    "answer": "出现这个异常的问题的原因是系统的代码非常多或引用的第三方包非常多或者通过动态代码生成类加载等方法，导致元空间的内存占用很大。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · jvm 内存结构有哪几种内存溢出的情况？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "程序不断造对象，GC 好几轮还是腾不出地方放新对象，会抛什么错？",
+    "answer": "堆内存溢出：当出现Java.lang.OutOfMemoryError:Java heap space异常时，就是堆内存溢出了。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · jvm 内存结构有哪几种内存溢出的情况？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "怎么让 JVM 在发生 OOM 时自动生成堆快照文件？用什么工具分析？",
+    "answer": "1. 捕获内存快照：通过JVM 参数-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./heapdump.hprof，让程序在发生 OOM 时自动生成堆快照文件。\n2. 分析快照文件：使用 MAT（Memory Analyzer Tool）或JProfiler 等工具分析快照，重点看哪些对象占用了大量内存、是否存在内存泄漏（如对象长期被无用引用持有，无法回收）。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 遇到过堆溢出的情况吗？如何解决？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "服务 OOM 之后，怎么判断是堆真的太小还是代码里有对象一直不释放？",
+    "answer": "2. 分析快照文件：使用 MAT（Memory Analyzer Tool）或JProfiler 等工具分析快照，重点看哪些对象占用了大量内存、是否存在内存泄漏（如对象长期被无用引用持有，无法回收）。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 遇到过堆溢出的情况吗？如何解决？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "批量任务把处理结果全塞进一个静态 List，跑着跑着堆溢出了，问题出在哪、怎么改？",
+    "answer": "通过分析快照发现这个List 占用了80% 的堆内存，修改为处理完一批就写入数据库并清空List 后，问题解决。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 遇到过堆溢出的情况吗？如何解决？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "应用"
+  },
+  {
+    "query": "栈溢出最常见的触发原因是什么？",
+    "answer": "从触发原因来看，最常见的场景是无限递归调用。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 栈溢出的情况呢？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "一个没有终止条件的递归方法为什么很快就抛 StackOverflowError？底层发生了什么？",
+    "answer": "如果递归没有正确的终止条件，栈帧会不断累积，最终超过虚拟机栈的最大容量，导致栈溢出。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 栈溢出的情况呢？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "遍历十万层深的树形结构时栈溢出了，除了调大 -Xss，更推荐的改法是什么？",
+    "answer": "解决方式是将递归遍历改为基于栈的迭代遍历，手动维护节点访问顺序，避免了栈帧的无限累积，问题得以解决。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 栈溢出的情况呢？",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "应用"
+  },
+  {
+    "query": "为什么大量往 static 静态集合里塞对象会导致内存泄漏？",
+    "answer": "对比两个图可以看出，程序执行的前半部分内存使用情况都一样，但当执行完populateList方法之后，后者不再有引用指向对应的数据，垃圾回收器便进行了回收操作。因此，我们要十分留意static的变量，如果集合或大量的对象定义为static的，它们会停留在整个应用程序的生命周期当中。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 有具体的内存泄漏和内存溢出的例子么请举例及解决方案?",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "直问"
+  },
+  {
+    "query": "数据库连接、输入流这类资源用完不关，为什么可能拖垮内存？应该怎么写才保险？",
+    "answer": "无论什么时候当我们创建一个连接或打开一个流，JVM都会分配内存给这些资源。比如，数据库链接、输入流和 session对象。\n忘记关闭这些资源，会阻塞内存，从而导致GC无法进行清理。特别是当程序发生异常时，没有在finally中进行资源关闭的情况。这些未正常关闭的连接，如果不进行处理，轻则影响程序性能，重则导致OutOfMemoryError异常发生。\n如果进行处理呢？第一，始终记得在finally中进行资源的关闭；第二，关闭连接的自身代码不能发生异常；第三， Java7以上版本可使用try-with-resources代码方式进行资源关闭。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 有具体的内存泄漏和内存溢出的例子么请举例及解决方案?",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "改述"
+  },
+  {
+    "query": "监控发现某方法执行完后堆内存一直不回落，代码里用 static List 存了大量随机数，根因和优化方向是什么？",
+    "answer": "第一，进来减少静态变量；第二，如果使用单例，尽量采用懒加载。",
+    "expectTitle": "Java虚拟机（JVM）面试题 · 内存模型 · 有具体的内存泄漏和内存溢出的例子么请举例及解决方案?",
+    "knowledgeItemId": "99baddae-515f-4328-952a-dc99b3ef8e85",
+    "type": "应用"
+  },
+  {
+    "query": "红黑树相比平衡二叉树在平衡要求上有什么不同？",
+    "answer": "红黑树不追求这种完全平衡状态，而是追求一种“弱平衡”状态：整个树最长路径不会超过最短路径的2 倍。",
+    "expectTitle": "Java集合面试题 · Map（2） + 为什么HashMap要用红黑树而不是平衡二叉树？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "为什么增删很频繁的结构宁愿牺牲一点查找速度，也不选那种「完全平衡」的树？",
+    "answer": "与平衡树不同的是，红黑树在插入、删除等操作，不会像平衡树那样，频繁着破坏红黑树的规则，所以不需要频繁着调整，这也是我们为什么大多数情况下使用红黑树的原因。",
+    "expectTitle": "Java集合面试题 · Map（2） + 为什么HashMap要用红黑树而不是平衡二叉树？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 的 key 为 null 时哈希值怎么算？null 键最多能有几个？",
+    "answer": "hashMap中使用hash()方法来计算key的哈希值，当key为空时，直接另key的哈希值为0，不走 key.hashCode()方法；\nhashMap虽然支持key和value为null，但是null作为key只能有一个，null作为value可以有多个；",
+    "expectTitle": "Java集合面试题 · Map（2） · hashmap key可以为null吗？ + 重写HashMap的equal和hashcode方法需要注意什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "自己写的类想当哈希容器的键，只重写 equals 而漏掉配套方法，会埋什么雷？",
+    "answer": "如果这些方法没有被正确地实现，在这种情况下，两个不同Key也许会产生相同的 hashCode()和equals()输出，HashMap将会认为它们是相同的，然后覆盖它们，而非把它们存储到不同的地方。",
+    "expectTitle": "Java集合面试题 · Map（2） · hashmap key可以为null吗？ + 重写HashMap的equal和hashcode方法需要注意什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "只重写 equals 不重写 hashCode，在哈希容器里会造成什么后果？",
+    "answer": "重写了equals方法，不重写hashCode方法时，可能会出现equals方法返回为true，而hashCode方法却返回false，这样的一个后果会导致在hashmap等类中存储多个一模一样的对象，导致出现覆盖存储的数据的问题，这与hashmap 只能有唯一的key的规范不符合。",
+    "expectTitle": "Java集合面试题 · Map（2） · 重写HashMap的equal方法不当会出现什么问题？ + 列举HashMap在多线程下可能会出现的问题？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "JDK 1.7 里多线程同时给这个哈希容器扩容，为什么可能造成 CPU 空转卡死？1.8 改了什么？",
+    "answer": "JDK1.7中的HashMap 使用头插法插入元素，在多线程的环境下，扩容的时候有可能导致环形链表的出现，形成死循环。因此，JDK1.8使用尾插法插入元素，在扩容时会保持链表元素原本的顺序，不会出现环形链表的问题。",
+    "expectTitle": "Java集合面试题 · Map（2） · 重写HashMap的equal方法不当会出现什么问题？ + 列举HashMap在多线程下可能会出现的问题？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 默认负载因子是多少？达到多少比例会触发扩容？",
+    "answer": "hashMap默认的负载因子是0.75，即如果hashmap中的元素个数超过了总容量75%，则会触发扩容",
+    "expectTitle": "Java集合面试题 · Map（2） · HashMap的扩容机制介绍一下",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "哈希表容量翻倍后，为什么元素的新位置不用重新完整算一遍哈希？",
+    "answer": "因此元素在重新计算hash之后，因为n变为2倍，那么n-1的mask范围在高位多1bit(红色)，因此新的index就会发生这样的变化：\n\n因此，我们在扩充HashMap的时候，不需要重新计算hash，只需要看看原来的hash值新增的那个bit是1还是0就好了，是0的话索引没变，是1的话索引变成“原索引+oldCap”。",
+    "expectTitle": "Java集合面试题 · Map（2） · HashMap的扩容机制介绍一下",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 算索引用 hash & (length - 1) 而不是取模，这个写法成立的前提是什么？",
+    "answer": "这里的hash 是经过扰动处理后的key 的哈希值，length 是数组的容量（也就是我们说的“大小”）。\n\n这个公式的设计初衷是用位运算替代取模运算（因为位运算直接操作二进制位，速度远快于除法/ 取模），但它能生效的前提，就是length 必须是2 的n 次方——这是所有优化的基础。",
+    "expectTitle": "Java集合面试题 · Map（2） · HashMap的大小为什么是2的n次方大小呢？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "如果数组容量不是 2 的幂，比如 15，会浪费哪些位置、带来什么后果？",
+    "answer": "因为length - 1 的最后一位是0，不管hash 值的最后一位是0 还是1，与运算后都会变成0——这就导致索引的最后一位永远用不到，比如索引1、3、5、7... 这些位置永远不会存数据，既浪费了数组空间，又大大增加了哈希碰撞的概率（不同的hash 挤到同一个索引里）。",
+    "expectTitle": "Java集合面试题 · Map（2） · HashMap的大小为什么是2的n次方大小呢？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "有人把哈希表容量设成 15 想省点内存，结果有些位置永远空着、冲突还变多了，这是为什么？",
+    "answer": "因为length - 1 的最后一位是0，不管hash 值的最后一位是0 还是1，与运算后都会变成0——这就导致索引的最后一位永远用不到，比如索引1、3、5、7... 这些位置永远不会存数据，既浪费了数组空间，又大大增加了哈希碰撞的概率（不同的hash 挤到同一个索引里）。",
+    "expectTitle": "Java集合面试题 · Map（2） · HashMap的大小为什么是2的n次方大小呢？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "应用"
+  },
+  {
+    "query": "往默认容量的 HashMap 里连续存 20 个元素，会发生几次扩容？",
+    "answer": "扩容后的容量：32插入第14 到第24 个元素时，不需要扩容。\n\n因此，总共会进行一次扩容。",
+    "expectTitle": "Java集合面试题 · Map（2） · 往hashmap存20个元素，会扩容几次？ + 说说hashmap的负载因子",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "负载因子为什么定在 0.75？调得太低或太高各有什么代价？",
+    "answer": "默认负载因子为0.75，是因为它提供了空间和时间复杂度之间的良好平衡。\n负载因子太低会导致大量的空桶浪费空间，负载因子太高会导致大量的碰撞，降低性能。0.75 的负载因子在这两个因素之间取得了良好的平衡。",
+    "expectTitle": "Java集合面试题 · Map（2） · 往hashmap存20个元素，会扩容几次？ + 说说hashmap的负载因子",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 和 Hashtable 在初始容量和扩容方式上有什么差别？",
+    "answer": "默认初始容量为11，每次扩容变为原来的2n+1。",
+    "expectTitle": "Java集合面试题 · Map（2） · Hashmap和Hashtable有什么不一样的？Hashmap一般怎么用？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "有个老牌哈希容器现在基本被淘汰了，是哪一个？大家现在想要线程安全的哈希表会用什么？",
+    "answer": "HashTable线程安全，效率低一点，其内部方法基本都经过synchronized修饰，不可以有null的key和 value。\n底层数据结构为数组+链表。它基本被淘汰了，要保证线程安全可以用ConcurrentHashMap。",
+    "expectTitle": "Java集合面试题 · Map（2） · Hashmap和Hashtable有什么不一样的？Hashmap一般怎么用？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "JDK 1.7 的 ConcurrentHashMap 内部结构是什么样的？",
+    "answer": "一个ConcurrentHashMap 里包含一个Segment 数组，一个Segment 里包含一个HashEntry 数组，每个HashEntry 是一个链表结构的元素。",
+    "expectTitle": "Java集合面试题 · Map（2） · ConcurrentHashMap怎么实现的？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "并发哈希表从 1.7 到 1.8，锁的粒度是怎么变小的？带来什么好处？",
+    "answer": "如果把上面的执行用一句话归纳的话，就相当于是ConcurrentHashMap通过对头结点加锁来保证线程安全的，锁的粒度相比 Segment 来说更小了，发生冲突和加锁的频率降低了，并发操作的性能就提高了。",
+    "expectTitle": "Java集合面试题 · Map（2） · ConcurrentHashMap怎么实现的？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "数据量很大时 1.7 版并发哈希表查询变慢，1.8 靠什么把查询复杂度降下来的？",
+    "answer": "如果把上面的执行用一句话归纳的话，就相当于是ConcurrentHashMap通过对头结点加锁来保证线程安全的，锁的粒度相比 Segment 来说更小了，发生冲突和加锁的频率降低了，并发操作的性能就提高了。\n\n而且JDK 1.8 使用的是红黑树优化了之前的固定链表，那么当数据量比较大的时候，查询性能也得到了很大的提升，从之前的O(n) 优化到了O(logn) 的时间复杂度。",
+    "expectTitle": "Java集合面试题 · Map（2） · ConcurrentHashMap怎么实现的？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "应用"
+  },
+  {
+    "query": "分段锁在执行插入、删除操作时是怎么加锁的？",
+    "answer": "在ConcurrentHashMap 中，对于插入、更新、删除等操作，需要先定位到具体的Segment，然后再在该Segment 上加锁，而不是像传统的HashMap 一样对整个数据结构加锁。",
+    "expectTitle": "Java集合面试题 · Map（2） · 分段锁怎么加锁的？ + 分段锁是可重入的吗？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "同一个线程在同一个数据段上反复加锁，会把自己卡死吗？为什么？",
+    "answer": "JDK 1.7 ConcurrentHashMap中的分段锁是用了ReentrantLock，是一个可重入的锁。",
+    "expectTitle": "Java集合面试题 · Map（2） · 分段锁怎么加锁的？ + 分段锁是可重入的吗？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "ConcurrentHashMap 里 synchronized 和 CAS 分别用在什么场景？",
+    "answer": "比如：在putVal中，如果计算出来的hash槽没有存放元素，那么就可以直接使用CAS来进行设置值，这是因为在设置元素的时候，因为hash值经过了各种扰动后，造成hash碰撞的几率较低，那么我们可以预测使用较少的自旋来完成具体的hash落槽操作。",
+    "expectTitle": "Java集合面试题 · Map（2） · 已经用了synchronized，为什么还要用CAS呢？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "并发写哈希表时，没冲突和发生冲突分别用哪种手段更划算？为什么？",
+    "answer": "比如：在putVal中，如果计算出来的hash槽没有存放元素，那么就可以直接使用CAS来进行设置值，这是因为在设置元素的时候，因为hash值经过了各种扰动后，造成hash碰撞的几率较低，那么我们可以预测使用较少的自旋来完成具体的hash落槽操作。\n当发生了hash碰撞的时候说明容量不够用了或者已经有大量线程访问了，因此这时候使用synchronized来处理hash 碰撞比CAS效率要高，因为发生了hash碰撞大概率来说是线程竞争比较强烈。",
+    "expectTitle": "Java集合面试题 · Map（2） · 已经用了synchronized，为什么还要用CAS呢？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "ConcurrentHashMap 里哪些地方用了乐观锁、哪些地方用了悲观锁？",
+    "answer": "如果为空则使用 volatile 加CAS （乐观锁）来初始化。",
+    "expectTitle": "Java集合面试题 · Map（2） · ConcurrentHashMap用了悲观锁还是乐观锁? + HashTable 底层实现原理是什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "那个老牌线程安全哈希表底层是什么结构？靠什么做到线程安全？",
+    "answer": "Hashtable的底层数据结构主要是数组加上链表，数组是主体，链表是解决hash冲突存在的。\nHashTable是线程安全的，实现方式是Hashtable的所有公共方法均采用synchronized关键字，当一个线程访问同步方法，另一个线程也访问的时候，就会陷入阻塞或者轮询的状态。",
+    "expectTitle": "Java集合面试题 · Map（2） · ConcurrentHashMap用了悲观锁还是乐观锁? + HashTable 底层实现原理是什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "这个老式哈希表为什么同一时刻只能一个线程操作？它靠什么手段互斥？",
+    "answer": "可以看到，Hashtable是通过使用了synchronized 关键字来保证其线程安全。",
+    "expectTitle": "Java集合面试题 · Map（2） · HashTable线程安全是怎么实现的？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "ConcurrentHashMap 和 Hashtable 在底层数据结构上分别是什么？",
+    "answer": "jdk7之前的ConcurrentHashMap底层采用的是分段的数组+链表实现，jdk8之后采用的是数组+链表/红黑树；",
+    "expectTitle": "Java集合面试题 · Map（2） · hashtable 和concurrentHashMap有什么区别",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "老版本并发哈希容器内部是「分段的数组加链表」，1.8 之后换成了什么组合？",
+    "answer": "jdk7之前的ConcurrentHashMap底层采用的是分段的数组+链表实现，jdk8之后采用的是数组+链表/红黑树；",
+    "expectTitle": "Java集合面试题 · Map（2） · hashtable 和concurrentHashMap有什么区别",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "HashMap 和 Hashtable 对 null 键值的支持有什么不同？",
+    "answer": "HashMap线程不安全，效率高一点，可以存储null的key和value，null的key只能有一个，null的value可以有多个。",
+    "expectTitle": "Java集合面试题 · Map（2） · 说一下HashMap和Hashtable、ConcurrentMap的区别",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "多线程下要并发读写哈希表，为什么选并发版而不是给所有方法加锁的那个？它读写时分别怎么处理锁？",
+    "answer": "在ConcurrentHashMap中，读操作不需要锁，可以直接对Segment进行读取，而写操作则只需要锁定对应的Segment，而不是整个哈希表，这样可以大大提高并发性能。",
+    "expectTitle": "Java集合面试题 · Map（2） · 说一下HashMap和Hashtable、ConcurrentMap的区别",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "Set 是靠什么机制保证元素不重复的？",
+    "answer": "当向Set集合中插入元素时，会先根据元素的hashCode值来确定元素的存储位置，然后再通过equals方法来判断是否已经存在相同的元素，如果存在则不会再次插入，保证了元素的唯一性。",
+    "expectTitle": "Java集合面试题 · Map（2） · Set + Set集合有什么特点？如何实现key无重复的？ + 有序的Set是什么？记录插入顺序的集合是什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "直问"
+  },
+  {
+    "query": "想让集合既去重、遍历顺序又和添加顺序一致，该用哪个类？",
+    "answer": "当需要在Set集合中记录元素的插入顺序时，可以选择使用LinkedHashSet来实现。",
+    "expectTitle": "Java集合面试题 · Map（2） · Set + Set集合有什么特点？如何实现key无重复的？ + 有序的Set是什么？记录插入顺序的集合是什么？",
+    "knowledgeItemId": "b9f3e1f3-87a0-4656-ab14-fa02415c4af7",
+    "type": "改述"
+  },
+  {
+    "query": "ArrayList 和 LinkedList 随机访问元素的时间复杂度分别是多少？",
+    "answer": "LinkedList基于双向链表实现，在插入和删除元素时，只需修改链表的指针，不需要移动大量元素，时间复杂度为O (1)。但随机访问元素时，需要从链表头或链表尾开始遍历，时间复杂度为O (n)。",
+    "expectTitle": "Java集合面试题 · List（1） · List",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "直问"
+  },
+  {
+    "query": "事件监听列表这种读远多于写的并发场景，适合用哪种列表？它怎么做到读不被写卡住？",
+    "answer": "CopyOnWriteArrayList在对列表进行修改（如添加、删除元素）时，会创建一个新的底层数组，将修改操作应用到新数组上，而读操作仍然在原数组上进行，这样可以保证读操作不会被写操作阻塞，实现了读写分离，提高了并发性能。",
+    "expectTitle": "Java集合面试题 · List（1） · List",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "改述"
+  },
+  {
+    "query": "Vector 和 ArrayList 在扩容逻辑上有什么区别？",
+    "answer": "与Vector 近似， ArrayList 也是可以根据需要调整容量，不过两者的调整逻辑有所区别，Vector 在扩容时会提高 1 倍，而 ArrayList 则是增加50%。",
+    "expectTitle": "Java集合面试题 · List（1） · List · 讲一下java里面list的几种实现，几种实现有什么不同？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "直问"
+  },
+  {
+    "query": "经常要在列表中间位置插删元素，选哪种实现更高效？代价是什么？",
+    "answer": "除了尾部插入和删除元素，往往性能会相对较差，比如我们在中间位置插入一个元素，需要移动后续所有元素。\n\n而 LinkedList 进行节点插入、删除却要高效得多，但是随机访问性能则要比动态数组慢。",
+    "expectTitle": "Java集合面试题 · List（1） · List · 讲一下java里面list的几种实现，几种实现有什么不同？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "改述"
+  },
+  {
+    "query": "为什么在 foreach 循环里直接改 List 会抛 ConcurrentModificationException？",
+    "answer": "在foreach循环中修改元素可能会破坏迭代器的内部状态，因为foreach循环底层是基于迭代器实现的，在遍历过程中修改集合结构，会导致迭代器的预期结构和实际结构不一致。",
+    "expectTitle": "Java集合面试题 · List（1） · List · list可以一边遍历一边修改元素吗？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "直问"
+  },
+  {
+    "query": "遍历列表过程中想把某个元素换成新值，正确做法是什么？直接调 set 为什么不行？",
+    "answer": "使用迭代器遍历时：可以使用迭代器的$remove$ 方法来删除元素，但如果要替换元素的值，对于不可变对象（如Integer, String），必须通过ListIterator 的set 方法来进行，而不是直接通过List 的set 方法，否则会抛出ConcurrentModificationException 异常。",
+    "expectTitle": "Java集合面试题 · List（1） · List · list可以一边遍历一边修改元素吗？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "改述"
+  },
+  {
+    "query": "ArrayList 删除中间位置的元素时间复杂度是多少？为什么？",
+    "answer": "如果删除的是列表中间的元素，时间复杂度为O (n)，n 为列表中元素的个数，因为需要移动后续的元素。",
+    "expectTitle": "Java集合面试题 · List（1） · List · list如何快速删除某个指定下标的元素？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "直问"
+  },
+  {
+    "query": "想从链表里删掉头节点或尾节点，有没有 O(1) 的办法？",
+    "answer": "时间复杂度为O (n)，n 为要删除元素的下标。不过，如果已知要删除的元素是链表的头节点或尾节点，可以直接通过修改头指针或尾指针来实现删除，时间复杂度为O (1)。",
+    "expectTitle": "Java集合面试题 · List（1） · List · list如何快速删除某个指定下标的元素？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "改述"
+  },
+  {
+    "query": "存同样多的元素，LinkedList 为什么比 ArrayList 更占内存？",
+    "answer": "LinkedList 使用双向链表实现，每个节点都存储了元素本身以及指向前一个和后一个节点的指针，通过节点之间的指针关联来访问和操作元素。",
+    "expectTitle": "Java集合面试题 · List（1） · List · Arraylist和LinkedList的区别，哪个集合是线程安全的？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "直问"
+  },
+  {
+    "query": "两种常见列表，一个按下标查得快、一个插删快，差别根子上来自哪里？",
+    "answer": "底层数据结构不同：ArrayList 使用动态数组实现，通过索引可以快速定位到元素。",
+    "expectTitle": "Java集合面试题 · List（1） · List · Arraylist和LinkedList的区别，哪个集合是线程安全的？",
+    "knowledgeItemId": "cf4079ee-bf27-454a-89e5-c41e41cd72a4",
+    "type": "改述"
+  }
+]

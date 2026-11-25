@@ -39,6 +39,17 @@ public sealed interface ChatEvent {
         @Override public String type() { return "tool"; }
     }
 
+    /**
+     * 笔记模式本轮落库后的行号。
+     * 笔记正文本身仍然走 delta（前端要流式看着它长出来），
+     * 这一帧只是把「刚存进 t_message 的那条 NOTE 的 id」告诉前端，
+     * 前端才能立刻跳转/打开详情页，而不用回查整个会话列表。
+     * 它一定在 Done 之前发出：id 拿不到就等于没存上，不该报成功。
+     */
+    record Note(long noteId) implements ChatEvent {
+        @Override public String type() { return "note"; }
+    }
+
     /** 正常结束。它到达时，本轮消息已经落库成功。 */
     record Done() implements ChatEvent {
         @Override public String type() { return "done"; }

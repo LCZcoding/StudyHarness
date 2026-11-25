@@ -12,12 +12,17 @@
  *
  * 失败仍是 JSON { message }：401 未登录 / 403 会话不存在或无权访问 / 400，
  * 这些都发生在「开流之前」，所以还能用 HTTP 状态码判断。
+ *
+ * V2 起多了 `asNote`：开着时后端改用笔记提示词，并在 delta 之后、done 之前
+ * 补一帧 `event:note` / `data:{"noteId":527}` —— 这帧到了才说明笔记真的落库了。
+ * 本模块只负责把帧原样抛给上层，不解读 note（那是 ChatRoom 的事）。
  */
 export async function streamChat({
   conversationId, // 发给后端的会话 id
   message, // 发给后端的问题
   useRag = false, // 本轮是否检索本人资料（后端按 userId 过滤，topK=5）
   useTools = false, // 本轮是否允许调用只读工具（搜索 / 抓网页 / 时间）
+  asNote = false, // 本轮是否直接写成一篇笔记（不挂 RAG 与工具）
   onEvent, // (name, payload) => void  —— 唯一的事件出口
   onDone, // 流关闭（无论是否收到 done 帧）调一次
   onError, // 网络/解码/HTTP 错误
@@ -32,7 +37,7 @@ export async function streamChat({
     const res = await fetch('/api/ai/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, message, useRag, useTools }),
+      body: JSON.stringify({ conversationId, message, useRag, useTools, asNote }),
       credentials: 'include', // 跨域仍带cookie
       signal
     })
